@@ -3,8 +3,7 @@ Orchestrator — coordinates the full multi-agent pipeline.
 ReconAgent → IntelAgent → ExploitAgent → ReportAgent
 """
 from __future__ import annotations
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from rich.console import Console
 from rich.panel import Panel
