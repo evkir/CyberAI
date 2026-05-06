@@ -33,7 +33,7 @@ class IntelAgent(BaseAgent):
         ports = nmap_data.get("ports", [])
 
         if not ports:
-            self._log("intel", "no ports found in KB — skipping CVE lookup")
+            self.log("intel", "no ports found in KB — skipping CVE lookup")
             return {"status": "skipped", "reason": "no ports"}
 
         # Build search queries from open ports
@@ -49,7 +49,7 @@ class IntelAgent(BaseAgent):
 
         # Store in KB
         self.session.knowledge_base["intel.cves"] = all_cves
-        self._log("intel", f"found {len(all_cves)} CVEs for {len(queries)} services")
+        self.log("intel", f"found {len(all_cves)} CVEs for {len(queries)} services")
 
         # Surface high/critical as findings
         for cve in all_cves:
@@ -113,7 +113,7 @@ class IntelAgentV2(IntelAgent):
         self.session.knowledge_base["intel.ranked_cves"] = ranked
         self.session.knowledge_base["intel.risk_summary"] = summary
 
-        self._log("intel", (
+        self.log("intel", (
             f"scored {len(ranked)} CVEs | "
             f"top={ranked[0]['cve_id'] if ranked else 'none'} "
             f"({ranked[0].get('composite_score', 0):.2f})"
@@ -129,8 +129,9 @@ class IntelAgentV2(IntelAgent):
 
 def _normalize(cve: dict) -> dict:
     """Normalize NVD CVE dict to scorer-expected format."""
-    cvss_block = cve.get("cvss") or {}
-    score      = cvss_block.get("score") or cve.get("cvss", 0)
+    cvss_raw   = cve.get("cvss") or 0
+    cvss_block = cvss_raw if isinstance(cvss_raw, dict) else {}
+    score      = cvss_block.get("score") if cvss_block else cvss_raw
     return {
         "cve_id":         cve.get("id") or cve.get("cve_id", ""),
         "cvss":           float(score) if score else 0.0,
