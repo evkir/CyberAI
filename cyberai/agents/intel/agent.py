@@ -75,3 +75,69 @@ class IntelAgent(BaseAgent):
                 if (c.get("cvss", {}).get("score") or 0) >= 7.0
             )
         }
+
+
+class IntelAgentV2(IntelAgent):
+    """
+    IntelAgent with CVE scoring engine wired in.
+    Enriches CVEs with composite risk scores and ranked output.
+    """
+
+    def __init__(self, *args, min_score: float = 0.0,
+                 top_n: int = 10, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.min_score = min_score
+        self.top_n     = top_n
+
+    def run(self, input_data: dict) -> dict:
+        result = super().run(input_data)
+
+        if result.get("status") == "skipped":
+            return result
+
+        raw_cves = self.session.knowledge_base.get("intel.cves", [])
+        if not raw_cves:
+            return {**result, "ranked_cves": [], "risk_summary": {}}
+
+        # Normalize CVE format for scorer
+        normalized = [_normalize(c) for c in raw_cves]
+
+        from cyberai.agents.intel.risk_prioritizer import prioritize, summarize
+        ranked = prioritize(
+            normalized,
+            min_score=self.min_score,
+            top_n=self.top_n,
+        )
+        summary = summarize(normalized)
+
+        self.session.knowledge_base["intel.ranked_cves"] = ranked
+        self.session.knowledge_base["intel.risk_summary"] = summary
+
+        self._log("intel", (
+            f"scored {len(ranked)} CVEs | "
+            f"top={ranked[0]['cve_id'] if ranked else 'none'} "
+            f"({ranked[0].get('composite_score', 0):.2f})"
+            if ranked else "no CVEs after scoring"
+        ))
+
+        return {
+            **result,
+            "ranked_cves":  ranked,
+            "risk_summary": summary,
+        }
+
+
+def _normalize(cve: dict) -> dict:
+    """Normalize NVD CVE dict to scorer-expected format."""
+    cvss_block = cve.get("cvss") or {}
+    score      = cvss_block.get("score") or cve.get("cvss", 0)
+    return {
+        "cve_id":         cve.get("id") or cve.get("cve_id", ""),
+        "cvss":           float(score) if score else 0.0,
+        "description_short": cve.get("description", "")[:120],
+        "published_date": cve.get("published", ""),
+        "poc_likely":     cve.get("poc_likely", False),
+        "metasploit":     cve.get("metasploit", False),
+        "exploited_in_wild": cve.get("exploited_in_wild", False),
+        "epss":           float(cve.get("epss") or 0.0),
+    }
