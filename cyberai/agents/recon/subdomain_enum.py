@@ -49,7 +49,7 @@ def enumerate_subdomains(
             for fqdn in targets
         }
         for future in concurrent.futures.as_completed(future_map):
-            fqdn = future_map[future]
+            _ = future_map[future]
             try:
                 result = future.result()
                 if result:
@@ -90,4 +90,4 @@ def load_wordlist(path: str) -> List[str]:
     if not p.exists():
         return DEFAULT_WORDLIST
     lines = p.read_text().splitlines()
-    return [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
