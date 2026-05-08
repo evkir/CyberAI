@@ -6,8 +6,8 @@ import hashlib
 import hmac
 import json
 import time
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 import os
 
 SESSION_SECRET = os.getenv("CYBERAI_SESSION_SECRET", "dev-secret-change-in-prod")
