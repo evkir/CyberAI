@@ -60,11 +60,11 @@ class AsyncPipeline:
             result.recon = await self.recon_agent.run(target)
 
             # Phase 2: Intel (depends on recon)
-            logger.info(f"[Pipeline] Phase 2: intel")
+            logger.info("[Pipeline] Phase 2: intel")
             result.intel = await self.intel_agent.run(result.recon)
 
             # Phase 3: Exploit analysis (depends on intel)
-            logger.info(f"[Pipeline] Phase 3: exploit analysis")
+            logger.info("[Pipeline] Phase 3: exploit analysis")
             result.exploit = await self.exploit_agent.run(result.intel)
 
         except Exception as e:
