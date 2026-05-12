@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberAI — Session Monitor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: 'Courier New', monospace;
+      padding: 2rem;
+    }
+
+    header {
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    header h1 { color: #58a6ff; font-size: 1.4rem; }
+    header span { color: #8b949e; font-size: 0.85rem; }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: center;
+    }
+
+    input {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: monospace;
+      width: 280px;
+    }
+
+    button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+
+    button:hover { background: #2ea043; }
+    button.refresh { background: #21262d; }
+    button.refresh:hover { background: #30363d; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid #21262d;
+      color: #8b949e;
+      font-weight: normal;
+    }
+
+    td {
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid #161b22;
+    }
+
+    tr:hover td { background: #161b22; }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+    }
+
+    .badge.pending  { background: #3d3000; color: #e3b341; }
+    .badge.running  { background: #0d2f6e; color: #58a6ff; }
+    .badge.done     { background: #0d3321; color: #3fb950; }
+    .badge.error    { background: #3d0e0e; color: #f85149; }
+
+    #status-bar {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-top: 1.5rem;
+    }
+
+    .empty { color: #8b949e; padding: 2rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 CyberAI — Session Monitor</h1>
+  <span>Real-time scan session tracking</span>
+</header>
+
+<div class="controls">
+  <input id="target-input" type="text" placeholder="10.10.10.1 or target.htb" />
+  <button onclick="startScan()">▶ Start Scan</button>
+  <button class="refresh" onclick="loadSessions()">⟳ Refresh</button>
+</div>
+
+<table id="sessions-table">
+  <thead>
+    <tr>
+      <th>Session ID</th>
+      <th>Target</th>
+      <th>Status</th>
+      <th>Started</th>
+      <th>Duration</th>
+    </tr>
+  </thead>
+  <tbody id="sessions-body">
+    <tr><td colspan="5" class="empty">No sessions yet</td></tr>
+  </tbody>
+</table>
+
+<div id="status-bar">Auto-refresh every 5s</div>
+
+<script>
+  const API = "";
+
+  async function startScan() {
+    const target = document.getElementById("target-input").value.trim();
+    if (!target) return;
+
+    const resp = await fetch(`${API}/api/session`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({target}),
+    });
+    const data = await resp.json();
+    document.getElementById("status-bar").textContent =
+      `Started session ${data.session_id} for ${target}`;
+    document.getElementById("target-input").value = "";
+    loadSessions();
+  }
+
+  async function loadSessions() {
+    const resp = await fetch(`${API}/api/session`);
+    const data = await resp.json();
+    renderSessions(data.sessions || []);
+  }
+
+  function renderSessions(sessions) {
+    const tbody = document.getElementById("sessions-body");
+    if (!sessions.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No sessions yet</td></tr>';
+      return;
+    }
+
+    sessions.sort((a, b) => b.created_at - a.created_at);
+
+    tbody.innerHTML = sessions.map(s => {
+      const created = new Date(s.created_at * 1000).toLocaleTimeString();
+      const duration = s.completed_at
+        ? `${(s.completed_at - s.created_at).toFixed(1)}s`
+        : s.status === "running" ? "running…" : "—";
+      const shortId = s.session_id.split("-")[0];
+
+      return `<tr>
+        <td style="font-family:monospace;color:#58a6ff">${shortId}…</td>
+        <td>${s.target}</td>
+        <td><span class="badge ${s.status}">${s.status}</span></td>
+        <td>${created}</td>
+        <td>${duration}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Auto-refresh
+  loadSessions();
+  setInterval(loadSessions, 5000);
+</script>
+
+</body>
+</html>
