@@ -11,9 +11,6 @@ from rich.progress import (
     BarColumn,
     TimeElapsedColumn,
 )
-from rich.live import Live
-from rich.spinner import Spinner
-from rich.text import Text
 
 console = Console()
 
