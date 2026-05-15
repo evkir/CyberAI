@@ -45,3 +45,4 @@ class TestReconIntelHandoff:
         result = asyncio.run(p.run("10.10.10.1"))
         assert not result.success
         p.intel_agent.run.assert_not_called()
+"""ReconAgent→IntelAgent pipeline integration tests."""
