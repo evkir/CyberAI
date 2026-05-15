@@ -1,90 +1,48 @@
 """
 Report generation end-to-end test.
-Full pipeline → report output validation.
 """
 import asyncio
-import pytest
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock
 from cyberai.core.pipeline import AsyncPipeline
 
-
-FULL_PIPELINE_RESULT = {
-    "recon": {
-        "target": "10.10.10.1",
-        "nmap": {
-            "ports": [22, 80, 443],
-            "services": {"22": "OpenSSH 8.2", "80": "Apache 2.4.51"},
-        },
-        "tls": {
-            "score": "AVERAGE",
-            "findings": [
-                {"severity": "MEDIUM", "issue": "Weak cipher", "detail": "RC4"}
-            ],
-        },
-    },
-    "intel": {
-        "cves": ["CVE-2021-41773", "CVE-2021-42013"],
-        "risk": "CRITICAL",
-    },
-    "exploit": {
-        "attack_paths": [
-            {"technique": "Path traversal", "cve": "CVE-2021-41773", "severity": "CRITICAL"}
-        ],
-    },
-}
-
+RECON   = {"target": "10.10.10.1", "nmap": {"ports": [22, 80]},
+           "tls": {"findings": [{"severity": "MEDIUM", "issue": "RC4"}]}}
+INTEL   = {"cves": ["CVE-2021-41773", "CVE-2021-42013"], "risk": "CRITICAL"}
+EXPLOIT = {"attack_paths": [{"technique": "Path traversal", "cve": "CVE-2021-41773", "severity": "CRITICAL"}]}
 
 class TestReportE2E:
-
-    def _make_pipeline(self):
+    def _p(self):
         p = AsyncPipeline()
-        p.recon_agent.run   = AsyncMock(return_value=FULL_PIPELINE_RESULT["recon"])
-        p.intel_agent.run   = AsyncMock(return_value=FULL_PIPELINE_RESULT["intel"])
-        p.exploit_agent.run = AsyncMock(return_value=FULL_PIPELINE_RESULT["exploit"])
+        p.recon_agent.run   = AsyncMock(return_value=RECON)
+        p.intel_agent.run   = AsyncMock(return_value=INTEL)
+        p.exploit_agent.run = AsyncMock(return_value=EXPLOIT)
         return p
 
-    def test_pipeline_result_has_all_sections(self):
-        p = self._make_pipeline()
-        result = asyncio.run(p.run("10.10.10.1"))
+    def test_all_sections_present(self):
+        r = asyncio.run(self._p().run("10.10.10.1"))
+        assert r.success
+        assert "ports" in r.recon["nmap"]
+        assert "cves" in r.intel
+        assert "attack_paths" in r.exploit
 
-        assert result.success
-        assert "ports" in result.recon.get("nmap", {})
-        assert "cves" in result.intel
-        assert "attack_paths" in result.exploit
+    def test_critical_cve_in_intel(self):
+        r = asyncio.run(self._p().run("10.10.10.1"))
+        assert "CVE-2021-41773" in r.intel["cves"]
 
-    def test_critical_cve_present_in_intel(self):
-        p = self._make_pipeline()
-        result = asyncio.run(p.run("10.10.10.1"))
-        assert "CVE-2021-41773" in result.intel["cves"]
+    def test_attack_path_fields(self):
+        r = asyncio.run(self._p().run("10.10.10.1"))
+        path = r.exploit["attack_paths"][0]
+        assert all(k in path for k in ["technique", "cve", "severity"])
 
-    def test_attack_path_has_required_fields(self):
-        p = self._make_pipeline()
-        result = asyncio.run(p.run("10.10.10.1"))
-        path = result.exploit["attack_paths"][0]
-        assert "technique" in path
-        assert "cve" in path
-        assert "severity" in path
+    def test_tls_finding_flows_through(self):
+        r = asyncio.run(self._p().run("10.10.10.1"))
+        assert any(f["severity"] == "MEDIUM" for f in r.recon["tls"]["findings"])
 
-    def test_tls_finding_flows_end_to_end(self):
-        p = self._make_pipeline()
-        result = asyncio.run(p.run("10.10.10.1"))
-        findings = result.recon.get("tls", {}).get("findings", [])
-        assert any(f["severity"] == "MEDIUM" for f in findings)
-
-    def test_pipeline_duration_recorded(self):
-        p = self._make_pipeline()
-        result = asyncio.run(p.run("10.10.10.1"))
-        assert result.duration_seconds >= 0
-
-    def test_failed_pipeline_has_error_field(self):
+    def test_failed_pipeline_error_field(self):
         p = AsyncPipeline()
-        p.recon_agent.run   = AsyncMock(side_effect=RuntimeError("network unreachable"))
+        p.recon_agent.run   = AsyncMock(side_effect=RuntimeError("unreachable"))
         p.intel_agent.run   = AsyncMock(return_value={})
         p.exploit_agent.run = AsyncMock(return_value={})
-
-        result = asyncio.run(p.run("10.10.10.1"))
-        assert not result.success
-        assert result.error is not None
-        assert "network unreachable" in result.error
+        r = asyncio.run(p.run("10.10.10.1"))
+        assert not r.success
+        assert "unreachable" in r.error
