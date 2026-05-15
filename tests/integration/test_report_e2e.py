@@ -46,3 +46,5 @@ class TestReportE2E:
         r = asyncio.run(p.run("10.10.10.1"))
         assert not r.success
         assert "unreachable" in r.error
+
+# End-to-end coverage: recon→intel→exploit→report chain
