@@ -2,7 +2,7 @@
 Shared type aliases across all agent modules.
 Centralises type hints — import from here, not redefine everywhere.
 """
-from typing import Any, Optional, Union
+from typing import Any, Union
 from pathlib import Path
 
 # Target types

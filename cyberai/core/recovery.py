@@ -3,7 +3,7 @@ Error recovery strategies for the Orchestrator pipeline.
 Defines fallback behaviours when agents fail.
 """
 import logging
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger("cyberai.core.recovery")

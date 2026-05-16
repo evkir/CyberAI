@@ -4,7 +4,6 @@ Returns partial results instead of crashing on timeout.
 """
 import subprocess
 import logging
-from typing import Optional
 
 logger = logging.getLogger("cyberai.recon.nmap_wrapper")
 
