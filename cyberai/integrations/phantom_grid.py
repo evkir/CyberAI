@@ -1,6 +1,6 @@
 """
 phantom-grid client — OOB callback tracking.
-https://github.com/user70616E6461/phantom-grid
+https://github.com/evkir/phantom-grid
 """
 import httpx
 import uuid
