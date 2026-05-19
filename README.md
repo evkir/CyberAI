@@ -1,7 +1,7 @@
 <div align="center">
 
 
-![CI](https://github.com/user70616E6461/CyberAI/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 # 🤖 CyberAI
 
@@ -109,7 +109,7 @@ CyberAI/
 
 **1. Clone and install**
 ```bash
-git clone https://github.com/user70616E6461/CyberAI.git
+git clone https://github.com/evkir/CyberAI.git
 cd CyberAI
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
@@ -172,9 +172,9 @@ timeout: 60
 
 | Tool | Role |
 |------|------|
-| [phantom-grid](https://github.com/user70616E6461/phantom-grid) | OOB interaction capture & analysis |
-| [phantom-intel](https://github.com/user70616E6461/phantom-intel) | CVE intelligence feed |
-| [reality-probe](https://github.com/user70616E6461/reality-probe) | TLS analysis & config auditing |
+| [phantom-grid](https://github.com/evkir/phantom-grid) | OOB interaction capture & analysis |
+| [phantom-intel](https://github.com/evkir/phantom-intel) | CVE intelligence feed |
+| [reality-probe](https://github.com/evkir/reality-probe) | TLS analysis & config auditing |
 
 ---
 
@@ -193,5 +193,5 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 <div align="center">
-<sub>Part of the <a href="https://github.com/user70616E6461">panda</a> security toolchain.</sub>
+<sub>Part of the <a href="https://github.com/evkir">evkir</a> security toolchain.</sub>
 </div>
