@@ -11,27 +11,26 @@ neither matches the actual API. **Fixed by:** Day 5.
 
 ### 🟢 KI-2 — Two competing session classes  ✅ FIXED IN DAY 3
 `scan_session.py` is now the single source of truth. `session.py` is a
-backward-compat shim where `PentestSession` is a subclass of
-`ScanSession` preserving legacy attributes. All 8 import sites work
-unchanged. Verified by `tests/unit/test_session_shim.py`.
+backward-compat shim. Verified by `tests/unit/test_session_shim.py`.
 
-### 🔴 KI-3 — BaseAgent doesn't match what agents use
-Agents access `self.session`, `self.kb`, `self.memory`, `self.llm` —
-none exist on `BaseAgent`. **Fixed by:** Day 4.
+### 🟢 KI-3 — BaseAgent didn't match what agents use  ✅ FIXED IN DAY 4
+`BaseAgent.__init__` now takes `(config, session, llm, audit)` and
+exposes `self.session`, `self.kb`, `self.llm`, `self.memory`. Agents are
+migrated to actually use this contract in day 6. Verified by
+`tests/unit/test_base_agent.py`.
 
-### 🔴 KI-4 — Agents call non-existent methods
-`self._check_iteration_limit()`, `self._log()`, `self.llm.chat()` —
-none exist. **Fixed by:** Day 4 + Day 6.
+### 🟢 KI-4 — Agents called non-existent methods  ✅ FIXED IN DAY 4
+`_check_iteration_limit()` and `_log()` now exist on `BaseAgent`.
+`AgentMemory` (with `add()`/`to_messages()`) backs `self.memory`.
+`self.llm.chat()` is addressed in day 6 when ExploitAgent is migrated to
+`self.llm.call()`. Verified by `tests/unit/test_base_agent.py`.
 
-### 🟢 KI-5 — Finding signature mismatch  ✅ FIXED IN DAY 3
-`Finding` now has `target`, `evidence`, `cve_ids` fields with
-backward-compat `cve` ↔ `cve_ids` syncing. `ScanSession.add_finding()`
-auto-fills `target` from `session.target`. Verified by
-`tests/unit/test_finding_model.py`.
+### 🔴 KI-5 — Finding signature mismatch  ✅ FIXED IN DAY 3
 
-### 🔴 KI-6 — `Tool` param name mismatch
-`Tool` field is `params`, agents register with `parameters=`.
-**Fixed by:** Day 4.
+### 🟢 KI-6 — Tool param name mismatch  ✅ FIXED IN DAY 4
+`Tool` accepts both `params` and `parameters`, synced via
+`__post_init__`. All agents register tools with `parameters=...` so this
+closed without touching any agent file.
 
 ### 🔴 KI-7 — `LLMClient.chat()` doesn't exist
 Actual method is `call()`. **Fixed by:** Day 6.
@@ -40,12 +39,12 @@ Actual method is `call()`. **Fixed by:** Day 6.
 
 ## Progress tracker
 
-| Day | Issue(s) addressed | Status |
-|-----|-------------------|--------|
-| 1   | (rebrand only)    | ✅     |
-| 2   | KI-8              | ✅     |
-| 3   | KI-2, KI-5        | ✅     |
-| 4   | KI-3, KI-4, KI-6  | ⏳     |
-| 5   | KI-1              | ⏳     |
-| 6   | KI-7, KI-4        | ⏳     |
-| 7   | All checked       | ⏳     |
+| Day | Issue(s) addressed   | Status |
+|-----|----------------------|--------|
+| 1   | (rebrand only)       | ✅     |
+| 2   | KI-8                 | ✅     |
+| 3   | KI-2, KI-5           | ✅     |
+| 4   | KI-3, KI-4, KI-6     | ✅     |
+| 5   | KI-1                 | ⏳     |
+| 6   | KI-7, KI-4 (llm.chat)| ⏳     |
+| 7   | All checked          | ⏳     |
