@@ -56,11 +56,9 @@ def test_dry_run_kb_has_dry_run_keys():
 
 
 def test_dry_run_authorized_scope():
-    orch = Orchestrator(
-        authorized_scope=["10.0.0.0/24"],
-        dry_run=True,
-    )
-    session = orch.run("10.0.0.1")
+    # authorized_scope moved from constructor to run() in day 5
+    orch = Orchestrator(dry_run=True)
+    session = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     assert "10.0.0.0/24" in session.authorized_scope
 
 
