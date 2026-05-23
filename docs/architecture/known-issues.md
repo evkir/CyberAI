@@ -5,37 +5,39 @@ rewrite. Each item is fixed by a specific day; see `STANDOFF.md`.
 
 ## The Issues
 
-### 🔴 KI-1 — CLI ↔ Orchestrator API mismatch
-`__main__.py` calls `Orchestrator(config)` and `run_pipeline(session)` —
-neither matches the actual API. **Fixed by:** Day 5.
+### 🟢 KI-1 — CLI ↔ Orchestrator API mismatch  ✅ FIXED IN DAY 5
+`Orchestrator` now takes `(config, phases, dry_run)`; `run(target,
+authorized_scope)` owns session creation and builds the shared
+`LLMClient`/`AuditLogger`. `__main__.py` calls the real API and gained
+`--dry-run` / `--scope`. `python -m cyberai scan <t> --dry-run` runs all
+four phases and exits cleanly. Verified by
+`tests/unit/test_orchestrator_config.py`.
 
 ### 🟢 KI-2 — Two competing session classes  ✅ FIXED IN DAY 3
-`scan_session.py` is now the single source of truth. `session.py` is a
-backward-compat shim. Verified by `tests/unit/test_session_shim.py`.
 
 ### 🟢 KI-3 — BaseAgent didn't match what agents use  ✅ FIXED IN DAY 4
-`BaseAgent.__init__` now takes `(config, session, llm, audit)` and
-exposes `self.session`, `self.kb`, `self.llm`, `self.memory`. Agents are
-migrated to actually use this contract in day 6. Verified by
-`tests/unit/test_base_agent.py`.
 
 ### 🟢 KI-4 — Agents called non-existent methods  ✅ FIXED IN DAY 4
-`_check_iteration_limit()` and `_log()` now exist on `BaseAgent`.
-`AgentMemory` (with `add()`/`to_messages()`) backs `self.memory`.
-`self.llm.chat()` is addressed in day 6 when ExploitAgent is migrated to
-`self.llm.call()`. Verified by `tests/unit/test_base_agent.py`.
+`_check_iteration_limit()`, `_log()`, `AgentMemory` exist on
+`BaseAgent`. `self.llm.chat()` remains — addressed in day 6 when agents
+are migrated to `self.llm.call()`.
 
-### 🔴 KI-5 — Finding signature mismatch  ✅ FIXED IN DAY 3
+### 🟢 KI-5 — Finding signature mismatch  ✅ FIXED IN DAY 3
 
 ### 🟢 KI-6 — Tool param name mismatch  ✅ FIXED IN DAY 4
-`Tool` accepts both `params` and `parameters`, synced via
-`__post_init__`. All agents register tools with `parameters=...` so this
-closed without touching any agent file.
 
 ### 🔴 KI-7 — `LLMClient.chat()` doesn't exist
-Actual method is `call()`. **Fixed by:** Day 6.
+`ExploitAgent` calls `self.llm.chat()`; the real method is `call()`.
+Agents still use the old `BaseAgent` construction internally — they are
+migrated to the new contract in day 6. **Fixed by:** Day 6.
 
 ### 🟢 KI-8 — conftest accessed non-existent field  ✅ FIXED IN DAY 2
+
+## Status: 7/8 closed
+
+Remaining: KI-7 (day 6 — migrate the four agents to the new contract).
+After day 6, day 7 un-xfails the smoke tests for full end-to-end
+regression protection.
 
 ## Progress tracker
 
@@ -45,6 +47,6 @@ Actual method is `call()`. **Fixed by:** Day 6.
 | 2   | KI-8                 | ✅     |
 | 3   | KI-2, KI-5           | ✅     |
 | 4   | KI-3, KI-4, KI-6     | ✅     |
-| 5   | KI-1                 | ⏳     |
-| 6   | KI-7, KI-4 (llm.chat)| ⏳     |
-| 7   | All checked          | ⏳     |
+| 5   | KI-1                 | ✅     |
+| 6   | KI-7 + agent migration | ⏳   |
+| 7   | un-xfail smoke tests | ⏳     |
