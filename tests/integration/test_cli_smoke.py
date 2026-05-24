@@ -65,3 +65,14 @@ def test_cli_help_works():
 
     assert result.exit_code == 0
     assert "scan" in result.output.lower()
+
+
+def test_cli_scan_dry_run_completes_all_phases():
+    """Dry-run must reach all 4 phases and finish in `completed` state."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "example.com", "--dry-run"])
+    assert result.exit_code == 0
+    out = result.output.lower()
+    assert "completed" in out
+    for phase in ("recon", "intel", "exploit", "report"):
+        assert phase in out, f"phase {phase} missing from dry-run output"
