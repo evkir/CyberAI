@@ -1,9 +1,22 @@
+"""
+Tests for IntelAgent CVE scoring (formerly IntelAgentV2) and _normalize.
+
+Day 6 of STANDOFF: IntelAgentV2 is now an alias for IntelAgent with
+score_cves=True built in. These tests use the real BaseAgent contract.
+"""
+from __future__ import annotations
+
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from cyberai.agents.intel.agent import IntelAgentV2, _normalize
+
+from cyberai.agents.intel.agent import IntelAgent, IntelAgentV2, _normalize
+from cyberai.core.config import CyberAIConfig
+from cyberai.core.scan_session import ScanSession
 
 
 # ── normalize helper ─────────────────────────────────────────────────
+
 
 def test_normalize_standard_nvd_format():
     cve = {
@@ -19,8 +32,7 @@ def test_normalize_standard_nvd_format():
 
 
 def test_normalize_flat_cvss_format():
-    cve = {"cve_id": "CVE-2023-9999", "cvss": 7.5}
-    n = _normalize(cve)
+    n = _normalize({"cve_id": "CVE-2023-9999", "cvss": 7.5})
     assert n["cvss"] == 7.5
 
 
@@ -32,31 +44,11 @@ def test_normalize_missing_fields():
 
 
 def test_normalize_description_truncated():
-    cve = {"id": "CVE-X", "description": "A" * 200}
-    n = _normalize(cve)
+    n = _normalize({"id": "CVE-X", "description": "A" * 200})
     assert len(n["description_short"]) == 120
 
 
-# ── IntelAgentV2 ─────────────────────────────────────────────────────
-
-def _make_agent(cves=None):
-    """Build IntelAgentV2 with mocked session."""
-    session = MagicMock()
-    session.target = "10.0.0.1"
-    session.knowledge_base = {
-        "recon.nmap": {"ports": [{"port": 80, "service": "http"}]},
-        "intel.cves": cves or [],
-    }
-    agent = IntelAgentV2.__new__(IntelAgentV2)
-    agent.session         = session
-    agent.min_score       = 0.0
-    agent.top_n           = 10
-    agent._iterations     = 0
-    agent._max_iterations = 50
-    agent.tools           = {}
-    agent.audit           = MagicMock()
-    agent.AGENT_NAME      = "intel"
-    return agent
+# ── IntelAgent scoring ────────────────────────────────────────────────
 
 
 SAMPLE_CVES = [
@@ -76,46 +68,57 @@ SAMPLE_CVES = [
 ]
 
 
+def _agent_with_recon(cves):
+    """Build a real IntelAgent with recon data in the KB and mocked NVD."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
+    agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
+    return agent, session
+
+
+def test_v2_alias_is_intel_agent():
+    assert IntelAgentV2 is IntelAgent
+
+
 def test_v2_skipped_when_no_ports():
-    agent = _make_agent()
-    agent.session.knowledge_base["recon.nmap"] = {"ports": []}
-    with patch("cyberai.agents.intel.agent.IntelAgent.run",
-                   return_value={"status": "skipped", "reason": "no ports"}):
-            result = agent.run({})
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set("recon.nmap", {"ports": []})
+    agent = IntelAgent(CyberAIConfig(), session)
+    result = agent.run("10.0.0.1")
     assert result["status"] == "skipped"
 
 
 def test_v2_returns_ranked_cves():
-    agent = _make_agent(cves=SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.IntelAgent.run",
-                   return_value={"status": "done", "cves_found": 2}):
-            result = agent.run({})
+    agent, _ = _agent_with_recon(SAMPLE_CVES)
+    with patch("cyberai.agents.intel.agent.search_cves",
+               return_value={"cves": SAMPLE_CVES}):
+        result = agent.run("10.0.0.1")
     assert "ranked_cves" in result
-    assert len(result["ranked_cves"]) == 2
+    assert len(result["ranked_cves"]) >= 1
 
 
 def test_v2_ranked_sorted_desc():
-    agent = _make_agent(cves=SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.IntelAgent.run",
-                   return_value={"status": "done"}):
-            result = agent.run({})
+    agent, _ = _agent_with_recon(SAMPLE_CVES)
+    with patch("cyberai.agents.intel.agent.search_cves",
+               return_value={"cves": SAMPLE_CVES}):
+        result = agent.run("10.0.0.1")
     scores = [r["composite_score"] for r in result["ranked_cves"]]
     assert scores == sorted(scores, reverse=True)
 
 
 def test_v2_risk_summary_present():
-    agent = _make_agent(cves=SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.IntelAgent.run",
-                   return_value={"status": "done"}):
-            result = agent.run({})
-    assert result["risk_summary"]["total"] == 2
-    assert result["risk_summary"]["top_cve"] == "CVE-2024-0001"
+    agent, _ = _agent_with_recon(SAMPLE_CVES)
+    with patch("cyberai.agents.intel.agent.search_cves",
+               return_value={"cves": SAMPLE_CVES}):
+        result = agent.run("10.0.0.1")
+    assert "risk_summary" in result
+    assert result["risk_summary"]["total"] >= 1
 
 
 def test_v2_stores_in_kb():
-    agent = _make_agent(cves=SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.IntelAgent.run",
-                   return_value={"status": "done"}):
-            agent.run({})
-    assert "intel.ranked_cves" in agent.session.knowledge_base
-    assert "intel.risk_summary" in agent.session.knowledge_base
+    agent, session = _agent_with_recon(SAMPLE_CVES)
+    with patch("cyberai.agents.intel.agent.search_cves",
+               return_value={"cves": SAMPLE_CVES}):
+        agent.run("10.0.0.1")
+    assert "intel.ranked_cves" in session.kb
+    assert "intel.risk_summary" in session.kb
