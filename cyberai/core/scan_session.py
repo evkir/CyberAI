@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from cyberai.core.knowledge_base import KnowledgeBase
+
 
 # ── enums ─────────────────────────────────────────────────────────────
 
@@ -109,7 +111,7 @@ class ScanSession:
     started_at:       Optional[str]     = None
     ended_at:         Optional[str]     = None
     phases:           List[PhaseResult] = field(default_factory=list)
-    kb:               Dict[str, Any]    = field(default_factory=dict)
+    kb:               KnowledgeBase     = field(default_factory=KnowledgeBase)
     errors:           List[str]         = field(default_factory=list)
     authorized_scope: List[str]         = field(default_factory=list)
 
