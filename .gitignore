@@ -13,3 +13,6 @@ config.yml
 *.json.bak
 .pytest_cache/
 htmlcov/
+
+# audit logs from scan runs
+reports/*.jsonl
