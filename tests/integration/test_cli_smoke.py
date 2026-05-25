@@ -4,9 +4,9 @@ End-to-end smoke tests for the cyberai CLI.
 These tests verify that the entire pipeline runs without crashing,
 even in dry-run mode where no real network calls are made.
 
-Currently most are marked xfail because of known API mismatches between
-__main__.py, Orchestrator, and the agents — see docs/architecture/known-issues.md.
-They will be un-xfailed in day 7 of the STANDOFF plan.
+These tests pass end-to-end as of week 1 of the STANDOFF plan:
+the CLI, Orchestrator, and agents share a consistent API.
+See docs/architecture/known-issues.md for the issues that were resolved.
 """
 from __future__ import annotations
 
@@ -19,10 +19,6 @@ from cyberai.__main__ import cli
 pytestmark = pytest.mark.smoke
 
 
-@pytest.mark.xfail(
-    reason="Orchestrator/CLI API mismatch — see known-issues.md (fixed in W1)",
-    strict=False,
-)
 def test_cli_scan_dry_run_exits_cleanly():
     """
     `cyberai scan <target> --dry-run` should complete with exit code 0
@@ -43,10 +39,6 @@ def test_cli_scan_dry_run_exits_cleanly():
     )
 
 
-@pytest.mark.xfail(
-    reason="Same root cause — Orchestrator API mismatch",
-    strict=False,
-)
 def test_cli_scan_dry_run_produces_output():
     """The scan should produce some textual output, even in dry-run mode."""
     runner = CliRunner()
@@ -65,3 +57,14 @@ def test_cli_help_works():
 
     assert result.exit_code == 0
     assert "scan" in result.output.lower()
+
+
+def test_cli_scan_dry_run_completes_all_phases():
+    """Dry-run must reach all 4 phases and finish in `completed` state."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "example.com", "--dry-run"])
+    assert result.exit_code == 0
+    out = result.output.lower()
+    assert "completed" in out
+    for phase in ("recon", "intel", "exploit", "report"):
+        assert phase in out, f"phase {phase} missing from dry-run output"

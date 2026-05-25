@@ -60,7 +60,6 @@ jobs:
   smoke:
     name: Smoke Tests (end-to-end)
     runs-on: ubuntu-latest
-    continue-on-error: true  # smoke tests are xfail until day 7; don't block PRs yet
 
     steps:
       - uses: actions/checkout@v4
