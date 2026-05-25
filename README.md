@@ -108,23 +108,31 @@ CyberAI/
 ## Quick start
 
 **1. Clone and install**
+
 ```bash
 git clone https://github.com/evkir/CyberAI.git
 cd CyberAI
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
+> Prefer isolation? Run `python -m venv venv && source venv/bin/activate` first.
+
 **2. Configure**
+
 ```bash
 cp config.example.yml config.yml
 cp .env.example .env
-# Edit .env — add your OPENAI_API_KEY or ANTHROPIC_API_KEY
+# Edit .env -- add your OPENAI_API_KEY or ANTHROPIC_API_KEY
 ```
 
-**3. Run**
+**3. Run a scan**
+
 ```bash
-python -m cyberai --help
+# Dry-run: walks all 4 phases, no network calls, no API key needed
+python -m cyberai scan example.com --dry-run
+
+# Real scan
+python -m cyberai scan target.htb
 ```
 
 ---
