@@ -41,7 +41,24 @@ class ReconResult(BaseModel):
 CVEId        = str                  # "CVE-2024-1234"
 CVEList      = list[CVEId]
 RiskLevel    = str                  # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-IntelResult  = dict[str, Any]
+
+
+class CVEEntry(BaseModel):
+    """A single CVE with scoring and threat-intel context."""
+    id: str
+    cvss: float = 0.0
+    severity: str = "UNKNOWN"
+    description: str = ""
+    published: str | None = None
+    exploited_in_wild: bool = False
+    epss: float = 0.0
+
+
+class IntelResult(BaseModel):
+    """Structured output of the IntelAgent."""
+    target: str
+    cves: list[CVEEntry] = Field(default_factory=list)
+    services: dict[str, Any] = Field(default_factory=dict)
 
 # Exploit
 AttackPath   = dict[str, Any]
