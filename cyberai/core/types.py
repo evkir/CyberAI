@@ -5,6 +5,8 @@ Centralises type hints — import from here, not redefine everywhere.
 from typing import Any, Union
 from pathlib import Path
 
+from pydantic import BaseModel, Field
+
 # Target types
 Target = str                        # IP, CIDR, or domain
 PortNumber = int                    # 1-65535
@@ -16,8 +18,24 @@ AgentOutput = dict[str, Any]        # output from any agent
 
 # Recon
 PortList     = list[PortNumber]
-ServiceMap   = dict[str, ServiceName]   # "80" → "http"
-ReconResult  = dict[str, Any]
+ServiceMap   = dict[str, ServiceName]   # "80" -> "http"
+
+
+class OpenPort(BaseModel):
+    """A single open port discovered during recon."""
+    port: int
+    protocol: str = "tcp"
+    service: str = "unknown"
+    version: str | None = None
+
+
+class ReconResult(BaseModel):
+    """Structured output of the ReconAgent."""
+    target: str
+    ports: list[OpenPort] = Field(default_factory=list)
+    whois: dict[str, Any] = Field(default_factory=dict)
+    dns: dict[str, Any] = Field(default_factory=dict)
+    subdomains: list[str] = Field(default_factory=list)
 
 # Intel
 CVEId        = str                  # "CVE-2024-1234"
