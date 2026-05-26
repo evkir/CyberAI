@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
+from cyberai.core.types import OpenPort, ReconResult
 
 from .dns_tool import detect_subdomains, run_dns, run_whois
 from .nmap_tool import run_nmap
@@ -87,5 +88,18 @@ class ReconAgent(BaseAgent):
                 target=target,
                 evidence=[str(p) for p in ports],
             )
+
+        # Build a validated pydantic ReconResult and store it in the KB.
+        recon_result = ReconResult(
+            target=target,
+            ports=[OpenPort(**p) for p in ports if isinstance(p, dict)],
+            whois=whois_result if isinstance(whois_result, dict) else {},
+            dns=dns_result if isinstance(dns_result, dict) else {},
+            subdomains=(
+                sub_result.get("subdomains", [])
+                if isinstance(sub_result, dict) else []
+            ),
+        )
+        self.kb.set("recon.result", recon_result.model_dump(), agent=self.AGENT_NAME)
 
         return {"status": "done", "kb_keys": list(results.keys()), "ports": ports}

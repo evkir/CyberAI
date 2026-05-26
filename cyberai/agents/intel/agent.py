@@ -9,6 +9,7 @@ from cyberai.core.scan_session import Severity
 
 from .nvd_client import get_cve, search_cves
 from .service_mapper import ports_to_queries, score_to_severity
+from cyberai.core.types import CVEEntry, IntelResult
 
 
 class IntelAgent(BaseAgent):
@@ -79,6 +80,30 @@ class IntelAgent(BaseAgent):
                     evidence=[f"CVSS: {score}",
                               (cve.get("cvss", {}) or {}).get("vector", "")],
                 )
+
+        # Build a validated IntelResult and store it in the KB.
+        def _cvss_score(c: dict) -> float:
+            raw = c.get("cvss")
+            if isinstance(raw, dict):
+                return float(raw.get("score") or 0.0)
+            return float(raw or 0.0)
+
+        intel_result = IntelResult(
+            target=target,
+            cves=[
+                CVEEntry(
+                    id=c.get("id") or c.get("cve_id", ""),
+                    cvss=_cvss_score(c),
+                    severity=score_to_severity(_cvss_score(c)),
+                    description=c.get("description", ""),
+                    published=c.get("published") or None,
+                    exploited_in_wild=c.get("exploited_in_wild", False),
+                    epss=float(c.get("epss") or 0.0),
+                )
+                for c in all_cves
+            ],
+        )
+        self.kb.set("intel.result", intel_result.model_dump(), agent=self.AGENT_NAME)
 
         result = {
             "status": "done",
