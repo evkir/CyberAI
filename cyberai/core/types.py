@@ -61,8 +61,34 @@ class IntelResult(BaseModel):
     services: dict[str, Any] = Field(default_factory=dict)
 
 # Exploit
-AttackPath   = dict[str, Any]
-ExploitResult = dict[str, Any]
+
+
+class AttackPath(BaseModel):
+    """A single attack path derived from one CVE."""
+    cve_id: str
+    attack_vector: str = "Unknown"
+    attack_complexity: str = "Unknown"
+    technique: str = ""
+    success_probability: float = 0.0
+    requires_auth: bool = False
+    requires_interaction: bool = False
+    notes: str = ""
+
+
+class ExploitChain(BaseModel):
+    """An ordered, MITRE-mapped sequence of exploitation steps."""
+    target: str
+    chain_length: int = 0
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    summary: str = ""
+
+
+class ExploitResult(BaseModel):
+    """Structured output of the ExploitAgent."""
+    target: str
+    attack_paths: list[AttackPath] = Field(default_factory=list)
+    chain: ExploitChain | None = None
+    ai_analysis: str = ""
 
 # Report
 ReportPath   = Path
