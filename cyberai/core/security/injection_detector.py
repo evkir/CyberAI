@@ -37,6 +37,18 @@ INJECTION_PATTERNS = [
     (r"\[system\]", "context_manipulation"),
     (r"<\|im_start\|>", "context_manipulation"),
     (r"<\|im_end\|>", "context_manipulation"),
+    (r"system prompt", "context_manipulation"),
+    (r"previous (context|conversation|message)", "context_manipulation"),
+
+    # Encoded payloads
+    (r"base64[\s,]*(decoded?|encoded?)?[\s]*payload", "encoded_payload"),
+    (r"decode (this|the following|base64)", "encoded_payload"),
+    (r"(from_|atob|b64decode|base64\.b64)", "encoded_payload"),
+
+    # Unicode / escape-sequence smuggling
+    (r"\\u[0-9a-fA-F]{4}", "unicode_escape"),
+    (r"\\x[0-9a-fA-F]{2}", "unicode_escape"),
+    (r"[\u202a-\u202e\u2066-\u2069]", "unicode_escape"),
 ]
 
 COMPILED_PATTERNS = [
