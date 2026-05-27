@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 MAX_TARGET_LENGTH = 253
 MAX_INPUT_LENGTH = 10_000
 MAX_FIELD_LENGTH = 2_000
+MAX_BANNER_LENGTH = 500
 
 def sanitize_target(target: str) -> str:
     """
@@ -27,6 +28,27 @@ def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
     cleaned = re.sub(r"\{\{|\}\}", "", cleaned)
     cleaned = re.sub(r"<\|im_(start|end)\|>", "", cleaned)
     return cleaned[:max_length]
+
+def sanitize_banner(banner: str) -> str:
+    """
+    Neutralise a service banner before it enters LLM context.
+
+    Service banners are attacker-controllable (a host can put anything in
+    its SSH/HTTP banner). Truncate to MAX_BANNER_LENGTH, strip ANSI escape
+    sequences and bidi-control characters, reuse sanitize_text for control
+    chars, then wrap in an explicit untrusted marker so the LLM treats the
+    content as data, never as instructions.
+    """
+    if not isinstance(banner, str):
+        return ""
+    # Strip ANSI escape sequences (e.g. \x1b[31m)
+    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", banner)
+    # Strip Unicode bidi-control characters (Trojan-Source style smuggling)
+    text = re.sub(r"[\u202a-\u202e\u2066-\u2069]", "", text)
+    # Reuse the standard control-char / template scrubber
+    text = sanitize_text(text, MAX_BANNER_LENGTH).strip()
+    return f"[UNTRUSTED INPUT] {text} [/UNTRUSTED INPUT]"
+
 
 def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
     """
