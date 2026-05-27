@@ -119,6 +119,7 @@ class Orchestrator:
                 data = {"dry_run": True, "phase": phase.value}
             else:
                 data = self._dispatch(session, phase)
+                self._check_phase_injection(session, phase, data)
 
             session.record_phase(phase, success=True, started=started, data=data)
             console.print(f"[green]✓ {phase.value} done[/green]")
@@ -129,6 +130,37 @@ class Orchestrator:
             )
             console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
             log.error(f"Phase {phase.value} raised", exc_info=True)
+
+    def _check_phase_injection(
+        self, session: "ScanSession", phase: "ScanPhase", data: Dict[str, Any]
+    ) -> None:
+        """Scan a phase's output for prompt-injection before it propagates."""
+        import json as _json
+
+        from cyberai.core.scan_session import Severity
+        from cyberai.core.security.injection_detector import detect_injection
+
+        text = _json.dumps(data, default=str)
+        result = detect_injection(text)
+        if not result["is_injection"]:
+            return
+
+        console.print(
+            f"[bold yellow]\u26a0 injection signals in {phase.value} "
+            f"output (risk={result['risk_score']})[/bold yellow]"
+        )
+        session.add_finding(
+            severity=Severity.MEDIUM,
+            title=f"Prompt-injection signals in {phase.value} output",
+            description=(
+                f"Phase output matched {len(result['matches'])} injection "
+                f"pattern(s); risk score {result['risk_score']}/100. Output "
+                f"is treated as untrusted before reaching the LLM."
+            ),
+            agent="orchestrator",
+            target=session.target,
+            evidence=[m["type"] for m in result["matches"]],
+        )
 
     def _dispatch(self, session: ScanSession, phase: ScanPhase) -> Dict[str, Any]:
         dispatch = {
