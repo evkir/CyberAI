@@ -3,6 +3,8 @@ import subprocess
 from typing import Any, Dict, List
 
 from cyberai.core.security.input_sanitizer import sanitize_target
+from cyberai.core.cache import FileCache
+from pathlib import Path
 
 # Whitelist of nmap flags the toolkit is allowed to pass through.
 # Anything outside this set is rejected — prevents abuse like
@@ -16,6 +18,18 @@ ALLOWED_FLAGS = {
 
 # Flags that consume the next token as a value (port spec, count, etc.).
 _VALUE_FLAGS = {"-p", "--top-ports", "-oX"}
+
+# Dedicated 1-hour cache for nmap results, keyed by target+flags.
+# Avoids re-scanning the same target repeatedly within a session.
+NMAP_CACHE_TTL = 3600  # 1 hour
+_nmap_cache = FileCache(
+    cache_dir=Path.home() / ".cyberai" / "nmap-cache",
+    ttl=NMAP_CACHE_TTL,
+)
+
+
+def _cache_key(target: str, flags: str) -> str:
+    return f"nmap:{target}:{flags}"
 
 
 def validate_flags(flags: str) -> List[str]:
@@ -49,18 +63,28 @@ def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, 
     except ValueError as exc:
         return {"target": target, "error": f"unsafe nmap flags: {exc}"}
 
+    cache_key = _cache_key(safe_target, flags)
+    cached = _nmap_cache.get(cache_key)
+    if cached is not None:
+        cached["cached"] = True
+        return cached
+
     cmd = ["nmap", "-oX", "-"] + safe_flags + [safe_target]
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=120
         )
-        return {
+        parsed = {
             "target": target,
             "raw": result.stdout,
             "stderr": result.stderr,
             "returncode": result.returncode,
             "ports": _parse_ports(result.stdout),
+            "cached": False,
         }
+        if result.returncode == 0:
+            _nmap_cache.set(cache_key, parsed)
+        return parsed
     except subprocess.TimeoutExpired:
         return {"target": target, "error": "nmap timeout after 120s"}
     except FileNotFoundError:
