@@ -8,6 +8,7 @@ from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 
 from .nvd_client import get_cve, search_cves
+from .epss_client import get_epss_scores
 from .service_mapper import ports_to_queries, score_to_severity
 from cyberai.core.types import CVEEntry, IntelResult
 
@@ -61,6 +62,18 @@ class IntelAgent(BaseAgent):
             result = search_cves(query, max_results=5)
             all_cves.extend(result.get("cves", []))
             time.sleep(0.6)
+
+        # Enrich CVEs with EPSS scores (probability of exploitation
+        # in the wild in the next 30 days). Single batched call.
+        cve_ids = [c["id"] for c in all_cves if c.get("id")]
+        if cve_ids:
+            epss_map = get_epss_scores(cve_ids)
+            for cve in all_cves:
+                cve["epss"] = epss_map.get(cve.get("id"), 0.0)
+            self._log(
+                f"EPSS enrichment: {sum(1 for v in epss_map.values() if v > 0)}/"
+                f"{len(cve_ids)} CVEs with non-zero score"
+            )
 
         self.kb.set("intel.cves", all_cves, agent=self.AGENT_NAME)
         self._log(f"found {len(all_cves)} CVEs for {len(queries)} services")
