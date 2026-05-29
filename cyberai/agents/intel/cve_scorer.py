@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-CVSS_WEIGHT    = 0.45
+CVSS_WEIGHT    = 0.35
 EXPLOIT_WEIGHT = 0.30
-RECENCY_WEIGHT = 0.15
-EPSS_WEIGHT    = 0.10
+RECENCY_WEIGHT = 0.10
+EPSS_WEIGHT    = 0.25  # day 11: EPSS is a strong signal, not a footnote
 
 
 @dataclass
@@ -99,7 +99,11 @@ def _recency_bonus(cve: Dict) -> float:
 
 
 def _epss_bonus(cve: Dict) -> float:
-    return min(float(cve.get("epss") or 0.0) * EPSS_WEIGHT, EPSS_WEIGHT)
+    """EPSS as a multiplier-like signal: high probability gets a nonlinear
+    boost so weaponized vulnerabilities float to the top."""
+    epss = float(cve.get("epss") or 0.0)
+    boost = 2.0 if epss > 0.5 else 1.0
+    return min(epss * EPSS_WEIGHT * boost, EPSS_WEIGHT)
 
 
 def _tier(score: float) -> str:
@@ -122,6 +126,12 @@ def _reasoning(cvss: float, exploit: float, recency: float, epss: float) -> str:
         parts.append("weaponized/in-wild")
     if recency > 0.12:
         parts.append("recent CVE")
-    if epss > 0.05:
-        parts.append(f"EPSS={epss/EPSS_WEIGHT:.0%}")
+    # raw EPSS probability — recovered from the weighted bonus
+    epss_raw = epss / EPSS_WEIGHT
+    if epss_raw > 0.5:
+        parts.append(f"\U0001f525 EPSS={epss_raw:.0%}")  # high exploitation likelihood
+    elif epss_raw > 0.2:
+        parts.append(f"\u26a0 EPSS={epss_raw:.0%}")      # moderate
+    elif epss > 0.01:
+        parts.append(f"EPSS={epss_raw:.0%}")
     return " | ".join(parts)

@@ -74,5 +74,21 @@ def test_exploit_bonus_all_signals():
 
 
 def test_epss_bonus_high():
+    """High EPSS (>0.5) triggers the day-11 multiplier boost and clamps
+    to the full EPSS_WEIGHT — strongest possible EPSS signal."""
     s = score_cve(CRITICAL_CVE)
-    assert s.epss_bonus == pytest.approx(0.095, abs=1e-6)
+    assert s.epss_bonus == pytest.approx(EPSS_WEIGHT, abs=1e-6)
+
+
+def test_epss_bonus_low_is_linear():
+    """Low EPSS (<= 0.5) is linear in weight — no boost."""
+    cve = {"cve_id": "CVE-x", "cvss": 5.0, "epss": 0.10}
+    s = score_cve(cve)
+    assert s.epss_bonus == pytest.approx(0.10 * EPSS_WEIGHT, abs=1e-6)
+
+
+def test_epss_bonus_zero():
+    """Missing/zero EPSS contributes nothing."""
+    cve = {"cve_id": "CVE-y", "cvss": 5.0, "epss": 0.0}
+    s = score_cve(cve)
+    assert s.epss_bonus == 0.0
