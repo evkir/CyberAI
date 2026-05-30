@@ -42,3 +42,10 @@
   CVE-2019-OLD (CVSS 9.0, EPSS 0.02) — суть EPSS работает.
 - nvd_client пока без кэша — заметка на будущее (день 12 правит NVD,
   возможно туда зайдёт).
+
+## День 12 — NVD apikey + rate limiter
+- RateLimiter и backoff уже были — день 12 только подключение + пресеты.
+- Ключ через header apiKey (не query) — не попадает в логи.
+- 429/503 → exponential_backoff с 3 ретраями. 4xx (auth/validation) пробрасываются.
+- IntelConfig симметрично LLMConfig/PhantomConfig.
+- nvd_client кэш — пока не вводили (заметка из дня 11). EPSS-клиент кэшируется per-CVE, NVD дороже и более вариативен (max_results, severity) — отдельный день при необходимости.
