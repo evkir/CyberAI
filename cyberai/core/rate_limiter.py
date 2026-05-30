@@ -106,3 +106,36 @@ def get_nvd_limiter(api_key: Optional[str] = None) -> RateLimiter:
     if api_key:
         return NVD_RATE_LIMITER_WITH_KEY
     return NVD_RATE_LIMITER_NO_KEY
+
+
+# ── per-API limiters ──────────────────────────────────────────────────
+# Conservative defaults; tune per environment if needed.
+
+EPSS_RATE_LIMITER = RateLimiter(RateLimiterConfig(
+    requests_per_window=10, window_seconds=1.0,
+))
+OPENAI_RATE_LIMITER = RateLimiter(RateLimiterConfig(
+    requests_per_window=20, window_seconds=1.0,
+))
+ANTHROPIC_RATE_LIMITER = RateLimiter(RateLimiterConfig(
+    requests_per_window=10, window_seconds=1.0,
+))
+PHANTOM_GRID_RATE_LIMITER = RateLimiter(RateLimiterConfig(
+    requests_per_window=30, window_seconds=1.0,
+))
+
+LIMITERS = {
+    "nvd_no_key":   NVD_RATE_LIMITER_NO_KEY,
+    "nvd_with_key": NVD_RATE_LIMITER_WITH_KEY,
+    "epss":         EPSS_RATE_LIMITER,
+    "openai":       OPENAI_RATE_LIMITER,
+    "anthropic":    ANTHROPIC_RATE_LIMITER,
+    "phantom_grid": PHANTOM_GRID_RATE_LIMITER,
+}
+
+
+def get_limiter(name: str) -> RateLimiter:
+    """Fetch a named per-API limiter."""
+    if name not in LIMITERS:
+        raise KeyError(f"Unknown rate limiter: {name!r}")
+    return LIMITERS[name]
