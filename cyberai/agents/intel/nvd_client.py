@@ -4,18 +4,34 @@ import httpx
 from typing import Dict, Any, List, Optional
 
 from cyberai.core.rate_limiter import get_nvd_limiter
+from cyberai.utils.backoff import exponential_backoff
 
 NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
 def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
-    """Shared NVD call: env-driven apiKey header + rate limiter."""
+    """Shared NVD call: apiKey header + rate limiter + retry on 429/503."""
     api_key = os.getenv("NVD_API_KEY")
     headers = {"apiKey": api_key} if api_key else {}
-    get_nvd_limiter(api_key).acquire()
-    response = httpx.get(NVD_BASE, params=params, headers=headers, timeout=30)
-    response.raise_for_status()
-    return response.json()
+
+    def _do_call() -> Dict[str, Any]:
+        get_nvd_limiter(api_key).acquire()
+        response = httpx.get(NVD_BASE, params=params, headers=headers, timeout=30)
+        if response.status_code in (429, 503):
+            raise httpx.HTTPStatusError(
+                f"NVD transient {response.status_code}",
+                request=response.request, response=response,
+            )
+        response.raise_for_status()
+        return response.json()
+
+    return exponential_backoff(
+        _do_call,
+        max_retries=3,
+        base_delay=2.0,
+        max_delay=30.0,
+        exceptions=(httpx.HTTPStatusError, httpx.TimeoutException),
+    )
 
 
 def search_cves(
