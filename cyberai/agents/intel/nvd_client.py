@@ -1,7 +1,22 @@
+import os
+
 import httpx
 from typing import Dict, Any, List, Optional
 
+from cyberai.core.rate_limiter import get_nvd_limiter
+
 NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+
+def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Shared NVD call: env-driven apiKey header + rate limiter."""
+    api_key = os.getenv("NVD_API_KEY")
+    headers = {"apiKey": api_key} if api_key else {}
+    get_nvd_limiter(api_key).acquire()
+    response = httpx.get(NVD_BASE, params=params, headers=headers, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
 
 def search_cves(
     keyword: str,
@@ -20,9 +35,7 @@ def search_cves(
         params["cvssV3Severity"] = severity
 
     try:
-        response = httpx.get(NVD_BASE, params=params, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        data = _nvd_request(params)
         return {
             "keyword": keyword,
             "total": data.get("totalResults", 0),
@@ -36,9 +49,7 @@ def search_cves(
 def get_cve(cve_id: str) -> Dict[str, Any]:
     """Fetch single CVE by ID e.g. CVE-2024-1234"""
     try:
-        response = httpx.get(NVD_BASE, params={"cveId": cve_id}, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        data = _nvd_request({"cveId": cve_id})
         vulns = data.get("vulnerabilities", [])
         if not vulns:
             return {"cve_id": cve_id, "error": "not found"}

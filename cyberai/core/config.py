@@ -23,9 +23,15 @@ class PhantomConfig:
     grid_api_key: Optional[str] = field(default_factory=lambda: os.getenv("PHANTOM_GRID_KEY"))
 
 @dataclass
+class IntelConfig:
+    nvd_api_key: Optional[str] = field(default_factory=lambda: os.getenv("NVD_API_KEY"))
+
+
+@dataclass
 class CyberAIConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     phantom: PhantomConfig = field(default_factory=PhantomConfig)
+    intel: IntelConfig = field(default_factory=IntelConfig)
     output_dir: Path = Path("reports/")
     verbose: bool = False
     timeout: int = 60
