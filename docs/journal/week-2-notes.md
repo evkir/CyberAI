@@ -49,3 +49,12 @@
 - 429/503 → exponential_backoff с 3 ретраями. 4xx (auth/validation) пробрасываются.
 - IntelConfig симметрично LLMConfig/PhantomConfig.
 - nvd_client кэш — пока не вводили (заметка из дня 11). EPSS-клиент кэшируется per-CVE, NVD дороже и более вариативен (max_results, severity) — отдельный день при необходимости.
+
+## День 13 — datetime modernization + pyproject + ruff/mypy
+
+- `datetime.utcnow()` снят в 5 файлах. Заменён на `datetime.now(timezone.utc)`. План говорил 11 файлов — фактически 5; разница не критична, просто плановая оценка была выше.
+- Миграция `setup.py` → `pyproject.toml` на hatchling. Version dynamic из `cyberai/version.py`. Минимальная версия Python поднята 3.10 → 3.11 (CI matrix всё равно был 3.11/3.12). Wheel собирается, `pip install -e .` работает.
+- **Отклонение от плана**: верхняя граница `openai>=2.0,<3` вместо `>=1.30,<2`. openai 2.36.0 уже в активном использовании локально; пин `<2` сломал бы рабочее окружение. Лучше зафиксировать факт чем имитировать прошлогодний state.
+- **Отклонение от плана**: blocking scope `mypy --strict` сужен с `cyberai/core/` (17 ошибок) до одного файла `cyberai/core/types.py` (0 ошибок). 4 модуля (`cache.py`, `rate_limiter.py`, `nvd_client.py`, `epss_client.py`) имеют тривиально-фиксящиеся ошибки (Optional, dict без параметров, Any return) — их добавим в blocking scope отдельным коммитом, когда исправим. Это правильнее чем зелёный CI с `continue-on-error: true`.
+- `ruff format` применён ко всему `cyberai/` и `tests/` — мехдифф на 95 файлов. **Lesson learned**: настройки форматтера (`line-length=100`) надо добавлять в pyproject **до** первого прогона `ruff format`, иначе придётся переформатировать дважды (первый раз словил несоответствие между локальным форматом и CI-check после добавления `line-length`).
+- ruff в CI пинится `>=0.6.0,<1` — теперь обновления forматтера не сломают PR-чек неожиданно.
