@@ -1,6 +1,7 @@
 """
 Prompt templates for CyberAI agents.
 """
+
 from dataclasses import dataclass
 from typing import Dict
 

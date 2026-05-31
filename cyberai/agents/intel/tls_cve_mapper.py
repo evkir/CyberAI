@@ -2,14 +2,17 @@
 Maps TLS misconfigurations to known CVEs.
 Gives IntelAgent context: "this TLS issue → these CVEs → this risk".
 """
+
 from dataclasses import dataclass
+
 
 @dataclass
 class TLSCVEEntry:
-    issue_key: str       # e.g. "TLSv1.0"
+    issue_key: str  # e.g. "TLSv1.0"
     cves: list[str]
     description: str
     remediation: str
+
 
 # Static mapping — extend as needed
 TLS_CVE_MAP: list[TLSCVEEntry] = [
@@ -61,11 +64,13 @@ class TLSCVEMapper:
         enriched = []
         for finding in findings:
             entry = self._match(finding)
-            enriched.append({
-                **finding,
-                "cves": entry.cves if entry else [],
-                "remediation": entry.remediation if entry else "Review TLS configuration",
-            })
+            enriched.append(
+                {
+                    **finding,
+                    "cves": entry.cves if entry else [],
+                    "remediation": entry.remediation if entry else "Review TLS configuration",
+                }
+            )
         return enriched
 
     def _match(self, finding: dict):

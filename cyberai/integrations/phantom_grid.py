@@ -2,6 +2,7 @@
 phantom-grid client — OOB callback tracking.
 https://github.com/evkir/phantom-grid
 """
+
 import httpx
 import uuid
 from typing import Optional, List, Dict, Any
@@ -13,7 +14,7 @@ import os
 @dataclass
 class OOBInteraction:
     interaction_id: str
-    protocol: str        # dns | http | https
+    protocol: str  # dns | http | https
     source_ip: str
     timestamp: str
     payload: str = ""
@@ -26,16 +27,10 @@ class PhantomGridClient:
     Registers payloads, polls for callbacks.
     """
 
-    def __init__(
-        self,
-        base_url: str = None,
-        api_key: str = None,
-        timeout: int = 10
-    ):
-        self.base_url = (
-            base_url
-            or os.getenv("PHANTOM_GRID_URL", "http://127.0.0.1:8080")
-        ).rstrip("/")
+    def __init__(self, base_url: str = None, api_key: str = None, timeout: int = 10):
+        self.base_url = (base_url or os.getenv("PHANTOM_GRID_URL", "http://127.0.0.1:8080")).rstrip(
+            "/"
+        )
         self.api_key = api_key or os.getenv("PHANTOM_GRID_KEY", "")
         self.timeout = timeout
         self._available: Optional[bool] = None
@@ -64,10 +59,7 @@ class PhantomGridClient:
         """Generate unique ID for tracking a specific payload."""
         return str(uuid.uuid4()).replace("-", "")[:16]
 
-    def get_interactions(
-        self,
-        interaction_id: str
-    ) -> List[OOBInteraction]:
+    def get_interactions(self, interaction_id: str) -> List[OOBInteraction]:
         """
         Poll phantom-grid for callbacks matching interaction_id.
         Returns list of OOBInteraction objects.
@@ -79,7 +71,7 @@ class PhantomGridClient:
                 r = client.get(
                     f"{self.base_url}/api/interactions",
                     params={"id": interaction_id},
-                    headers=self._headers()
+                    headers=self._headers(),
                 )
                 r.raise_for_status()
                 items = r.json().get("interactions", [])
@@ -93,10 +85,7 @@ class PhantomGridClient:
             return []
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                r = client.get(
-                    f"{self.base_url}/api/interactions",
-                    headers=self._headers()
-                )
+                r = client.get(f"{self.base_url}/api/interactions", headers=self._headers())
                 r.raise_for_status()
                 items = r.json().get("interactions", [])
                 return [self._parse(i) for i in items]
@@ -108,8 +97,7 @@ class PhantomGridClient:
             interaction_id=raw.get("id", ""),
             protocol=raw.get("protocol", "unknown"),
             source_ip=raw.get("source_ip", ""),
-            timestamp=raw.get("timestamp",
-                              datetime.now(timezone.utc).isoformat()),
+            timestamp=raw.get("timestamp", datetime.now(timezone.utc).isoformat()),
             payload=raw.get("payload", ""),
             data=raw.get("data", {}),
         )

@@ -10,10 +10,24 @@ from pathlib import Path
 # Anything outside this set is rejected — prevents abuse like
 # -oN /etc/cron.d/x, --script=<malicious>, or arbitrary file writes.
 ALLOWED_FLAGS = {
-    "-sV", "-sC", "-sT", "-sS", "-sU", "-sn",
-    "-T0", "-T1", "-T2", "-T3", "-T4", "-T5",
-    "-Pn", "-A", "-O",
-    "-p", "--top-ports", "-oX",
+    "-sV",
+    "-sC",
+    "-sT",
+    "-sS",
+    "-sU",
+    "-sn",
+    "-T0",
+    "-T1",
+    "-T2",
+    "-T3",
+    "-T4",
+    "-T5",
+    "-Pn",
+    "-A",
+    "-O",
+    "-p",
+    "--top-ports",
+    "-oX",
 }
 
 # Flags that consume the next token as a value (port spec, count, etc.).
@@ -52,6 +66,7 @@ def validate_flags(flags: str) -> List[str]:
         i += 1
     return safe
 
+
 def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, Any]:
     """
     Run nmap against target, return parsed results.
@@ -71,9 +86,7 @@ def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, 
 
     cmd = ["nmap", "-oX", "-"] + safe_flags + [safe_target]
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         parsed = {
             "target": target,
             "raw": result.stdout,
@@ -88,25 +101,32 @@ def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, 
     except subprocess.TimeoutExpired:
         return {"target": target, "error": "nmap timeout after 120s"}
     except FileNotFoundError:
-        return {"target": target, "error": "nmap not found — install with: apt install nmap"}
+        return {
+            "target": target,
+            "error": "nmap not found — install with: apt install nmap",
+        }
+
 
 def _parse_ports(xml_output: str) -> list:
     """Extract open ports from nmap XML output"""
     import re
+
     ports = []
     for match in re.finditer(
         r'<port protocol="(\w+)" portid="(\d+)">.*?'
         r'<state state="(\w+)".*?/>.*?'
         r'<service name="([^"]*)"',
-        xml_output, re.DOTALL
+        xml_output,
+        re.DOTALL,
     ):
         proto, port, state, service = match.groups()
         if state == "open":
-            ports.append({
-                "port": int(port),
-                "protocol": proto,
-                "service": service,
-                "state": state,
-            })
+            ports.append(
+                {
+                    "port": int(port),
+                    "protocol": proto,
+                    "service": service,
+                    "state": state,
+                }
+            )
     return ports
-

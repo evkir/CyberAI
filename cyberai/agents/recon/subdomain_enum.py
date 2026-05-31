@@ -2,6 +2,7 @@
 Subdomain enumerator — DNS brute force via wordlist.
 Uses concurrent resolution for speed.
 """
+
 from __future__ import annotations
 import socket
 import concurrent.futures
@@ -9,13 +10,54 @@ from typing import List, Dict, Any
 from pathlib import Path
 
 DEFAULT_WORDLIST = [
-    "www", "mail", "ftp", "admin", "api", "dev", "staging",
-    "test", "vpn", "remote", "portal", "app", "web", "secure",
-    "mx", "ns1", "ns2", "smtp", "pop", "imap", "cdn", "static",
-    "media", "assets", "images", "blog", "shop", "store", "beta",
-    "alpha", "demo", "docs", "git", "gitlab", "jenkins", "ci",
-    "monitor", "status", "dashboard", "login", "auth", "sso",
-    "internal", "intranet", "corp", "office", "backup", "old",
+    "www",
+    "mail",
+    "ftp",
+    "admin",
+    "api",
+    "dev",
+    "staging",
+    "test",
+    "vpn",
+    "remote",
+    "portal",
+    "app",
+    "web",
+    "secure",
+    "mx",
+    "ns1",
+    "ns2",
+    "smtp",
+    "pop",
+    "imap",
+    "cdn",
+    "static",
+    "media",
+    "assets",
+    "images",
+    "blog",
+    "shop",
+    "store",
+    "beta",
+    "alpha",
+    "demo",
+    "docs",
+    "git",
+    "gitlab",
+    "jenkins",
+    "ci",
+    "monitor",
+    "status",
+    "dashboard",
+    "login",
+    "auth",
+    "sso",
+    "internal",
+    "intranet",
+    "corp",
+    "office",
+    "backup",
+    "old",
 ]
 
 
@@ -37,17 +79,14 @@ def enumerate_subdomains(
     Returns:
         dict with found subdomains and stats
     """
-    words   = wordlist or DEFAULT_WORDLIST
+    words = wordlist or DEFAULT_WORDLIST
     targets = [f"{w}.{domain}" for w in words]
-    found:  List[Dict[str, Any]] = []
+    found: List[Dict[str, Any]] = []
 
     socket.setdefaulttimeout(timeout)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_map = {
-            pool.submit(_resolve, fqdn): fqdn
-            for fqdn in targets
-        }
+        future_map = {pool.submit(_resolve, fqdn): fqdn for fqdn in targets}
         for future in concurrent.futures.as_completed(future_map):
             _ = future_map[future]
             try:
@@ -60,11 +99,11 @@ def enumerate_subdomains(
     found.sort(key=lambda x: x["fqdn"])
 
     return {
-        "domain":    domain,
-        "found":     found,
-        "count":     len(found),
-        "checked":   len(targets),
-        "wordlist":  words,
+        "domain": domain,
+        "found": found,
+        "count": len(found),
+        "checked": len(targets),
+        "wordlist": words,
     }
 
 
@@ -72,11 +111,11 @@ def _resolve(fqdn: str) -> Dict[str, Any] | None:
     """Resolve a single FQDN — return result dict or None."""
     try:
         infos = socket.getaddrinfo(fqdn, None)
-        ips   = list({info[4][0] for info in infos})
+        ips = list({info[4][0] for info in infos})
         if ips:
             return {
-                "fqdn":      fqdn,
-                "ips":       ips,
+                "fqdn": fqdn,
+                "ips": ips,
                 "subdomain": fqdn.split(".")[0],
             }
     except (socket.gaierror, socket.herror, OSError):

@@ -8,6 +8,7 @@ MAX_INPUT_LENGTH = 10_000
 MAX_FIELD_LENGTH = 2_000
 MAX_BANNER_LENGTH = 500
 
+
 def sanitize_target(target: str) -> str:
     """
     Sanitize pentest target — must be valid hostname/IP.
@@ -16,6 +17,7 @@ def sanitize_target(target: str) -> str:
     # Allow only valid hostname/IP chars
     cleaned = re.sub(r"[^\w\.\-:]", "", target)
     return cleaned[:MAX_TARGET_LENGTH]
+
 
 def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
     """
@@ -28,6 +30,7 @@ def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
     cleaned = re.sub(r"\{\{|\}\}", "", cleaned)
     cleaned = re.sub(r"<\|im_(start|end)\|>", "", cleaned)
     return cleaned[:max_length]
+
 
 def sanitize_banner(banner: str) -> str:
     """
@@ -67,6 +70,7 @@ def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
         sanitized.append({"role": role, "content": content})
     return sanitized
 
+
 def validate_json_output(raw: str, expected_keys: List[str] = None) -> Dict[str, Any]:
     """
     Validate and parse LLM JSON output.
@@ -89,6 +93,7 @@ def validate_json_output(raw: str, expected_keys: List[str] = None) -> Dict[str,
         return {"valid": True, "data": data}
     except json.JSONDecodeError as e:
         return {"valid": False, "error": str(e), "data": {}}
+
 
 def redact_sensitive(text: str) -> str:
     """Redact API keys, tokens, passwords from logs"""

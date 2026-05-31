@@ -2,6 +2,7 @@
 Multi-agent safety protocol.
 Scope validation + input sanitization + trust boundaries.
 """
+
 import ipaddress
 import re
 from typing import List
@@ -55,10 +56,10 @@ class InputSanitizer:
 
 class AgentTrustBoundary:
     AGENT_KB_PERMISSIONS = {
-        "recon":        ["recon"],
-        "intel":        ["intel"],
-        "exploit":      ["exploit"],
-        "report":       ["report"],
+        "recon": ["recon"],
+        "intel": ["intel"],
+        "exploit": ["exploit"],
+        "report": ["report"],
         "orchestrator": ["recon", "intel", "exploit", "report", "meta"],
     }
 
@@ -70,6 +71,4 @@ class AgentTrustBoundary:
     @classmethod
     def validate_write(cls, agent: str, key: str):
         if not cls.can_write(agent, key):
-            raise PermissionError(
-                f"Agent '{agent}' not allowed to write to KB key '{key}'"
-            )
+            raise PermissionError(f"Agent '{agent}' not allowed to write to KB key '{key}'")

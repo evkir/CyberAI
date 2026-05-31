@@ -1,6 +1,7 @@
 """
 reality-probe integration tests — mock client, no live server needed.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 from cyberai.integrations.reality_probe_client import RealityProbeClient, TLSResult
@@ -52,17 +53,13 @@ class TestTLSTool:
         assert out["findings"] == []
 
     def test_expired_cert_critical(self):
-        tool = TLSTool(client=self._mock_client(
-            make_result(cert_expiry_days=-5)
-        ))
+        tool = TLSTool(client=self._mock_client(make_result(cert_expiry_days=-5)))
         out = tool.run("test.example.com")
         severities = [f["severity"] for f in out["findings"]]
         assert "CRITICAL" in severities
 
     def test_deprecated_tls_high(self):
-        tool = TLSTool(client=self._mock_client(
-            make_result(tls_version="TLSv1.0")
-        ))
+        tool = TLSTool(client=self._mock_client(make_result(tls_version="TLSv1.0")))
         out = tool.run("test.example.com")
         severities = [f["severity"] for f in out["findings"]]
         assert "HIGH" in severities
@@ -75,9 +72,7 @@ class TestTLSTool:
         assert "error" in out
 
     def test_weak_cipher_finding(self):
-        tool = TLSTool(client=self._mock_client(
-            make_result(weak_ciphers=["RC4"])
-        ))
+        tool = TLSTool(client=self._mock_client(make_result(weak_ciphers=["RC4"])))
         out = tool.run("test.example.com")
         issues = [f["issue"] for f in out["findings"]]
         assert any("cipher" in i.lower() for i in issues)

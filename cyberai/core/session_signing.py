@@ -2,6 +2,7 @@
 Tamper-evident session audit trail.
 Each session event is HMAC-signed — any modification is detectable.
 """
+
 import hashlib
 import hmac
 import json
@@ -11,6 +12,7 @@ from typing import List
 import os
 
 SESSION_SECRET = os.getenv("CYBERAI_SESSION_SECRET", "dev-secret-change-in-prod")
+
 
 @dataclass
 class AuditEvent:
@@ -29,6 +31,7 @@ class AuditEvent:
             "target": self.target,
             "result_summary": self.result_summary,
         }
+
 
 class SessionSigner:
     """Signs and verifies audit events using HMAC-SHA256"""
@@ -74,7 +77,4 @@ class AuditTrail:
         return all(results)
 
     def get_report(self) -> List[dict]:
-        return [
-            {**e.to_dict(), "valid": self.signer.verify_event(e)}
-            for e in self.events
-        ]
+        return [{**e.to_dict(), "valid": self.signer.verify_event(e)} for e in self.events]

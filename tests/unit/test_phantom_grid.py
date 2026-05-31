@@ -12,6 +12,7 @@ from cyberai.integrations.oob_payloads import (
 
 # ── phantom-grid client tests ────────────────────────────────────────
 
+
 def test_client_unavailable_when_server_down():
     client = PhantomGridClient(base_url="http://127.0.0.1:19999")
     assert client.available is False
@@ -46,9 +47,7 @@ def test_get_interactions_returns_parsed(mock_httpx):
             }
         ]
     }
-    mock_httpx.return_value.__enter__.return_value.get.return_value = (
-        mock_resp
-    )
+    mock_httpx.return_value.__enter__.return_value.get.return_value = mock_resp
 
     client = PhantomGridClient()
     client._available = True
@@ -62,9 +61,7 @@ def test_get_interactions_returns_parsed(mock_httpx):
 
 @patch("cyberai.integrations.phantom_grid.httpx.Client")
 def test_get_interactions_empty_on_error(mock_httpx):
-    mock_httpx.return_value.__enter__.return_value.get.side_effect = (
-        Exception("connection refused")
-    )
+    mock_httpx.return_value.__enter__.return_value.get.side_effect = Exception("connection refused")
     client = PhantomGridClient()
     client._available = True
     result = client.get_interactions("xyz")
@@ -72,6 +69,7 @@ def test_get_interactions_empty_on_error(mock_httpx):
 
 
 # ── payload generator tests ──────────────────────────────────────────
+
 
 def test_ssrf_payloads_count():
     payloads = generate_ssrf_payloads("grid.example.com", "abc123")

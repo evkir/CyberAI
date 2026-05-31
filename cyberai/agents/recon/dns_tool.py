@@ -2,6 +2,7 @@ import dns.resolver
 import whois
 from typing import Dict, Any, List
 
+
 def run_whois(target: str) -> Dict[str, Any]:
     """Run whois lookup on target domain"""
     try:
@@ -18,6 +19,7 @@ def run_whois(target: str) -> Dict[str, Any]:
     except Exception as e:
         return {"target": target, "error": str(e)}
 
+
 def run_dns(target: str) -> Dict[str, Any]:
     """Enumerate DNS records for target"""
     results: Dict[str, Any] = {"target": target, "records": {}}
@@ -32,12 +34,22 @@ def run_dns(target: str) -> Dict[str, Any]:
 
     return results
 
+
 def detect_subdomains(target: str, wordlist: List[str] = None) -> Dict[str, Any]:
     """Basic subdomain bruteforce from wordlist"""
     if wordlist is None:
         wordlist = [
-            "www", "mail", "ftp", "admin", "api", "dev",
-            "staging", "vpn", "remote", "portal", "app"
+            "www",
+            "mail",
+            "ftp",
+            "admin",
+            "api",
+            "dev",
+            "staging",
+            "vpn",
+            "remote",
+            "portal",
+            "app",
         ]
     found = []
     for sub in wordlist:

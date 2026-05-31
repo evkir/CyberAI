@@ -2,6 +2,7 @@
 reality-probe TLS Analyzer client wrapper.
 Talks to reality-probe REST API, parses TLS scan results.
 """
+
 import httpx
 from dataclasses import dataclass, field
 from typing import Optional
@@ -9,14 +10,15 @@ import logging
 
 logger = logging.getLogger("cyberai.integrations.reality_probe")
 
+
 @dataclass
 class TLSResult:
     domain: str
-    tls_version: str           # e.g. "TLSv1.3"
-    alpn: list[str]            # e.g. ["h2", "http/1.1"]
+    tls_version: str  # e.g. "TLSv1.3"
+    alpn: list[str]  # e.g. ["h2", "http/1.1"]
     cert_expiry_days: int
     weak_ciphers: list[str]
-    score: str                 # "IDEAL" | "GOOD" | "AVERAGE" | "POOR"
+    score: str  # "IDEAL" | "GOOD" | "AVERAGE" | "POOR"
     raw: dict = field(default_factory=dict)
 
     @property

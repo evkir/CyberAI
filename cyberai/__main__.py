@@ -1,4 +1,5 @@
 """CyberAI CLI — entry point for the pentest pipeline."""
+
 from __future__ import annotations
 
 import click
@@ -65,12 +66,14 @@ def scan(
 def status() -> None:
     """Show CyberAI status and config."""
     config = CyberAIConfig.from_env()
-    console.print(Panel(
-        f"Provider: {config.llm.provider}\n"
-        f"Model: {config.llm.model}\n"
-        f"Output: {config.output_dir}",
-        title="CyberAI Status",
-    ))
+    console.print(
+        Panel(
+            f"Provider: {config.llm.provider}\n"
+            f"Model: {config.llm.model}\n"
+            f"Output: {config.output_dir}",
+            title="CyberAI Status",
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 Progress bars and spinners for CLI operations.
 Uses rich for clean terminal output.
 """
+
 from contextlib import contextmanager
 from rich.console import Console
 from rich.progress import (

@@ -45,21 +45,25 @@ def test_wildcard_scope():
 
 
 def test_high_risk_technique_warning():
-    paths = [{
-        "cve_id": "CVE-2024-1234",
-        "technique": "Remote code execution — low effort",
-        "success_probability": 0.5,
-    }]
+    paths = [
+        {
+            "cve_id": "CVE-2024-1234",
+            "technique": "Remote code execution — low effort",
+            "success_probability": 0.5,
+        }
+    ]
     result = validate_exploit_scope("93.184.216.34", [], paths)
     assert any("High-risk" in w for w in result.warnings)
 
 
 def test_high_probability_warning():
-    paths = [{
-        "cve_id": "CVE-2024-9999",
-        "technique": "Buffer overflow",
-        "success_probability": 0.95,
-    }]
+    paths = [
+        {
+            "cve_id": "CVE-2024-9999",
+            "technique": "Buffer overflow",
+            "success_probability": 0.95,
+        }
+    ]
     result = validate_exploit_scope("93.184.216.34", [], paths)
     assert any("95%" in w or "Very high" in w for w in result.warnings)
 
