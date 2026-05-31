@@ -1,20 +1,20 @@
 import json
 from typing import Dict
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from cyberai.core.session import PentestSession
 
 def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
     """Export full session as structured JSON report"""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"{output_dir}/report_{session.target}_{timestamp}.json"
     filename = filename.replace(":", "_").replace("/", "_")
 
     report = {
         "meta": {
-            "generated": datetime.utcnow().isoformat(),
+            "generated": datetime.now(timezone.utc).isoformat(),
             "tool": "CyberAI",
             "version": "0.1.0",
         },

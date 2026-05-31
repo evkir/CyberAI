@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from cyberai.core.session import PentestSession, Finding, Severity
 from cyberai.agents.report.markdown_renderer import render_markdown
 
@@ -9,7 +9,7 @@ def make_finding(title, severity, agent="test", cve=None):
         severity=severity,
         title=title,
         description=f"Test description for {title}",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         agent=agent,
         cve=cve,
     )
