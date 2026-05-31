@@ -1,6 +1,7 @@
 """
 /api/report — serve generated markdown/JSON reports.
 """
+
 from flask import Blueprint, jsonify, send_file, abort
 from pathlib import Path
 import os
@@ -44,10 +45,10 @@ def get_report(filename: str):
 
     suffix = report_path.suffix.lower()
     mime_map = {
-        ".md":   "text/markdown",
+        ".md": "text/markdown",
         ".json": "application/json",
         ".html": "text/html",
-        ".pdf":  "application/pdf",
+        ".pdf": "application/pdf",
     }
     mimetype = mime_map.get(suffix, "application/octet-stream")
     return send_file(report_path, mimetype=mimetype)

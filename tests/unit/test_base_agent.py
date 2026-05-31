@@ -1,4 +1,5 @@
 """Tests for the redesigned BaseAgent contract — day 4 of STANDOFF."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,12 +22,14 @@ class DummyAgent(BaseAgent):
     ROLE = "Test Agent"
 
     def _register_tools(self) -> None:
-        self.register_tool(Tool(
-            name="echo",
-            description="returns its input",
-            func=lambda value: value,
-            parameters={"value": "str"},
-        ))
+        self.register_tool(
+            Tool(
+                name="echo",
+                description="returns its input",
+                func=lambda value: value,
+                parameters={"value": "str"},
+            )
+        )
 
     def run(self, target, context=None):
         return {"target": target, "ok": True}

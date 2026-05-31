@@ -2,6 +2,7 @@
 --scope flag handler with IP range validation.
 Parses CIDR ranges and domain lists, builds ScopeConfig.
 """
+
 import ipaddress
 import re
 from typing import List

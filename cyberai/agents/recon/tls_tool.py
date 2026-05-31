@@ -2,6 +2,7 @@
 TLS analysis tool for ReconAgent.
 Surfaces cert expiry, weak ciphers, TLS version issues.
 """
+
 from cyberai.integrations.reality_probe_client import RealityProbeClient, TLSResult
 from cyberai.core.decorators import sanitize_input, log_agent_action
 from dataclasses import dataclass
@@ -10,54 +11,66 @@ import logging
 
 logger = logging.getLogger("cyberai.recon.tls")
 
+
 @dataclass
 class TLSFinding:
     domain: str
-    severity: str        # CRITICAL | HIGH | MEDIUM | LOW
+    severity: str  # CRITICAL | HIGH | MEDIUM | LOW
     issue: str
     detail: str
+
 
 def _classify_findings(result: TLSResult) -> list[TLSFinding]:
     findings = []
 
     if result.is_expired:
-        findings.append(TLSFinding(
-            domain=result.domain,
-            severity="CRITICAL",
-            issue="Certificate expired",
-            detail=f"Cert expired {abs(result.cert_expiry_days)} days ago",
-        ))
+        findings.append(
+            TLSFinding(
+                domain=result.domain,
+                severity="CRITICAL",
+                issue="Certificate expired",
+                detail=f"Cert expired {abs(result.cert_expiry_days)} days ago",
+            )
+        )
     elif result.is_expiring_soon:
-        findings.append(TLSFinding(
-            domain=result.domain,
-            severity="HIGH",
-            issue="Certificate expiring soon",
-            detail=f"Expires in {result.cert_expiry_days} days",
-        ))
+        findings.append(
+            TLSFinding(
+                domain=result.domain,
+                severity="HIGH",
+                issue="Certificate expiring soon",
+                detail=f"Expires in {result.cert_expiry_days} days",
+            )
+        )
 
     if result.tls_version in ("TLSv1.0", "TLSv1.1"):
-        findings.append(TLSFinding(
-            domain=result.domain,
-            severity="HIGH",
-            issue="Deprecated TLS version",
-            detail=f"Server supports {result.tls_version} — deprecated since RFC 8996",
-        ))
+        findings.append(
+            TLSFinding(
+                domain=result.domain,
+                severity="HIGH",
+                issue="Deprecated TLS version",
+                detail=f"Server supports {result.tls_version} — deprecated since RFC 8996",
+            )
+        )
 
     for cipher in result.weak_ciphers:
-        findings.append(TLSFinding(
-            domain=result.domain,
-            severity="MEDIUM",
-            issue="Weak cipher suite",
-            detail=f"Cipher {cipher} is considered weak",
-        ))
+        findings.append(
+            TLSFinding(
+                domain=result.domain,
+                severity="MEDIUM",
+                issue="Weak cipher suite",
+                detail=f"Cipher {cipher} is considered weak",
+            )
+        )
 
     if result.score == "POOR":
-        findings.append(TLSFinding(
-            domain=result.domain,
-            severity="HIGH",
-            issue="Poor TLS score",
-            detail="reality-probe scored this target POOR — review full TLS config",
-        ))
+        findings.append(
+            TLSFinding(
+                domain=result.domain,
+                severity="HIGH",
+                issue="Poor TLS score",
+                detail="reality-probe scored this target POOR — review full TLS config",
+            )
+        )
 
     return findings
 
@@ -80,8 +93,7 @@ class TLSTool:
 
         findings = _classify_findings(result)
 
-        logger.info(f"TLS scan {domain}: score={result.score}, "
-                    f"findings={len(findings)}")
+        logger.info(f"TLS scan {domain}: score={result.score}, findings={len(findings)}")
 
         return {
             "domain": domain,

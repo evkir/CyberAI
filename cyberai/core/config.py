@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 @dataclass
 class LLMConfig:
     provider: Literal["openai", "anthropic", "ollama"] = "openai"
@@ -14,13 +15,15 @@ class LLMConfig:
     api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     base_url: Optional[str] = None
     max_tokens: int = 4096
-    temperature: float = 0.2   # Low temp — we want deterministic pentest reasoning
+    temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
+
 
 @dataclass
 class PhantomConfig:
     intel_db: Path = Path("~/.phantom/intel.db")
     grid_url: str = "http://127.0.0.1:8080"
     grid_api_key: Optional[str] = field(default_factory=lambda: os.getenv("PHANTOM_GRID_KEY"))
+
 
 @dataclass
 class IntelConfig:

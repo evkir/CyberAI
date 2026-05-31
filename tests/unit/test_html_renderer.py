@@ -10,13 +10,13 @@ from cyberai.agents.report.html_renderer import (
 
 SESSION = {
     "session_id": "abc123",
-    "target":     "10.0.0.1",
-    "state":      "completed",
+    "target": "10.0.0.1",
+    "state": "completed",
     "duration_s": 42.5,
     "phases": [
-        {"phase": "recon",  "success": True,  "duration_s": 5.1, "error": None},
-        {"phase": "intel",  "success": True,  "duration_s": 8.3, "error": None},
-        {"phase": "exploit","success": False, "duration_s": 2.0, "error": "timeout"},
+        {"phase": "recon", "success": True, "duration_s": 5.1, "error": None},
+        {"phase": "intel", "success": True, "duration_s": 8.3, "error": None},
+        {"phase": "exploit", "success": False, "duration_s": 2.0, "error": "timeout"},
     ],
 }
 

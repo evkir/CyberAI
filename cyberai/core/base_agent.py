@@ -8,6 +8,7 @@ audit) and exposes the attributes agents actually use:
   self.config, self.session, self.kb, self.llm, self.audit, self.memory
 plus helper methods _check_iteration_limit() and _log().
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -40,11 +41,12 @@ class Tool:
     tools with `parameters=...` (KI-6). Pass either; they are kept
     in sync.
     """
-    name:        str
+
+    name: str
     description: str
-    func:        Callable
-    params:      Dict[str, str] = field(default_factory=dict)
-    parameters:  Optional[Dict[str, str]] = None
+    func: Callable
+    params: Dict[str, str] = field(default_factory=dict)
+    parameters: Optional[Dict[str, str]] = None
 
     def __post_init__(self) -> None:
         # KI-6: agents pass parameters=...; mirror it into params.
@@ -113,22 +115,20 @@ class BaseAgent(ABC):
 
     def __init__(
         self,
-        config:  CyberAIConfig,
+        config: CyberAIConfig,
         session: "ScanSession",
-        llm:     Optional["LLMClient"] = None,
-        audit:   Optional[AuditLogger] = None,
+        llm: Optional["LLMClient"] = None,
+        audit: Optional[AuditLogger] = None,
     ) -> None:
-        self.config  = config
+        self.config = config
         self.session = session
-        self.llm     = llm
+        self.llm = llm
         # KB is taken from the session if present, else a fresh one.
         self.kb: KnowledgeBase = getattr(session, "kb", None) or KnowledgeBase()
         if not isinstance(self.kb, KnowledgeBase):
             # legacy ScanSession.kb may be a plain dict — wrap it
             self.kb = KnowledgeBase()
-        self.audit = audit or AuditLogger(
-            session_id=getattr(session, "session_id", "unknown")
-        )
+        self.audit = audit or AuditLogger(session_id=getattr(session, "session_id", "unknown"))
         self.memory = AgentMemory()
 
         self.tools: Dict[str, Tool] = {}
@@ -151,9 +151,7 @@ class BaseAgent(ABC):
 
     def call_tool(self, tool_name: str, **kwargs: Any) -> Any:
         if tool_name not in self.tools:
-            raise ValueError(
-                f"Tool '{tool_name}' not registered in {self.AGENT_NAME}"
-            )
+            raise ValueError(f"Tool '{tool_name}' not registered in {self.AGENT_NAME}")
         tool = self.tools[tool_name]
         self.audit.agent_action(self.AGENT_NAME, f"calling tool: {tool_name}", kwargs)
         console.print(f"[dim cyan][{self.AGENT_NAME}] → {tool_name}[/dim cyan]")
@@ -170,9 +168,7 @@ class BaseAgent(ABC):
         self._iterations += 1
         limit = getattr(self.config, "max_agent_iterations", 10)
         if self._iterations > limit:
-            raise AgentIterationLimitError(
-                f"{self.AGENT_NAME} exceeded {limit} iterations"
-            )
+            raise AgentIterationLimitError(f"{self.AGENT_NAME} exceeded {limit} iterations")
 
     # ── logging ───────────────────────────────────────────────────────
 

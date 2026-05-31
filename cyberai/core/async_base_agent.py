@@ -2,6 +2,7 @@
 Async base agent — non-blocking tool execution via asyncio.
 Drop-in async companion to BaseAgent.
 """
+
 import asyncio
 import logging
 from typing import Any, Optional
@@ -40,9 +41,7 @@ class AsyncBaseAgent:
             )
             return result
         except asyncio.TimeoutError:
-            logger.warning(
-                f"[{self.name}] tool call timed out after {self.timeout}s"
-            )
+            logger.warning(f"[{self.name}] tool call timed out after {self.timeout}s")
             return {"error": f"timeout after {self.timeout}s"}
         except Exception as e:
             logger.error(f"[{self.name}] tool call failed: {e}")

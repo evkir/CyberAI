@@ -2,6 +2,7 @@
 Error recovery strategies for the Orchestrator pipeline.
 Defines fallback behaviours when agents fail.
 """
+
 import logging
 from typing import Callable, Optional
 from dataclasses import dataclass
@@ -63,25 +64,31 @@ class PipelineRecovery:
     def intel(fn: Callable, *args, **kwargs) -> dict:
         """Intel is optional — fallback to empty context."""
         return with_fallback(
-            "intel", fn,
+            "intel",
+            fn,
             fallback={"cves": [], "risk": "UNKNOWN", "_degraded": True},
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
     @staticmethod
     def exploit(fn: Callable, *args, **kwargs) -> dict:
         """Exploit is optional — fallback to empty paths."""
         return with_fallback(
-            "exploit", fn,
+            "exploit",
+            fn,
             fallback={"attack_paths": [], "_degraded": True},
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
     @staticmethod
     def report(fn: Callable, *args, **kwargs) -> dict:
         """Report is optional — fallback to raw data passthrough."""
         return with_fallback(
-            "report", fn,
+            "report",
+            fn,
             fallback={"status": "report_failed", "_degraded": True},
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )

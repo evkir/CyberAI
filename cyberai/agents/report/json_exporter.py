@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from cyberai.core.session import PentestSession
 
+
 def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
     """Export full session as structured JSON report"""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -38,9 +39,9 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
             }
             for f in session.findings
         ],
-        "attack_paths": session.knowledge_base.get(
-            "exploit.attack_paths", {}
-        ).get("attack_paths", []),
+        "attack_paths": session.knowledge_base.get("exploit.attack_paths", {}).get(
+            "attack_paths", []
+        ),
         "knowledge_base_keys": list(session.knowledge_base.keys()),
         "agent_log": session.agent_log,
     }
@@ -50,16 +51,15 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
 
     return filename
 
+
 def export_summary(session: PentestSession) -> Dict:
     """Return lightweight summary dict — for CLI display"""
     return {
         **session.summary(),
         "findings_by_severity": {
             sev: [
-                {"id": f.id, "title": f.title}
-                for f in session.findings
-                if f.severity.value == sev
+                {"id": f.id, "title": f.title} for f in session.findings if f.severity.value == sev
             ]
             for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
-        }
+        },
     }

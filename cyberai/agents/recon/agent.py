@@ -1,4 +1,5 @@
 """ReconAgent — nmap → whois → DNS → subdomain enumeration."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -21,30 +22,38 @@ class ReconAgent(BaseAgent):
     ROLE = "Reconnaissance Specialist"
 
     def _register_tools(self) -> None:
-        self.register_tool(Tool(
-            name="nmap_scan",
-            description="Port scan target with nmap",
-            func=run_nmap,
-            parameters={"target": "str", "flags": "str"},
-        ))
-        self.register_tool(Tool(
-            name="whois_lookup",
-            description="WHOIS lookup for domain info",
-            func=run_whois,
-            parameters={"target": "str"},
-        ))
-        self.register_tool(Tool(
-            name="dns_enum",
-            description="DNS record enumeration",
-            func=run_dns,
-            parameters={"target": "str"},
-        ))
-        self.register_tool(Tool(
-            name="subdomain_scan",
-            description="Subdomain bruteforce",
-            func=detect_subdomains,
-            parameters={"target": "str"},
-        ))
+        self.register_tool(
+            Tool(
+                name="nmap_scan",
+                description="Port scan target with nmap",
+                func=run_nmap,
+                parameters={"target": "str", "flags": "str"},
+            )
+        )
+        self.register_tool(
+            Tool(
+                name="whois_lookup",
+                description="WHOIS lookup for domain info",
+                func=run_whois,
+                parameters={"target": "str"},
+            )
+        )
+        self.register_tool(
+            Tool(
+                name="dns_enum",
+                description="DNS record enumeration",
+                func=run_dns,
+                parameters={"target": "str"},
+            )
+        )
+        self.register_tool(
+            Tool(
+                name="subdomain_scan",
+                description="Subdomain bruteforce",
+                func=detect_subdomains,
+                parameters={"target": "str"},
+            )
+        )
 
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         results: Dict[str, Any] = {}
@@ -95,10 +104,7 @@ class ReconAgent(BaseAgent):
             ports=[OpenPort(**p) for p in ports if isinstance(p, dict)],
             whois=whois_result if isinstance(whois_result, dict) else {},
             dns=dns_result if isinstance(dns_result, dict) else {},
-            subdomains=(
-                sub_result.get("subdomains", [])
-                if isinstance(sub_result, dict) else []
-            ),
+            subdomains=(sub_result.get("subdomains", []) if isinstance(sub_result, dict) else []),
         )
         self.kb.set("recon.result", recon_result.model_dump(), agent=self.AGENT_NAME)
 

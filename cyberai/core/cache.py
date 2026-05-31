@@ -2,6 +2,7 @@
 Simple file-based JSON cache for NVD API responses.
 Avoids hammering the API and respects rate limits.
 """
+
 from __future__ import annotations
 import json
 import hashlib

@@ -2,27 +2,29 @@
 Shared type aliases across all agent modules.
 Centralises type hints — import from here, not redefine everywhere.
 """
+
 from typing import Any, Union
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 # Target types
-Target = str                        # IP, CIDR, or domain
-PortNumber = int                    # 1-65535
-ServiceName = str                   # "http", "ssh", etc.
+Target = str  # IP, CIDR, or domain
+PortNumber = int  # 1-65535
+ServiceName = str  # "http", "ssh", etc.
 
 # Agent I/O
-AgentInput  = dict[str, Any]        # input to any agent
-AgentOutput = dict[str, Any]        # output from any agent
+AgentInput = dict[str, Any]  # input to any agent
+AgentOutput = dict[str, Any]  # output from any agent
 
 # Recon
-PortList     = list[PortNumber]
-ServiceMap   = dict[str, ServiceName]   # "80" -> "http"
+PortList = list[PortNumber]
+ServiceMap = dict[str, ServiceName]  # "80" -> "http"
 
 
 class OpenPort(BaseModel):
     """A single open port discovered during recon."""
+
     port: int
     protocol: str = "tcp"
     service: str = "unknown"
@@ -31,20 +33,23 @@ class OpenPort(BaseModel):
 
 class ReconResult(BaseModel):
     """Structured output of the ReconAgent."""
+
     target: str
     ports: list[OpenPort] = Field(default_factory=list)
     whois: dict[str, Any] = Field(default_factory=dict)
     dns: dict[str, Any] = Field(default_factory=dict)
     subdomains: list[str] = Field(default_factory=list)
 
+
 # Intel
-CVEId        = str                  # "CVE-2024-1234"
-CVEList      = list[CVEId]
-RiskLevel    = str                  # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
+CVEId = str  # "CVE-2024-1234"
+CVEList = list[CVEId]
+RiskLevel = str  # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
 
 
 class CVEEntry(BaseModel):
     """A single CVE with scoring and threat-intel context."""
+
     id: str
     cvss: float = 0.0
     severity: str = "UNKNOWN"
@@ -56,15 +61,18 @@ class CVEEntry(BaseModel):
 
 class IntelResult(BaseModel):
     """Structured output of the IntelAgent."""
+
     target: str
     cves: list[CVEEntry] = Field(default_factory=list)
     services: dict[str, Any] = Field(default_factory=dict)
+
 
 # Exploit
 
 
 class AttackPath(BaseModel):
     """A single attack path derived from one CVE."""
+
     cve_id: str
     attack_vector: str = "Unknown"
     attack_complexity: str = "Unknown"
@@ -77,6 +85,7 @@ class AttackPath(BaseModel):
 
 class ExploitChain(BaseModel):
     """An ordered, MITRE-mapped sequence of exploitation steps."""
+
     target: str
     chain_length: int = 0
     steps: list[dict[str, Any]] = Field(default_factory=list)
@@ -85,18 +94,20 @@ class ExploitChain(BaseModel):
 
 class ExploitResult(BaseModel):
     """Structured output of the ExploitAgent."""
+
     target: str
     attack_paths: list[AttackPath] = Field(default_factory=list)
     chain: ExploitChain | None = None
     ai_analysis: str = ""
 
+
 # Report
-ReportPath   = Path
-ReportFormat = str                  # "markdown" | "html" | "json" | "pdf"
+ReportPath = Path
+ReportFormat = str  # "markdown" | "html" | "json" | "pdf"
 
 # Pipeline
-PipelineInput  = Target
+PipelineInput = Target
 PipelineOutput = dict[str, AgentOutput]
 
 # Safety
-ScopeEntry = Union[str, None]       # IP, CIDR, or domain string
+ScopeEntry = Union[str, None]  # IP, CIDR, or domain string
