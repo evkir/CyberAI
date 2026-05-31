@@ -10,6 +10,7 @@ This module holds:
 The legacy `cyberai.core.session` module re-exports everything from here
 for backward compatibility; new code should import from `scan_session`.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -25,30 +26,30 @@ from cyberai.core.knowledge_base import KnowledgeBase
 
 
 class ScanState(str, Enum):
-    CREATED   = "created"
-    RUNNING   = "running"
-    RECON     = "recon"
-    INTEL     = "intel"
-    EXPLOIT   = "exploit"
-    REPORT    = "report"
+    CREATED = "created"
+    RUNNING = "running"
+    RECON = "recon"
+    INTEL = "intel"
+    EXPLOIT = "exploit"
+    REPORT = "report"
     COMPLETED = "completed"
-    FAILED    = "failed"
+    FAILED = "failed"
     CANCELLED = "cancelled"
 
 
 class ScanPhase(str, Enum):
-    RECON   = "recon"
-    INTEL   = "intel"
+    RECON = "recon"
+    INTEL = "intel"
     EXPLOIT = "exploit"
-    REPORT  = "report"
+    REPORT = "report"
 
 
 class Severity(str, Enum):
     CRITICAL = "CRITICAL"
-    HIGH     = "HIGH"
-    MEDIUM   = "MEDIUM"
-    LOW      = "LOW"
-    INFO     = "INFO"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    INFO = "INFO"
 
 
 # ── models ────────────────────────────────────────────────────────────
@@ -62,23 +63,24 @@ class Finding:
     Fields target/evidence/cve_ids added in day 3 (KI-5 fix) — agents
     were already passing these but the dataclass didn't accept them.
     """
-    id:          int
-    severity:    Severity
-    title:       str
+
+    id: int
+    severity: Severity
+    title: str
     description: str
-    timestamp:   str
-    agent:       str
+    timestamp: str
+    agent: str
 
     # Legacy single-CVE field (kept for backward compat with old callers)
-    cve:         Optional[str]    = None
+    cve: Optional[str] = None
     # New: list of CVEs (some findings reference multiple)
-    cve_ids:     List[str]        = field(default_factory=list)
+    cve_ids: List[str] = field(default_factory=list)
     # New: target this finding was made against (host, URL, contract addr)
-    target:      Optional[str]    = None
+    target: Optional[str] = None
     # New: artifacts proving the finding (nmap output, request/response, etc.)
-    evidence:    List[Any]        = field(default_factory=list)
+    evidence: List[Any] = field(default_factory=list)
     # Free-form structured data
-    data:        Any              = None
+    data: Any = None
 
     def __post_init__(self) -> None:
         # Keep `cve` and `cve_ids` in sync for callers that use either
@@ -90,13 +92,13 @@ class Finding:
 
 @dataclass
 class PhaseResult:
-    phase:      ScanPhase
-    success:    bool
+    phase: ScanPhase
+    success: bool
     started_at: str
-    ended_at:   str
+    ended_at: str
     duration_s: float
-    data:       Dict[str, Any] = field(default_factory=dict)
-    error:      Optional[str]  = None
+    data: Dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
 
 
 # ── session ───────────────────────────────────────────────────────────
@@ -104,37 +106,37 @@ class PhaseResult:
 
 @dataclass
 class ScanSession:
-    target:           str
-    session_id:       str               = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    state:            ScanState         = ScanState.CREATED
-    created_at:       str               = field(default_factory=lambda: _now())
-    started_at:       Optional[str]     = None
-    ended_at:         Optional[str]     = None
-    phases:           List[PhaseResult] = field(default_factory=list)
-    kb:               KnowledgeBase     = field(default_factory=KnowledgeBase)
-    errors:           List[str]         = field(default_factory=list)
-    authorized_scope: List[str]         = field(default_factory=list)
+    target: str
+    session_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    state: ScanState = ScanState.CREATED
+    created_at: str = field(default_factory=lambda: _now())
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+    phases: List[PhaseResult] = field(default_factory=list)
+    kb: KnowledgeBase = field(default_factory=KnowledgeBase)
+    errors: List[str] = field(default_factory=list)
+    authorized_scope: List[str] = field(default_factory=list)
 
     # Findings live on the session — added in day 3 to unify with PentestSession
-    findings:         List[Finding]     = field(default_factory=list)
+    findings: List[Finding] = field(default_factory=list)
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
     def start(self) -> None:
-        self.state      = ScanState.RUNNING
+        self.state = ScanState.RUNNING
         self.started_at = _now()
 
     def complete(self) -> None:
-        self.state    = ScanState.COMPLETED
+        self.state = ScanState.COMPLETED
         self.ended_at = _now()
 
     def fail(self, reason: str) -> None:
-        self.state    = ScanState.FAILED
+        self.state = ScanState.FAILED
         self.ended_at = _now()
         self.errors.append(reason)
 
     def cancel(self) -> None:
-        self.state    = ScanState.CANCELLED
+        self.state = ScanState.CANCELLED
         self.ended_at = _now()
 
     def set_phase(self, phase: ScanPhase) -> None:
@@ -144,28 +146,28 @@ class ScanSession:
 
     def add_finding(
         self,
-        severity:    Severity,
-        title:       str,
+        severity: Severity,
+        title: str,
         description: str,
-        agent:       str,
-        target:      Optional[str]    = None,
-        cve:         Optional[str]    = None,
-        cve_ids:     Optional[List[str]] = None,
-        evidence:    Optional[List[Any]] = None,
-        data:        Any              = None,
+        agent: str,
+        target: Optional[str] = None,
+        cve: Optional[str] = None,
+        cve_ids: Optional[List[str]] = None,
+        evidence: Optional[List[Any]] = None,
+        data: Any = None,
     ) -> Finding:
         f = Finding(
-            id          = len(self.findings) + 1,
-            severity    = severity,
-            title       = title,
-            description = description,
-            timestamp   = _now(),
-            agent       = agent,
-            target      = target or self.target,
-            cve         = cve,
-            cve_ids     = cve_ids or [],
-            evidence    = evidence or [],
-            data        = data,
+            id=len(self.findings) + 1,
+            severity=severity,
+            title=title,
+            description=description,
+            timestamp=_now(),
+            agent=agent,
+            target=target or self.target,
+            cve=cve,
+            cve_ids=cve_ids or [],
+            evidence=evidence or [],
+            data=data,
         )
         self.findings.append(f)
         return f
@@ -174,22 +176,22 @@ class ScanSession:
 
     def record_phase(
         self,
-        phase:    ScanPhase,
-        success:  bool,
-        started:  str,
-        data:     Optional[Dict[str, Any]] = None,
-        error:    Optional[str] = None,
+        phase: ScanPhase,
+        success: bool,
+        started: str,
+        data: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None,
     ) -> PhaseResult:
         ended = _now()
         duration = _delta(started, ended)
         result = PhaseResult(
-            phase      = phase,
-            success    = success,
-            started_at = started,
-            ended_at   = ended,
-            duration_s = duration,
-            data       = data or {},
-            error      = error,
+            phase=phase,
+            success=success,
+            started_at=started,
+            ended_at=ended,
+            duration_s=duration,
+            data=data or {},
+            error=error,
         )
         self.phases.append(result)
         return result
@@ -214,18 +216,18 @@ class ScanSession:
             severity_counts[f.severity.value] += 1
 
         return {
-            "session_id":         self.session_id,
-            "target":             self.target,
-            "state":              self.state.value,
-            "created_at":         self.created_at,
-            "started_at":         self.started_at,
-            "ended_at":           self.ended_at,
-            "duration_s":         duration,
-            "phases":             [_phase_summary(p) for p in self.phases],
-            "findings_total":     len(self.findings),
+            "session_id": self.session_id,
+            "target": self.target,
+            "state": self.state.value,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "duration_s": duration,
+            "phases": [_phase_summary(p) for p in self.phases],
+            "findings_total": len(self.findings),
             "severity_breakdown": severity_counts,
-            "errors":             self.errors,
-            "kb_keys":            list(self.kb.keys()),
+            "errors": self.errors,
+            "kb_keys": list(self.kb.keys()),
         }
 
     def __repr__(self) -> str:
@@ -254,8 +256,8 @@ def _delta(start: str, end: str) -> float:
 
 def _phase_summary(p: PhaseResult) -> Dict[str, Any]:
     return {
-        "phase":      p.phase.value,
-        "success":    p.success,
+        "phase": p.phase.value,
+        "success": p.success,
         "duration_s": p.duration_s,
-        "error":      p.error,
+        "error": p.error,
     }

@@ -8,7 +8,8 @@ from .oob_payloads import (
 )
 
 __all__ = [
-    "PhantomGridClient", "OOBInteraction",
+    "PhantomGridClient",
+    "OOBInteraction",
     "get_all_payloads",
     "generate_ssrf_payloads",
     "generate_xxe_payloads",

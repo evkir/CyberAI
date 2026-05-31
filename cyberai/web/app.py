@@ -2,6 +2,7 @@
 CyberAI Flask API server.
 REST interface for starting scans, querying sessions, serving reports.
 """
+
 from flask import Flask, jsonify
 from cyberai.web.routes.session import session_bp
 from cyberai.web.routes.report import report_bp
@@ -16,7 +17,7 @@ def create_app() -> Flask:
 
     # Register blueprints
     app.register_blueprint(session_bp, url_prefix="/api")
-    app.register_blueprint(report_bp,  url_prefix="/api")
+    app.register_blueprint(report_bp, url_prefix="/api")
 
     @app.get("/health")
     def health():

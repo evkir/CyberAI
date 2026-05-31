@@ -8,19 +8,23 @@ from cyberai.core.rate_limiter import (
 
 
 def test_acquire_no_wait():
-    limiter = RateLimiter(RateLimiterConfig(
-        requests_per_window=10,
-        window_seconds=30.0,
-    ))
+    limiter = RateLimiter(
+        RateLimiterConfig(
+            requests_per_window=10,
+            window_seconds=30.0,
+        )
+    )
     wait = limiter.acquire()
     assert wait == 0.0
 
 
 def test_stats_tracks_requests():
-    limiter = RateLimiter(RateLimiterConfig(
-        requests_per_window=10,
-        window_seconds=30.0,
-    ))
+    limiter = RateLimiter(
+        RateLimiterConfig(
+            requests_per_window=10,
+            window_seconds=30.0,
+        )
+    )
     limiter.acquire()
     limiter.acquire()
     limiter.acquire()
@@ -28,10 +32,12 @@ def test_stats_tracks_requests():
 
 
 def test_rate_limit_enforced():
-    limiter = RateLimiter(RateLimiterConfig(
-        requests_per_window=3,
-        window_seconds=1.0,
-    ))
+    limiter = RateLimiter(
+        RateLimiterConfig(
+            requests_per_window=3,
+            window_seconds=1.0,
+        )
+    )
     for _ in range(3):
         limiter.acquire()
     start = time.monotonic()

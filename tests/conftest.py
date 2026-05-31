@@ -5,6 +5,7 @@ Note: The `fresh_session` fixture currently uses PentestSession.
 This will change to ScanSession in day 3 of the STANDOFF plan,
 when the two competing session types are unified.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -19,6 +20,7 @@ from cyberai.core.session import PentestSession
 # ---------------------------------------------------------------------------
 # Config & sessions
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def base_config() -> CyberAIConfig:
@@ -47,6 +49,7 @@ def session_with_recon(fresh_session: PentestSession) -> PentestSession:
 # ---------------------------------------------------------------------------
 # Mocked external services
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_llm_client() -> MagicMock:
@@ -124,16 +127,13 @@ def mock_nvd_response() -> dict[str, Any]:
                                     "baseScore": 9.8,
                                     "baseSeverity": "CRITICAL",
                                     "vectorString": (
-                                        "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/"
-                                        "S:U/C:H/I:H/A:H"
+                                        "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
                                     ),
                                 }
                             }
                         ]
                     },
-                    "descriptions": [
-                        {"lang": "en", "value": "Synthetic test CVE for fixtures."}
-                    ],
+                    "descriptions": [{"lang": "en", "value": "Synthetic test CVE for fixtures."}],
                 }
             }
         ],

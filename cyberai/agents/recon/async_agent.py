@@ -1,6 +1,7 @@
 """
 Async ReconAgent — parallel nmap + DNS + TLS via asyncio.
 """
+
 import asyncio
 import logging
 from cyberai.core.async_base_agent import AsyncBaseAgent
@@ -22,12 +23,10 @@ class AsyncReconAgent(AsyncBaseAgent):
         logger.info(f"[AsyncReconAgent] parallel recon on {target}")
 
         nmap_task = self.run_tool(run_nmap, target)
-        dns_task  = self.run_tool(run_dns, target)
-        tls_task  = self.run_tool(self.tls.run, target)
+        dns_task = self.run_tool(run_dns, target)
+        tls_task = self.run_tool(self.tls.run, target)
 
-        nmap_result, dns_result, tls_result = await asyncio.gather(
-            nmap_task, dns_task, tls_task
-        )
+        nmap_result, dns_result, tls_result = await asyncio.gather(nmap_task, dns_task, tls_task)
 
         return {
             "target": target,
@@ -42,6 +41,7 @@ class AsyncIntelAgent(AsyncBaseAgent):
 
     async def run(self, recon_result: dict, **kwargs) -> dict:
         from cyberai.agents.intel.agent import IntelAgent
+
         intel = IntelAgent()
         return await self.run_tool(intel.run, recon_result)
 
@@ -51,5 +51,6 @@ class AsyncExploitAgent(AsyncBaseAgent):
 
     async def run(self, intel_result: dict, **kwargs) -> dict:
         from cyberai.agents.exploit.agent import ExploitAgent
+
         exploit = ExploitAgent()
         return await self.run_tool(exploit.run, intel_result)

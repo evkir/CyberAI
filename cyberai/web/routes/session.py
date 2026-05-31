@@ -1,6 +1,7 @@
 """
 /api/session — start scans, query session state.
 """
+
 from flask import Blueprint, request, jsonify
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Optional
@@ -19,7 +20,7 @@ _lock = threading.Lock()
 class SessionRecord:
     session_id: str
     target: str
-    status: str = "pending"      # pending | running | done | error
+    status: str = "pending"  # pending | running | done | error
     created_at: float = field(default_factory=time.time)
     completed_at: Optional[float] = None
     result: dict = field(default_factory=dict)
@@ -53,11 +54,13 @@ def create_session():
     )
     thread.start()
 
-    return jsonify({
-        "session_id": session_id,
-        "target": target,
-        "status": "pending",
-    }), 202
+    return jsonify(
+        {
+            "session_id": session_id,
+            "target": target,
+            "status": "pending",
+        }
+    ), 202
 
 
 @session_bp.get("/session/<session_id>")
@@ -100,8 +103,7 @@ def _run_pipeline(session_id: str, target: str):
             error=result.error,
         )
     except Exception as e:
-        _update(session_id, status="error", error=str(e),
-                completed_at=time.time())
+        _update(session_id, status="error", error=str(e), completed_at=time.time())
 
 
 def _update(session_id: str, **kwargs):

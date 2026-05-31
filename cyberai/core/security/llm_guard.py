@@ -2,9 +2,12 @@ from typing import List, Dict, Optional
 from .injection_detector import scan_messages
 from .input_sanitizer import sanitize_llm_input, validate_json_output, redact_sensitive
 
+
 class SecurityError(Exception):
     """Raised when a security violation is detected"""
+
     pass
+
 
 class LLMGuard:
     """
@@ -15,6 +18,7 @@ class LLMGuard:
         guard = LLMGuard(llm_client, strict=True)
         response = guard.call(messages, system=system_prompt)
     """
+
     def __init__(self, llm_client, strict: bool = False):
         self.client = llm_client
         self.strict = strict  # If True, block on detection. Else, warn + sanitize.
@@ -36,9 +40,7 @@ class LLMGuard:
             summary = f"Injection detected in {scan['injections_found']} message(s)"
 
             if self.strict:
-                raise SecurityError(
-                    f"{summary}: {[d['matches'] for d in details]}"
-                )
+                raise SecurityError(f"{summary}: {[d['matches'] for d in details]}")
             else:
                 # Warn but continue with sanitized input
                 print(f"[LLMGuard] WARNING: {summary} — sanitizing input")

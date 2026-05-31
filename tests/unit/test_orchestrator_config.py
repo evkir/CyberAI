@@ -4,6 +4,7 @@ Tests for Orchestrator + CyberAIConfig integration — day 5 of STANDOFF.
 Covers the KI-1 fix: orchestrator accepts config, builds llm lazily,
 and the CLI wiring works in dry-run.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -59,9 +60,7 @@ def test_cli_scan_dry_run_exits_zero():
 
 def test_cli_scan_dry_run_with_scope():
     runner = CliRunner()
-    result = runner.invoke(
-        cli, ["scan", "10.0.0.1", "--dry-run", "--scope", "10.0.0.0/24"]
-    )
+    result = runner.invoke(cli, ["scan", "10.0.0.1", "--dry-run", "--scope", "10.0.0.0/24"])
     assert result.exit_code == 0, result.output
 
 

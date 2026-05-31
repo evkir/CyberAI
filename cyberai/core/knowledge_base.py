@@ -5,6 +5,7 @@ Day 4 of STANDOFF: `agent` is now optional (defaults to "unknown") so
 agents can write quick entries without always naming themselves; the
 mutable default `tags=[]` bug is fixed; datetime is timezone-aware.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,11 +19,11 @@ def _now() -> str:
 
 @dataclass
 class KBEntry:
-    key:       str
-    value:     Any
-    agent:     str = "unknown"
+    key: str
+    value: Any
+    agent: str = "unknown"
     timestamp: str = field(default_factory=_now)
-    tags:      List[str] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)
 
 
 class KnowledgeBase:
@@ -37,10 +38,10 @@ class KnowledgeBase:
 
     def set(
         self,
-        key:   str,
+        key: str,
         value: Any,
         agent: str = "unknown",
-        tags:  Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
     ) -> None:
         entry = KBEntry(key=key, value=value, agent=agent, tags=tags or [])
         self._store[key] = entry
@@ -51,10 +52,7 @@ class KnowledgeBase:
         return entry.value if entry else default
 
     def get_by_tag(self, tag: str) -> Dict[str, Any]:
-        return {
-            k: v.value for k, v in self._store.items()
-            if tag in v.tags
-        }
+        return {k: v.value for k, v in self._store.items() if tag in v.tags}
 
     def keys(self) -> List[str]:
         return list(self._store.keys())
@@ -63,10 +61,7 @@ class KnowledgeBase:
         return {k: v.value for k, v in self._store.items()}
 
     def history(self) -> List[Dict]:
-        return [
-            {"key": e.key, "agent": e.agent, "timestamp": e.timestamp}
-            for e in self._history
-        ]
+        return [{"key": e.key, "agent": e.agent, "timestamp": e.timestamp} for e in self._history]
 
     # ── dict-like access ──────────────────────────────────────────────
     # Some agents treat the KB like a dict (kb["recon.nmap"]).

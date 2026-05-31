@@ -20,7 +20,8 @@ def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
         if response.status_code in (429, 503):
             raise httpx.HTTPStatusError(
                 f"NVD transient {response.status_code}",
-                request=response.request, response=response,
+                request=response.request,
+                response=response,
             )
         response.raise_for_status()
         return response.json()
@@ -35,9 +36,7 @@ def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def search_cves(
-    keyword: str,
-    max_results: int = 10,
-    severity: Optional[str] = None
+    keyword: str, max_results: int = 10, severity: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Search NVD API 2.0 for CVEs matching keyword.
@@ -62,6 +61,7 @@ def search_cves(
     except Exception as e:
         return {"keyword": keyword, "error": str(e)}
 
+
 def get_cve(cve_id: str) -> Dict[str, Any]:
     """Fetch single CVE by ID e.g. CVE-2024-1234"""
     try:
@@ -72,6 +72,7 @@ def get_cve(cve_id: str) -> Dict[str, Any]:
         return _parse_cves(vulns)[0]
     except Exception as e:
         return {"cve_id": cve_id, "error": str(e)}
+
 
 def _parse_cves(vulns: List[Dict]) -> List[Dict]:
     """Extract key fields from NVD vulnerability objects"""
@@ -95,16 +96,16 @@ def _parse_cves(vulns: List[Dict]) -> List[Dict]:
         descriptions = cve.get("descriptions", [])
         desc = next(
             (d["value"] for d in descriptions if d.get("lang") == "en"),
-            "No description"
+            "No description",
         )
 
-        results.append({
-            "id": cve.get("id"),
-            "description": desc[:300],
-            "cvss": cvss,
-            "published": cve.get("published", ""),
-            "references": [
-                r["url"] for r in cve.get("references", [])[:3]
-            ],
-        })
+        results.append(
+            {
+                "id": cve.get("id"),
+                "description": desc[:300],
+                "cvss": cvss,
+                "published": cve.get("published", ""),
+                "references": [r["url"] for r in cve.get("references", [])[:3]],
+            }
+        )
     return results

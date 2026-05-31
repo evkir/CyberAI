@@ -1,7 +1,12 @@
 import pytest
 from cyberai.agents.intel.cve_scorer import (
-    score_cve, score_all, CVEScore,
-    CVSS_WEIGHT, EXPLOIT_WEIGHT, RECENCY_WEIGHT, EPSS_WEIGHT,
+    score_cve,
+    score_all,
+    CVEScore,
+    CVSS_WEIGHT,
+    EXPLOIT_WEIGHT,
+    RECENCY_WEIGHT,
+    EPSS_WEIGHT,
 )
 
 CRITICAL_CVE = {
@@ -57,9 +62,16 @@ def test_score_all_sorted_desc():
 
 def test_to_dict_keys():
     d = score_cve(CRITICAL_CVE).to_dict()
-    for key in ["cve_id", "cvss", "composite_score",
-                "severity_tier", "exploit_bonus",
-                "recency_bonus", "epss_bonus", "reasoning"]:
+    for key in [
+        "cve_id",
+        "cvss",
+        "composite_score",
+        "severity_tier",
+        "exploit_bonus",
+        "recency_bonus",
+        "epss_bonus",
+        "reasoning",
+    ]:
         assert key in d
 
 

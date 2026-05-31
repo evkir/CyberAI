@@ -17,6 +17,7 @@ IDLE alias (legacy name for the initial state).
 This shim will be removed once all import sites are migrated (planned
 for day 7 of the STANDOFF rewrite).
 """
+
 from __future__ import annotations
 
 import warnings
@@ -47,19 +48,20 @@ class SessionState(str, Enum):
     >>> SessionState.RECON.value == ScanState.RECON.value
     True
     """
+
     # IDLE was the old name for the initial state; CREATED is the new name.
     # We keep IDLE present and equal to "created" so old tests pass.
-    IDLE      = "created"
-    CREATED   = "created"
-    RUNNING   = "running"
-    RECON     = "recon"
-    INTEL     = "intel"
-    EXPLOIT   = "exploit"
-    REPORT    = "report"
-    REPORTING = "report"   # legacy alias of REPORT
+    IDLE = "created"
+    CREATED = "created"
+    RUNNING = "running"
+    RECON = "recon"
+    INTEL = "intel"
+    EXPLOIT = "exploit"
+    REPORT = "report"
+    REPORTING = "report"  # legacy alias of REPORT
     COMPLETED = "completed"
-    COMPLETE  = "completed"  # legacy alias of COMPLETED
-    FAILED    = "failed"
+    COMPLETE = "completed"  # legacy alias of COMPLETED
+    FAILED = "failed"
     CANCELLED = "cancelled"
 
 
@@ -82,8 +84,8 @@ class PentestSession(ScanSession):
 
     def __init__(self, target: str = "", **kwargs: object) -> None:
         super().__init__(target=target, **kwargs)
-        self.recon_data:   dict = {}
-        self.intel_data:   dict = {}
+        self.recon_data: dict = {}
+        self.intel_data: dict = {}
         self.exploit_data: dict = {}
 
     # Legacy method name used by older tests

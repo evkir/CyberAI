@@ -1,4 +1,5 @@
 """Unit tests for nmap flag whitelist and result caching (day 10)."""
+
 from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
@@ -11,9 +12,13 @@ from cyberai.agents.recon.nmap_tool import validate_flags, run_nmap
 
 # ── flag whitelist ────────────────────────────────────────────────────
 
+
 def test_allowed_flags_pass():
     assert validate_flags("-sV -T4 --top-ports 1000") == [
-        "-sV", "-T4", "--top-ports", "1000"
+        "-sV",
+        "-T4",
+        "--top-ports",
+        "1000",
     ]
 
 
@@ -21,13 +26,16 @@ def test_value_flag_keeps_its_argument():
     assert validate_flags("-p 80,443 -sV") == ["-p", "80,443", "-sV"]
 
 
-@pytest.mark.parametrize("bad", [
-    "-sV; rm -rf /",
-    "-oN /etc/cron.d/x",
-    "--script=http-vuln",
-    "-sV && curl evil.com",
-    "--unsafe-flag",
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "-sV; rm -rf /",
+        "-oN /etc/cron.d/x",
+        "--script=http-vuln",
+        "-sV && curl evil.com",
+        "--unsafe-flag",
+    ],
+)
 def test_unknown_flags_rejected(bad):
     with pytest.raises(ValueError):
         validate_flags(bad)
@@ -41,6 +49,7 @@ def test_run_nmap_rejects_unsafe_flags_gracefully():
 
 
 # ── caching ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _clean_cache():

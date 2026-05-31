@@ -1,4 +1,5 @@
 """ReportAgent — renders Markdown + JSON reports from the session."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -18,18 +19,22 @@ class ReportAgent(BaseAgent):
     ROLE = "Report Writer"
 
     def _register_tools(self) -> None:
-        self.register_tool(Tool(
-            name="render_markdown",
-            description="Render Markdown pentest report",
-            func=render_markdown,
-            parameters={"session": "ScanSession"},
-        ))
-        self.register_tool(Tool(
-            name="export_json",
-            description="Export session as JSON report",
-            func=export_json,
-            parameters={"session": "ScanSession", "output_dir": "str"},
-        ))
+        self.register_tool(
+            Tool(
+                name="render_markdown",
+                description="Render Markdown pentest report",
+                func=render_markdown,
+                parameters={"session": "ScanSession"},
+            )
+        )
+        self.register_tool(
+            Tool(
+                name="export_json",
+                description="Export session as JSON report",
+                func=export_json,
+                parameters={"session": "ScanSession", "output_dir": "str"},
+            )
+        )
 
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         output_dir = str(self.config.output_dir)
