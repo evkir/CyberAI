@@ -8,6 +8,7 @@ The orchestrator now takes a CyberAIConfig, builds the shared LLMClient
 and AuditLogger, and constructs every agent with the new BaseAgent
 contract: Agent(config, session, llm, audit).
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -39,12 +40,12 @@ class Orchestrator:
 
     def __init__(
         self,
-        config:  Optional[CyberAIConfig] = None,
-        phases:  Optional[List[ScanPhase]] = None,
+        config: Optional[CyberAIConfig] = None,
+        phases: Optional[List[ScanPhase]] = None,
         dry_run: bool = False,
     ) -> None:
-        self.config  = config or CyberAIConfig()
-        self.phases  = phases or self.DEFAULT_PHASES
+        self.config = config or CyberAIConfig()
+        self.phases = phases or self.DEFAULT_PHASES
         self.dry_run = dry_run
 
         # Shared LLM client — built lazily so dry-run never needs an API key.
@@ -57,6 +58,7 @@ class Orchestrator:
         """Lazily build the shared LLMClient. Skipped entirely in dry-run."""
         if self._llm is None and not self.dry_run:
             from cyberai.core.llm_client import LLMClient
+
             self._llm = LLMClient(self.config.llm)
         return self._llm
 
@@ -76,15 +78,17 @@ class Orchestrator:
             authorized_scope=authorized_scope or [],
         )
 
-        console.print(Panel(
-            f"[bold red]CyberAI Orchestrator[/bold red]\n"
-            f"Target  : [yellow]{target}[/yellow]\n"
-            f"Phases  : [yellow]{[p.value for p in self.phases]}[/yellow]\n"
-            f"Scope   : [yellow]{session.authorized_scope or 'not set'}[/yellow]\n"
-            f"Dry Run : [yellow]{self.dry_run}[/yellow]\n"
-            f"Session : [dim]{session.session_id}[/dim]",
-            border_style="red",
-        ))
+        console.print(
+            Panel(
+                f"[bold red]CyberAI Orchestrator[/bold red]\n"
+                f"Target  : [yellow]{target}[/yellow]\n"
+                f"Phases  : [yellow]{[p.value for p in self.phases]}[/yellow]\n"
+                f"Scope   : [yellow]{session.authorized_scope or 'not set'}[/yellow]\n"
+                f"Dry Run : [yellow]{self.dry_run}[/yellow]\n"
+                f"Session : [dim]{session.session_id}[/dim]",
+                border_style="red",
+            )
+        )
 
         session.start()
         log.info(f"Pipeline started — target={target} session={session.session_id}")
@@ -125,9 +129,7 @@ class Orchestrator:
             console.print(f"[green]✓ {phase.value} done[/green]")
 
         except Exception as exc:  # noqa: BLE001 — pipeline must survive one bad phase
-            session.record_phase(
-                phase, success=False, started=started, error=str(exc)
-            )
+            session.record_phase(phase, success=False, started=started, error=str(exc))
             console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
             log.error(f"Phase {phase.value} raised", exc_info=True)
 
@@ -164,10 +166,10 @@ class Orchestrator:
 
     def _dispatch(self, session: ScanSession, phase: ScanPhase) -> Dict[str, Any]:
         dispatch = {
-            ScanPhase.RECON:   self._run_recon,
-            ScanPhase.INTEL:   self._run_intel,
+            ScanPhase.RECON: self._run_recon,
+            ScanPhase.INTEL: self._run_intel,
             ScanPhase.EXPLOIT: self._run_exploit,
-            ScanPhase.REPORT:  self._run_report,
+            ScanPhase.REPORT: self._run_report,
         }
         handler = dispatch.get(phase)
         return handler(session) if handler else {}
@@ -176,6 +178,7 @@ class Orchestrator:
 
     def _run_recon(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.agent import ReconAgent
+
         agent = ReconAgent(self.config, session, self.llm, self.audit)
         result = agent.run(session.target)
         session.kb_set("recon", result)
@@ -183,6 +186,7 @@ class Orchestrator:
 
     def _run_intel(self, session: ScanSession) -> Dict:
         from cyberai.agents.intel.agent import IntelAgent
+
         agent = IntelAgent(self.config, session, self.llm, self.audit)
         result = agent.run(session.target)
         session.kb_set("intel", result)

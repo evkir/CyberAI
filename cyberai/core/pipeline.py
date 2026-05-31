@@ -11,6 +11,7 @@ Pipeline topology:
 Recon phases are parallel. Intel/Exploit/Report are sequential
 (each depends on previous output).
 """
+
 import asyncio
 import logging
 import time
@@ -46,8 +47,8 @@ class AsyncPipeline:
     """
 
     def __init__(self):
-        self.recon_agent   = AsyncReconAgent()
-        self.intel_agent   = AsyncIntelAgent()
+        self.recon_agent = AsyncReconAgent()
+        self.intel_agent = AsyncIntelAgent()
         self.exploit_agent = AsyncExploitAgent()
 
     async def run(self, target: str) -> PipelineResult:
@@ -73,8 +74,7 @@ class AsyncPipeline:
 
         result.duration_seconds = time.monotonic() - start
         logger.info(
-            f"[Pipeline] complete in {result.duration_seconds:.1f}s "
-            f"success={result.success}"
+            f"[Pipeline] complete in {result.duration_seconds:.1f}s success={result.success}"
         )
         return result
 

@@ -3,6 +3,7 @@
 EPSS gives a probability (0.0-1.0) that a CVE will be exploited in the
 wild in the next 30 days. Updated daily by FIRST.org. Free, no API key.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,7 +46,7 @@ def get_epss_scores(cve_ids: List[str]) -> Dict[str, float]:
 
     # 2. fetch missing in batches
     for i in range(0, len(to_fetch), EPSS_BATCH_SIZE):
-        batch = to_fetch[i:i + EPSS_BATCH_SIZE]
+        batch = to_fetch[i : i + EPSS_BATCH_SIZE]
         try:
             resp = httpx.get(
                 EPSS_BASE,

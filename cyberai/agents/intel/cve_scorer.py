@@ -2,60 +2,61 @@
 CVE Scoring Engine — composite risk score from multiple signals.
 Score = CVSS weight + exploit availability + recency + epss
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-CVSS_WEIGHT    = 0.35
+CVSS_WEIGHT = 0.35
 EXPLOIT_WEIGHT = 0.30
 RECENCY_WEIGHT = 0.10
-EPSS_WEIGHT    = 0.25  # day 11: EPSS is a strong signal, not a footnote
+EPSS_WEIGHT = 0.25  # day 11: EPSS is a strong signal, not a footnote
 
 
 @dataclass
 class CVEScore:
-    cve_id:          str
-    cvss:            float
+    cve_id: str
+    cvss: float
     composite_score: float
-    severity_tier:   str
-    exploit_bonus:   float
-    recency_bonus:   float
-    epss_bonus:      float
-    reasoning:       str
+    severity_tier: str
+    exploit_bonus: float
+    recency_bonus: float
+    epss_bonus: float
+    reasoning: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "cve_id":          self.cve_id,
-            "cvss":            self.cvss,
+            "cve_id": self.cve_id,
+            "cvss": self.cvss,
             "composite_score": round(self.composite_score, 3),
-            "severity_tier":   self.severity_tier,
-            "exploit_bonus":   round(self.exploit_bonus, 3),
-            "recency_bonus":   round(self.recency_bonus, 3),
-            "epss_bonus":      round(self.epss_bonus, 3),
-            "reasoning":       self.reasoning,
+            "severity_tier": self.severity_tier,
+            "exploit_bonus": round(self.exploit_bonus, 3),
+            "recency_bonus": round(self.recency_bonus, 3),
+            "epss_bonus": round(self.epss_bonus, 3),
+            "reasoning": self.reasoning,
         }
 
 
 def score_cve(cve: Dict[str, Any]) -> CVEScore:
-    cvss_val       = float(cve.get("cvss") or 0.0)
+    cvss_val = float(cve.get("cvss") or 0.0)
     cvss_component = (cvss_val / 10.0) * CVSS_WEIGHT
-    exploit_bonus  = _exploit_bonus(cve)
-    recency_bonus  = _recency_bonus(cve)
-    epss_bonus     = _epss_bonus(cve)
+    exploit_bonus = _exploit_bonus(cve)
+    recency_bonus = _recency_bonus(cve)
+    epss_bonus = _epss_bonus(cve)
     composite = min(
         cvss_component + exploit_bonus + recency_bonus + epss_bonus,
         1.0,
     )
     return CVEScore(
-        cve_id          = cve.get("cve_id", ""),
-        cvss            = cvss_val,
-        composite_score = composite,
-        severity_tier   = _tier(composite),
-        exploit_bonus   = exploit_bonus,
-        recency_bonus   = recency_bonus,
-        epss_bonus      = epss_bonus,
-        reasoning       = _reasoning(cvss_val, exploit_bonus, recency_bonus, epss_bonus),
+        cve_id=cve.get("cve_id", ""),
+        cvss=cvss_val,
+        composite_score=composite,
+        severity_tier=_tier(composite),
+        exploit_bonus=exploit_bonus,
+        recency_bonus=recency_bonus,
+        epss_bonus=epss_bonus,
+        reasoning=_reasoning(cvss_val, exploit_bonus, recency_bonus, epss_bonus),
     )
 
 
@@ -81,7 +82,7 @@ def _recency_bonus(cve: Dict) -> float:
     if not pub:
         return RECENCY_WEIGHT * 0.3
     try:
-        dt       = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
         age_days = (datetime.now(timezone.utc) - dt).days
         if age_days <= 30:
             factor = 1.0
@@ -131,7 +132,7 @@ def _reasoning(cvss: float, exploit: float, recency: float, epss: float) -> str:
     if epss_raw > 0.5:
         parts.append(f"\U0001f525 EPSS={epss_raw:.0%}")  # high exploitation likelihood
     elif epss_raw > 0.2:
-        parts.append(f"\u26a0 EPSS={epss_raw:.0%}")      # moderate
+        parts.append(f"\u26a0 EPSS={epss_raw:.0%}")  # moderate
     elif epss > 0.01:
         parts.append(f"EPSS={epss_raw:.0%}")
     return " | ".join(parts)

@@ -2,6 +2,7 @@
 Exponential backoff with jitter for external API calls.
 Handles NVD API rate limiting (429) and transient errors.
 """
+
 import time
 import random
 import logging
@@ -50,7 +51,7 @@ def exponential_backoff(
             if attempt == max_retries - 1:
                 break
 
-            delay = min(base_delay * (2 ** attempt) + random.random(), max_delay)
+            delay = min(base_delay * (2**attempt) + random.random(), max_delay)
             logger.warning(
                 f"[backoff] {fn.__name__} failed (attempt {attempt + 1}/{max_retries}): "
                 f"{e} — retrying in {delay:.1f}s"
@@ -63,6 +64,7 @@ def exponential_backoff(
 
 class RateLimitError(Exception):
     """Raised when API returns 429 Too Many Requests."""
+
     pass
 
 
@@ -75,7 +77,7 @@ def nvd_backoff(fn: Callable, *args, **kwargs) -> Any:
         fn,
         *args,
         max_retries=5,
-        base_delay=6.0,     # NVD recommends 6s between requests
+        base_delay=6.0,  # NVD recommends 6s between requests
         max_delay=120.0,
         exceptions=(Exception,),
         **kwargs,

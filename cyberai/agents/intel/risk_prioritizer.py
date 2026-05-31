@@ -2,6 +2,7 @@
 Risk Prioritizer — sorts and filters CVE findings by composite score.
 Produces ranked list with threshold filtering and tier grouping.
 """
+
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
@@ -50,10 +51,10 @@ def group_by_tier(
 
     groups: Dict[str, List] = {
         "CRITICAL": [],
-        "HIGH":     [],
-        "MEDIUM":   [],
-        "LOW":      [],
-        "INFO":     [],
+        "HIGH": [],
+        "MEDIUM": [],
+        "LOW": [],
+        "INFO": [],
     }
     for item in merged:
         tier = item.get("severity_tier", "INFO")
@@ -76,9 +77,9 @@ def summarize(cves: List[Dict[str, Any]]) -> Dict[str, Any]:
     top = scored[0] if scored else None
 
     return {
-        "total":     len(scored),
-        "tiers":     tier_counts,
-        "top_cve":   top.cve_id if top else None,
+        "total": len(scored),
+        "tiers": tier_counts,
+        "top_cve": top.cve_id if top else None,
         "top_score": round(top.composite_score, 3) if top else None,
         "avg_score": round(avg, 3),
     }

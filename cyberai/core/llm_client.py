@@ -2,11 +2,13 @@ from typing import List, Dict, Optional, Any
 from .config import LLMConfig
 import httpx
 
+
 class LLMClient:
     """
     Unified LLM interface — OpenAI / Anthropic / Ollama
     One call() method regardless of provider.
     """
+
     def __init__(self, config: LLMConfig):
         self.config = config
 
@@ -22,6 +24,7 @@ class LLMClient:
 
     def _call_openai(self, messages: List[Dict], system: Optional[str]) -> str:
         import openai
+
         client = openai.OpenAI(api_key=self.config.api_key)
         full_messages = []
         if system:
@@ -37,6 +40,7 @@ class LLMClient:
 
     def _call_anthropic(self, messages: List[Dict], system: Optional[str]) -> str:
         import anthropic
+
         client = anthropic.Anthropic(api_key=self.config.api_key)
         kwargs: Dict[str, Any] = dict(
             model=self.config.model,

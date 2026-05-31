@@ -4,6 +4,7 @@ Tests for IntelAgent CVE scoring (formerly IntelAgentV2) and _normalize.
 Day 6 of STANDOFF: IntelAgentV2 is now an alias for IntelAgent with
 score_cves=True built in. These tests use the real BaseAgent contract.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -90,8 +91,7 @@ def test_v2_skipped_when_no_ports():
 
 def test_v2_returns_ranked_cves():
     agent, _ = _agent_with_recon(SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.search_cves",
-               return_value={"cves": SAMPLE_CVES}):
+    with patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": SAMPLE_CVES}):
         result = agent.run("10.0.0.1")
     assert "ranked_cves" in result
     assert len(result["ranked_cves"]) >= 1
@@ -99,8 +99,7 @@ def test_v2_returns_ranked_cves():
 
 def test_v2_ranked_sorted_desc():
     agent, _ = _agent_with_recon(SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.search_cves",
-               return_value={"cves": SAMPLE_CVES}):
+    with patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": SAMPLE_CVES}):
         result = agent.run("10.0.0.1")
     scores = [r["composite_score"] for r in result["ranked_cves"]]
     assert scores == sorted(scores, reverse=True)
@@ -108,8 +107,7 @@ def test_v2_ranked_sorted_desc():
 
 def test_v2_risk_summary_present():
     agent, _ = _agent_with_recon(SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.search_cves",
-               return_value={"cves": SAMPLE_CVES}):
+    with patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": SAMPLE_CVES}):
         result = agent.run("10.0.0.1")
     assert "risk_summary" in result
     assert result["risk_summary"]["total"] >= 1
@@ -117,8 +115,7 @@ def test_v2_risk_summary_present():
 
 def test_v2_stores_in_kb():
     agent, session = _agent_with_recon(SAMPLE_CVES)
-    with patch("cyberai.agents.intel.agent.search_cves",
-               return_value={"cves": SAMPLE_CVES}):
+    with patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": SAMPLE_CVES}):
         agent.run("10.0.0.1")
     assert "intel.ranked_cves" in session.kb
     assert "intel.risk_summary" in session.kb

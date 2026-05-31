@@ -77,7 +77,7 @@ jobs:
           pytest tests/ -v --tb=short -m smoke
 
   lint:
-    name: Lint
+    name: Lint & Format
     runs-on: ubuntu-latest
 
     steps:
@@ -86,6 +86,24 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install ruff
-        run: pip install ruff
+        run: pip install "ruff>=0.6.0,<1"
       - name: Run ruff linter
-        run: ruff check cyberai/ --select=E,F,W --ignore=E501
+        run: ruff check cyberai/
+      - name: Check formatting
+        run: ruff format --check cyberai/ tests/
+
+  typecheck:
+    name: Type check (strict)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run mypy --strict
+        run: mypy

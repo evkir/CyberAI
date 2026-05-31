@@ -1,6 +1,7 @@
 """
 CyberAI CLI — main scan command.
 """
+
 import click
 from pathlib import Path
 from cyberai.cli.progress import print_banner, phase_spinner, print_result_summary
@@ -17,7 +18,8 @@ def cli():
 @cli.command()
 @click.argument("target")
 @click.option(
-    "--scope", "-s",
+    "--scope",
+    "-s",
     default=None,
     help="Authorized scope: IPs, CIDRs, domains (comma-separated). E.g. 10.10.10.0/24",
 )
@@ -28,14 +30,16 @@ def cli():
     help="Show execution plan without running anything.",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     default="reports/",
     show_default=True,
     help="Output directory or file path for the generated report.",
     type=click.Path(),
 )
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     default=False,
     help="Enable verbose logging.",
@@ -81,11 +85,13 @@ def scan(target: str, scope: str, dry_run: bool, output: str, verbose: bool):
         result = asyncio.run(pipeline.run(target))
 
     if result.success:
-        print_result_summary({
-            "target": target,
-            "nmap": result.recon,
-            "intel": result.intel,
-        })
+        print_result_summary(
+            {
+                "target": target,
+                "nmap": result.recon,
+                "intel": result.intel,
+            }
+        )
         click.echo(f"\n[+] Report saved → {output_path}")
     else:
         click.echo(f"\n[-] Pipeline failed: {result.error}", err=True)

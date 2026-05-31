@@ -2,6 +2,7 @@
 Async pipeline integration tests.
 Uses mocked agents — no live targets needed.
 """
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,20 +12,19 @@ from cyberai.core.pipeline import AsyncPipeline, PipelineResult
 
 # ── AsyncBaseAgent unit tests ──────────────────────────────────────
 
-class TestAsyncBaseAgent:
 
+class TestAsyncBaseAgent:
     def test_run_tool_success(self):
         agent = AsyncBaseAgent()
         agent.name = "test"
         agent.timeout = 5
 
-        result = asyncio.run(
-            agent.run_tool(lambda: {"ok": True})
-        )
+        result = asyncio.run(agent.run_tool(lambda: {"ok": True}))
         assert result == {"ok": True}
 
     def test_run_tool_timeout(self):
         import time
+
         agent = AsyncBaseAgent()
         agent.name = "test"
         agent.timeout = 1
@@ -43,11 +43,13 @@ class TestAsyncBaseAgent:
         agent.timeout = 5
 
         results = asyncio.run(
-            agent.run_tools_parallel([
-                (lambda: {"tool": "a"},),
-                (lambda: {"tool": "b"},),
-                (lambda: {"tool": "c"},),
-            ])
+            agent.run_tools_parallel(
+                [
+                    (lambda: {"tool": "a"},),
+                    (lambda: {"tool": "b"},),
+                    (lambda: {"tool": "c"},),
+                ]
+            )
         )
         assert len(results) == 3
 
@@ -64,11 +66,13 @@ class TestAsyncBaseAgent:
 
         start = time.monotonic()
         asyncio.run(
-            agent.run_tools_parallel([
-                (slow_task,),
-                (slow_task,),
-                (slow_task,),
-            ])
+            agent.run_tools_parallel(
+                [
+                    (slow_task,),
+                    (slow_task,),
+                    (slow_task,),
+                ]
+            )
         )
         elapsed = time.monotonic() - start
         # 3 x 0.3s sequential = 0.9s; parallel should be ~0.3s
@@ -77,12 +81,12 @@ class TestAsyncBaseAgent:
 
 # ── AsyncPipeline integration tests ───────────────────────────────
 
-class TestAsyncPipeline:
 
+class TestAsyncPipeline:
     def _make_pipeline(self):
         pipeline = AsyncPipeline()
-        pipeline.recon_agent.run   = AsyncMock(return_value={"ports": [80, 443]})
-        pipeline.intel_agent.run   = AsyncMock(return_value={"cves": ["CVE-2024-1234"]})
+        pipeline.recon_agent.run = AsyncMock(return_value={"ports": [80, 443]})
+        pipeline.intel_agent.run = AsyncMock(return_value={"cves": ["CVE-2024-1234"]})
         pipeline.exploit_agent.run = AsyncMock(return_value={"paths": ["sqli"]})
         return pipeline
 
@@ -112,8 +116,8 @@ class TestAsyncPipeline:
 
     def test_execute_sync_entrypoint(self):
         pipeline = AsyncPipeline()
-        pipeline.recon_agent.run   = AsyncMock(return_value={"ports": []})
-        pipeline.intel_agent.run   = AsyncMock(return_value={})
+        pipeline.recon_agent.run = AsyncMock(return_value={"ports": []})
+        pipeline.intel_agent.run = AsyncMock(return_value={})
         pipeline.exploit_agent.run = AsyncMock(return_value={})
 
         with patch("cyberai.core.pipeline.AsyncPipeline", return_value=pipeline):

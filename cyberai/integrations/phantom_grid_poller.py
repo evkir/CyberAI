@@ -2,6 +2,7 @@
 phantom-grid result poller for ExploitAgent.
 Polls OOB interaction callbacks after payload delivery.
 """
+
 import time
 import httpx
 import logging
@@ -10,10 +11,11 @@ from typing import Optional
 
 logger = logging.getLogger("cyberai.integrations.phantom_grid_poller")
 
+
 @dataclass
 class OOBInteraction:
     interaction_id: str
-    protocol: str          # "dns" | "http" | "https"
+    protocol: str  # "dns" | "http" | "https"
     source_ip: str
     timestamp: float
     payload: str = ""
@@ -63,9 +65,7 @@ class PhantomGridPoller:
             logger.warning(f"phantom-grid poll failed: {e}")
             return []
 
-    def wait_for_callback(
-        self, interaction_id: str
-    ) -> Optional[OOBInteraction]:
+    def wait_for_callback(self, interaction_id: str) -> Optional[OOBInteraction]:
         """
         Block until OOB callback received or max_wait exceeded.
         Returns first interaction or None on timeout.
@@ -75,8 +75,7 @@ class PhantomGridPoller:
             interactions = self.get_interactions(interaction_id)
             if interactions:
                 logger.info(
-                    f"OOB callback received: {interaction_id} "
-                    f"from {interactions[0].source_ip}"
+                    f"OOB callback received: {interaction_id} from {interactions[0].source_ip}"
                 )
                 return interactions[0]
             time.sleep(self.poll_interval)

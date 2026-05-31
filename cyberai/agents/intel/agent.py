@@ -1,4 +1,5 @@
 """IntelAgent — reads recon results, queries NVD, surfaces CVE findings."""
+
 from __future__ import annotations
 
 import time
@@ -25,26 +26,36 @@ class IntelAgent(BaseAgent):
     AGENT_NAME = "intel"
     ROLE = "Threat Intelligence Analyst"
 
-    def __init__(self, *args, score_cves: bool = True,
-                 min_score: float = 0.0, top_n: int = 10, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        score_cves: bool = True,
+        min_score: float = 0.0,
+        top_n: int = 10,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.score_cves = score_cves
         self.min_score = min_score
         self.top_n = top_n
 
     def _register_tools(self) -> None:
-        self.register_tool(Tool(
-            name="search_cves",
-            description="Search NVD for CVEs by keyword",
-            func=search_cves,
-            parameters={"keyword": "str", "max_results": "int"},
-        ))
-        self.register_tool(Tool(
-            name="get_cve",
-            description="Get details for a specific CVE ID",
-            func=get_cve,
-            parameters={"cve_id": "str"},
-        ))
+        self.register_tool(
+            Tool(
+                name="search_cves",
+                description="Search NVD for CVEs by keyword",
+                func=search_cves,
+                parameters={"keyword": "str", "max_results": "int"},
+            )
+        )
+        self.register_tool(
+            Tool(
+                name="get_cve",
+                description="Get details for a specific CVE ID",
+                func=get_cve,
+                parameters={"cve_id": "str"},
+            )
+        )
 
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         nmap_data = self.kb.get("recon.nmap", {}) or {}
@@ -90,8 +101,10 @@ class IntelAgent(BaseAgent):
                     agent=self.AGENT_NAME,
                     target=target,
                     cve_ids=[cve["id"]],
-                    evidence=[f"CVSS: {score}",
-                              (cve.get("cvss", {}) or {}).get("vector", "")],
+                    evidence=[
+                        f"CVSS: {score}",
+                        (cve.get("cvss", {}) or {}).get("vector", ""),
+                    ],
                 )
 
         # Build a validated IntelResult and store it in the KB.
@@ -123,8 +136,7 @@ class IntelAgent(BaseAgent):
             "queries": queries,
             "cves_found": len(all_cves),
             "high_critical": sum(
-                1 for c in all_cves
-                if ((c.get("cvss", {}) or {}).get("score") or 0) >= 7.0
+                1 for c in all_cves if ((c.get("cvss", {}) or {}).get("score") or 0) >= 7.0
             ),
         }
 
@@ -141,6 +153,7 @@ class IntelAgent(BaseAgent):
         normalized = [_normalize(c) for c in raw_cves]
 
         from cyberai.agents.intel.risk_prioritizer import prioritize, summarize
+
         ranked = prioritize(normalized, min_score=self.min_score, top_n=self.top_n)
         summary = summarize(normalized)
 

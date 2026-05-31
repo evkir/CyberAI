@@ -3,21 +3,22 @@ from cyberai.core.session import PentestSession, Severity
 
 SEVERITY_EMOJI = {
     Severity.CRITICAL: "🔴",
-    Severity.HIGH:     "🟠",
-    Severity.MEDIUM:   "🟡",
-    Severity.LOW:      "🟢",
-    Severity.INFO:     "🔵",
+    Severity.HIGH: "🟠",
+    Severity.MEDIUM: "🟡",
+    Severity.LOW: "🟢",
+    Severity.INFO: "🔵",
 }
+
 
 def render_markdown(session: PentestSession) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
 
     critical = [f for f in findings if f.severity == Severity.CRITICAL]
-    high     = [f for f in findings if f.severity == Severity.HIGH]
-    medium   = [f for f in findings if f.severity == Severity.MEDIUM]
-    low      = [f for f in findings if f.severity == Severity.LOW]
-    info     = [f for f in findings if f.severity == Severity.INFO]
+    high = [f for f in findings if f.severity == Severity.HIGH]
+    medium = [f for f in findings if f.severity == Severity.MEDIUM]
+    low = [f for f in findings if f.severity == Severity.LOW]
+    info = [f for f in findings if f.severity == Severity.INFO]
 
     lines = [
         "# CyberAI Pentest Report",
