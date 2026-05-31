@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from cyberai.core.session import PentestSession, Severity
 
 SEVERITY_EMOJI = {
@@ -10,7 +10,7 @@ SEVERITY_EMOJI = {
 }
 
 def render_markdown(session: PentestSession) -> str:
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
 
     critical = [f for f in findings if f.severity == Severity.CRITICAL]

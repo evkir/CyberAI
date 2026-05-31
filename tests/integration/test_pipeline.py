@@ -20,13 +20,13 @@ def test_session_state_transition(session):
     assert session.state == SessionState.RECON
 
 def test_session_add_finding(session):
-    from datetime import datetime
+    from datetime import datetime, timezone
     f = Finding(
         id=1,
         severity=Severity.HIGH,
         title="Test",
         description="Test finding",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         agent="test_agent",
     )
     session.findings.append(f)
