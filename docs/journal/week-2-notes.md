@@ -58,3 +58,14 @@
 - **Отклонение от плана**: blocking scope `mypy --strict` сужен с `cyberai/core/` (17 ошибок) до одного файла `cyberai/core/types.py` (0 ошибок). 4 модуля (`cache.py`, `rate_limiter.py`, `nvd_client.py`, `epss_client.py`) имеют тривиально-фиксящиеся ошибки (Optional, dict без параметров, Any return) — их добавим в blocking scope отдельным коммитом, когда исправим. Это правильнее чем зелёный CI с `continue-on-error: true`.
 - `ruff format` применён ко всему `cyberai/` и `tests/` — мехдифф на 95 файлов. **Lesson learned**: настройки форматтера (`line-length=100`) надо добавлять в pyproject **до** первого прогона `ruff format`, иначе придётся переформатировать дважды (первый раз словил несоответствие между локальным форматом и CI-check после добавления `line-length`).
 - ruff в CI пинится `>=0.6.0,<1` — теперь обновления forматтера не сломают PR-чек неожиданно.
+
+## День 14 — Real e2e тесты + v0.3.0
+
+- `test_real_recon.py` против scanme.nmap.org — официальный nmap test target, разрешает сканирование политикой проекта. Лёгкий прогон `--top-ports 100` (не агрессивный), assert на 22/tcp ssh. Реальный вызов ~1.1s, кэш `~/.cyberai/nmap-cache/` отрабатывает на повторных запусках.
+- `test_real_intel.py` против NVD 2.0 API: keyword search "openssh 7.4" → ≥1 CVE с CVSS≥7, прямой `get_cve("CVE-2021-44228")` → score 10.0. Skip автоматически если `NVD_API_KEY` не выставлен.
+- **Баг найден в процессе**: тесты с `@pytest.mark.slow` НЕ скипаются автоматически без явного `-m "not slow"` в pytest-вызове. По умолчанию pytest игнорирует маркеры. Пришлось добавить `-m "not slow"` (и `not smoke`) во все шаги основного CI — unit, integration, coverage. Lesson: маркеры не самофильтрующиеся, фильтрация только через `-m` или `addopts`.
+- `nightly.yml`: cron `0 2 * * *` + `workflow_dispatch`, `apt install nmap`, прогон `pytest -m slow` с `NVD_API_KEY` из repo secrets.
+- **Косяк процесса**: новый файл `test_real_intel.py` не прогнал через `ruff format` локально перед коммитом — CI `Lint & Format` упал. Чинил через `--fixup` + `rebase -i --autosquash`. Правило на будущее: после `cat > newfile.py << EOF` всегда сразу `ruff format <file>` до коммита.
+- Bump до 0.3.0 + полный CHANGELOG за неделю 2 (типобезопасность, защита от injection, EPSS, NVD apikey, pyproject, ruff/mypy CI, real e2e).
+
+**📌 Неделя 2 закрыта.** 264 unit/integration + 3 real e2e (1 nmap + 2 NVD). Дальше — неделя 3 ACCELERATION (async pipeline, день 15).
