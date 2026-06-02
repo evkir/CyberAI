@@ -1,3 +1,5 @@
+import asyncio
+import dns.asyncresolver
 import dns.resolver
 import whois
 from typing import Dict, Any, List
@@ -60,3 +62,29 @@ def detect_subdomains(target: str, wordlist: List[str] = None) -> Dict[str, Any]
         except Exception:
             pass
     return {"target": target, "subdomains": found}
+
+
+async def _query_one(resolver: "dns.asyncresolver.Resolver", target: str, rtype: str) -> List[str]:
+    """Resolve a single record type; return [] on any failure (matches sync behaviour)."""
+    try:
+        answers = await resolver.resolve(target, rtype, lifetime=5)
+        return [str(r) for r in answers]
+    except Exception:
+        return []
+
+
+async def run_dns_async(target: str) -> Dict[str, Any]:
+    """
+    Async DNS enumeration — resolves A/AAAA/MX/NS/TXT/CNAME/SOA concurrently.
+
+    Drop-in async equivalent of `run_dns`; same return shape.
+    """
+    resolver = dns.asyncresolver.Resolver()
+    record_types = ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA"]
+
+    answers = await asyncio.gather(*(_query_one(resolver, target, rt) for rt in record_types))
+
+    return {
+        "target": target,
+        "records": dict(zip(record_types, answers)),
+    }
