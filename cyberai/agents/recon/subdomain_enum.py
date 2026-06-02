@@ -4,10 +4,13 @@ Uses concurrent resolution for speed.
 """
 
 from __future__ import annotations
+import asyncio
 import socket
 import concurrent.futures
 from typing import List, Dict, Any
 from pathlib import Path
+
+import dns.asyncresolver
 
 DEFAULT_WORDLIST = [
     "www",
@@ -130,3 +133,58 @@ def load_wordlist(path: str) -> List[str]:
         return DEFAULT_WORDLIST
     lines = p.read_text().splitlines()
     return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+
+
+async def _resolve_async(
+    resolver: "dns.asyncresolver.Resolver",
+    fqdn: str,
+    sem: asyncio.Semaphore,
+    timeout: float,
+) -> Dict[str, Any] | None:
+    """Async equivalent of _resolve — gated by semaphore."""
+    async with sem:
+        try:
+            answers = await resolver.resolve(fqdn, "A", lifetime=timeout)
+            ips = sorted({str(r) for r in answers})
+            if ips:
+                return {
+                    "fqdn": fqdn,
+                    "ips": ips,
+                    "subdomain": fqdn.split(".")[0],
+                }
+        except Exception:
+            pass
+    return None
+
+
+async def enumerate_subdomains_async(
+    domain: str,
+    wordlist: List[str] = None,
+    max_concurrent: int = 20,
+    timeout: float = 2.0,
+) -> Dict[str, Any]:
+    """
+    Async subdomain brute force — drop-in equivalent of enumerate_subdomains.
+
+    Concurrency limited via asyncio.Semaphore so we don't hammer the
+    upstream resolver. Same return shape as the sync version.
+    """
+    words = wordlist or DEFAULT_WORDLIST
+    targets = [f"{w}.{domain}" for w in words]
+    sem = asyncio.Semaphore(max_concurrent)
+    resolver = dns.asyncresolver.Resolver()
+
+    results = await asyncio.gather(
+        *(_resolve_async(resolver, fqdn, sem, timeout) for fqdn in targets),
+        return_exceptions=False,
+    )
+    found = [r for r in results if r is not None]
+    found.sort(key=lambda x: x["fqdn"])
+
+    return {
+        "domain": domain,
+        "found": found,
+        "count": len(found),
+        "checked": len(targets),
+        "wordlist": words,
+    }
