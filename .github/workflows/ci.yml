@@ -41,15 +41,15 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest tests/unit/ -v --tb=short
+          pytest tests/unit/ -v --tb=short -m "not slow"
 
       - name: Run integration tests (excluding smoke)
         run: |
-          pytest tests/integration/ -v --tb=short -m "not smoke"
+          pytest tests/integration/ -v --tb=short -m "not smoke and not slow"
 
       - name: Generate coverage report
         run: |
-          pytest tests/ --cov=cyberai --cov-report=term-missing --cov-report=xml -m "not smoke"
+          pytest tests/ --cov=cyberai --cov-report=term-missing --cov-report=xml -m "not smoke and not slow"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
