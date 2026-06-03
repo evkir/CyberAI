@@ -11,7 +11,7 @@ NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
     """Shared NVD call: apiKey header + rate limiter + retry on 429/503."""
-    api_key = os.getenv("NVD_API_KEY")
+    api_key = (os.getenv("NVD_API_KEY") or "").strip() or None
     headers = {"apiKey": api_key} if api_key else {}
 
     def _do_call() -> Dict[str, Any]:
