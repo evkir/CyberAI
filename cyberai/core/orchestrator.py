@@ -11,6 +11,7 @@ contract: Agent(config, session, llm, audit).
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -225,3 +226,92 @@ class Orchestrator:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+class AsyncOrchestrator(Orchestrator):
+    """
+    Async variant of Orchestrator.
+
+    Phases run sequentially (each depends on the previous), but recon
+    runs its tools concurrently via AsyncReconAgent. Intel/exploit/report
+    still use the sync agents under asyncio.to_thread — gradual rollout
+    until those agents gain native async paths.
+    """
+
+    async def run(
+        self,
+        target: str,
+        authorized_scope: Optional[List[str]] = None,
+    ) -> ScanSession:
+        session = ScanSession(
+            target=target,
+            authorized_scope=authorized_scope or [],
+        )
+        console.print(
+            Panel(
+                f"[bold red]CyberAI AsyncOrchestrator[/bold red]\n"
+                f"Target  : [yellow]{target}[/yellow]\n"
+                f"Phases  : [yellow]{[p.value for p in self.phases]}[/yellow]\n"
+                f"Scope   : [yellow]{session.authorized_scope or 'not set'}[/yellow]\n"
+                f"Dry Run : [yellow]{self.dry_run}[/yellow]\n"
+                f"Session : [dim]{session.session_id}[/dim]",
+                border_style="red",
+            )
+        )
+        session.start()
+        log.info(f"Async pipeline started — target={target} session={session.session_id}")
+        self.audit = AuditLogger(session_id=session.session_id)
+
+        for phase in self.phases:
+            await self._run_phase_async(session, phase)
+            if session.phases and not session.phases[-1].success:
+                log.warning(f"Phase {phase.value} failed — continuing pipeline")
+
+        if session.phases and all(p.success for p in session.phases):
+            session.complete()
+            console.print("[bold green]✓ Async pipeline complete[/bold green]")
+        else:
+            failed = [p.phase.value for p in session.phases if not p.success]
+            session.fail(f"Failed phases: {failed}")
+            console.print(f"[bold red]✗ Async pipeline finished with errors: {failed}[/bold red]")
+        log.info(f"Async pipeline done — state={session.state.value}")
+        return session
+
+    async def _run_phase_async(self, session: ScanSession, phase: ScanPhase) -> None:
+        console.print(f"\n[bold red]▶ {phase.value.upper()}[/bold red]")
+        started = _now()
+        session.set_phase(phase)
+        try:
+            if self.dry_run:
+                data = {"dry_run": True, "phase": phase.value}
+            else:
+                data = await self._dispatch_async(session, phase)
+                self._check_phase_injection(session, phase, data)
+            session.record_phase(phase, success=True, started=started, data=data)
+            console.print(f"[green]✓ {phase.value} done[/green]")
+        except Exception as exc:  # noqa: BLE001
+            session.record_phase(phase, success=False, started=started, error=str(exc))
+            console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
+            log.error(f"Phase {phase.value} raised", exc_info=True)
+
+    async def _dispatch_async(self, session: ScanSession, phase: ScanPhase) -> Dict[str, Any]:
+        if phase == ScanPhase.RECON:
+            return await self._run_recon_async(session)
+        # Sync agents — offload to a thread so the event loop stays free.
+        sync_dispatch = {
+            ScanPhase.INTEL: self._run_intel,
+            ScanPhase.EXPLOIT: self._run_exploit,
+            ScanPhase.REPORT: self._run_report,
+        }
+        handler = sync_dispatch.get(phase)
+        if not handler:
+            return {}
+        return await asyncio.to_thread(handler, session)
+
+    async def _run_recon_async(self, session: ScanSession) -> Dict:
+        from cyberai.agents.recon.async_agent import AsyncReconAgent
+
+        agent = AsyncReconAgent()
+        result = await agent.run(session.target)
+        session.kb_set("recon", result)
+        return result
