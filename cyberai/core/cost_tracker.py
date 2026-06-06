@@ -26,6 +26,15 @@ class TokenUsage:
         return self.input_tokens + self.output_tokens
 
 
+class BudgetExceeded(RuntimeError):
+    """Raised when cumulative LLM cost crosses the configured budget."""
+
+    def __init__(self, spent_usd: float, budget_usd: float):
+        self.spent_usd = spent_usd
+        self.budget_usd = budget_usd
+        super().__init__(f"LLM budget exceeded: spent ${spent_usd:.4f}, budget ${budget_usd:.4f}")
+
+
 @dataclass
 class CostTracker:
     """Accumulates token usage across all LLM calls in one scan."""

@@ -65,7 +65,11 @@ class Orchestrator:
         if self._llm is None and not self.dry_run:
             from cyberai.core.llm_client import LLMClient
 
-            self._llm = LLMClient(self.config.llm, cost_tracker=self.cost_tracker)
+            self._llm = LLMClient(
+                self.config.llm,
+                cost_tracker=self.cost_tracker,
+                budget_usd=self.config.max_cost_usd,
+            )
         return self._llm
 
     # ── public API ────────────────────────────────────────────────────

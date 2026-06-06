@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Any
 from .config import LLMConfig
-from .cost_tracker import CostTracker
+from .cost_tracker import CostTracker, BudgetExceeded
 import httpx
 
 
@@ -10,16 +10,30 @@ class LLMClient:
     One call() method regardless of provider.
     """
 
-    def __init__(self, config: LLMConfig, cost_tracker: Optional[CostTracker] = None):
+    def __init__(
+        self,
+        config: LLMConfig,
+        cost_tracker: Optional[CostTracker] = None,
+        budget_usd: float = 0.0,
+    ):
         self.config = config
         self.cost_tracker = cost_tracker
+        # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
+        self.budget_usd = budget_usd
 
     def _record_usage(
         self, agent_name: str, model: str, input_tokens: int, output_tokens: int
     ) -> None:
-        """Append usage to the tracker if one was supplied; otherwise a no-op."""
-        if self.cost_tracker is not None:
-            self.cost_tracker.add(agent_name, model, input_tokens, output_tokens)
+        """Append usage to the tracker, then enforce the budget if configured."""
+        if self.cost_tracker is None:
+            return
+        self.cost_tracker.add(agent_name, model, input_tokens, output_tokens)
+        if self.budget_usd > 0:
+            from .pricing import total_cost
+
+            spent = total_cost(self.cost_tracker)
+            if spent > self.budget_usd:
+                raise BudgetExceeded(spent, self.budget_usd)
 
     def call(
         self, messages: List[Dict], system: Optional[str] = None, agent_name: str = "unknown"
