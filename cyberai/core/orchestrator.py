@@ -52,6 +52,11 @@ class Orchestrator:
         # Shared LLM client — built lazily so dry-run never needs an API key.
         self._llm = None
 
+        # Cost tracker collects per-call token usage; CLI prints summary post-run.
+        from cyberai.core.cost_tracker import CostTracker
+
+        self.cost_tracker = CostTracker()
+
     # ── llm (lazy) ────────────────────────────────────────────────────
 
     @property
@@ -60,7 +65,11 @@ class Orchestrator:
         if self._llm is None and not self.dry_run:
             from cyberai.core.llm_client import LLMClient
 
-            self._llm = LLMClient(self.config.llm)
+            self._llm = LLMClient(
+                self.config.llm,
+                cost_tracker=self.cost_tracker,
+                budget_usd=self.config.max_cost_usd,
+            )
         return self._llm
 
     # ── public API ────────────────────────────────────────────────────
