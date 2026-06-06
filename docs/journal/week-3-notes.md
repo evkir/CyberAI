@@ -19,3 +19,16 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 - **Дизайн-решение**: AsyncIntelAgent/Exploit/Report НЕ мигрированы на native async в этом дне, хотя `acall()` уже доступен. Логика: каждая миграция должна идти отдельным PR с собственными тестами, чтобы можно было откатить точечно. План дня 16 ограничен инфраструктурой (Orchestrator, batch NVD, acall), не агентами.
 - **Косяк процесса**: использовал `# noqa:` без кода (просто как комментарий) — ruff выдал предупреждение `Invalid noqa directive`. Заменил на обычный комментарий `#`. Lesson: `# noqa` зарезервирован под формат `# noqa: F401, E501`, для свободных комментариев — обычная `#`.
 - 4 новых интеграционных теста (TestAsyncOrchestrator): dry-run happy path, recon dispatch на async, sync handlers через to_thread, failure resilience. Total 264 passed → +4 = 268 (но в выводе всё ещё 264 — `not slow and not smoke` фильтр исключает benchmark'и).
+
+## День 17 — Cost tracking + budget enforcement
+
+- `CostTracker` + `TokenUsage` в `cyberai/core/cost_tracker.py` — отдельный модуль без pricing-зависимости, чтобы оба концепта тестировались независимо.
+- `pricing.py` — таблица USD/1M tokens на 06.2026: OpenAI (gpt-4o $2.50/$10, gpt-4o-mini $0.15/$0.60, gpt-4.1 family), Anthropic (Opus 4.6/4.7/4.8 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5). Цены сверены через web-поиск с pricing-страницами вендоров — в тренировочных данных могли быть устаревшие. Unknown models → $0 (graceful для ollama/local).
+- Интеграция в `LLMClient`: optional `cost_tracker` и `budget_usd` в `__init__`, `agent_name` kwarg в `call()`/`acall()`, `_record_usage` извлекает `response.usage` для openai/anthropic и пишет в трекер. Ollama пропускается (нет стандарта usage в API).
+- **Дизайн-решение по контракту**: external `call()` API остался `-> str`. Не делал namedtuple(text, usage) чтобы не ломать существующего вызывающего (exploit/agent). Трекер пишет внутрь себя, агенты ничего не знают.
+- Budget enforcement: после каждого `_record_usage` пересчёт `total_cost(tracker)`, при превышении — `BudgetExceeded(spent, budget)`. Default `max_cost_usd=0.0` = выключено (никакого regression для существующих сценариев).
+- **Подвох с config**: `LLMClient` получает `LLMConfig`, а `max_cost_usd` живёт на `CyberAIConfig` уровнем выше. Прокидывал через явный параметр `budget_usd` в `__init__` вместо того чтобы тащить весь `CyberAIConfig` — чище разделение ответственности.
+- **Косяк процесса повторился**: `python3 << PY` с replace по многострочному анчору снова провалился (assert) — после первого ruff format сигнатура `_record_usage` переразбилась на несколько строк, и мой анчор перестал совпадать. Зафиксировал второй раз: правила анчоров надо составлять ПОСЛЕ форматтера, не до. Альтернатива — заменять файл целиком (для коротких).
+- **Технический долг зафиксирован**: 30 unused-import ошибок в `tests/` (legacy с дней 8-15). CI не цепляет (job запускает `ruff check cyberai/` без tests). Чистка отдельным coммитом-уборкой в конце недели 3.
+- CLI прирос строкой типа `LLM cost: $0.0750 (3,500 in / 1,200 out tokens, 2 calls)`. Точная цифра ($0.2050 для тестового набора) подтверждена ручным расчётом.
+- 20 новых unit-тестов (6 cost_tracker + 10 pricing + 4 budget). Total 284 → +4 deselected (slow/smoke).
