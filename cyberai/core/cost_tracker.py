@@ -81,3 +81,19 @@ class CostTracker:
 
     def reset(self) -> None:
         self.calls.clear()
+
+
+def format_summary(tracker: "CostTracker") -> str:
+    """One-line CLI summary: total cost, tokens, call count."""
+    from cyberai.core.pricing import total_cost  # local import: optional dep
+
+    if tracker.call_count == 0:
+        return "LLM calls: 0 (no cost)"
+
+    total = total_cost(tracker)
+    return (
+        f"LLM cost: ${total:.4f} "
+        f"({tracker.total_input_tokens:,} in / "
+        f"{tracker.total_output_tokens:,} out tokens, "
+        f"{tracker.call_count} call{'s' if tracker.call_count != 1 else ''})"
+    )
