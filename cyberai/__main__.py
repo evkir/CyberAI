@@ -57,6 +57,11 @@ def scan(
     session = orchestrator.run(target, authorized_scope=list(scope))
 
     console.print(f"\n[green]✓[/green] Done. Findings: {len(session.findings)}")
+
+    from cyberai.core.cost_tracker import format_summary
+
+    console.print(f"[dim]{format_summary(orchestrator.cost_tracker)}[/dim]")
+
     summary = session.summary()
     for key, value in summary.items():
         console.print(f"  {key}: {value}")
