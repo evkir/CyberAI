@@ -39,6 +39,8 @@ class CyberAIConfig:
     verbose: bool = False
     timeout: int = 60
     max_agent_iterations: int = 10
+    # Hard budget for total LLM spend in this scan, USD. 0.0 disables the check.
+    max_cost_usd: float = 0.0
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":
