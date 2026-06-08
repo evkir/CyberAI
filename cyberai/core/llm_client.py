@@ -22,12 +22,25 @@ class LLMClient:
         self.budget_usd = budget_usd
 
     def _record_usage(
-        self, agent_name: str, model: str, input_tokens: int, output_tokens: int
+        self,
+        agent_name: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cache_creation_tokens: int = 0,
+        cache_read_tokens: int = 0,
     ) -> None:
         """Append usage to the tracker, then enforce the budget if configured."""
         if self.cost_tracker is None:
             return
-        self.cost_tracker.add(agent_name, model, input_tokens, output_tokens)
+        self.cost_tracker.add(
+            agent_name,
+            model,
+            input_tokens,
+            output_tokens,
+            cache_creation_tokens=cache_creation_tokens,
+            cache_read_tokens=cache_read_tokens,
+        )
         if self.budget_usd > 0:
             from .pricing import total_cost
 
@@ -36,12 +49,16 @@ class LLMClient:
                 raise BudgetExceeded(spent, self.budget_usd)
 
     def call(
-        self, messages: List[Dict], system: Optional[str] = None, agent_name: str = "unknown"
+        self,
+        messages: List[Dict],
+        system: Optional[str] = None,
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
     ) -> str:
         if self.config.provider == "openai":
             return self._call_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
-            return self._call_anthropic(messages, system, agent_name)
+            return self._call_anthropic(messages, system, agent_name, cacheable_system)
         elif self.config.provider == "ollama":
             return self._call_ollama(messages, system)
         else:
@@ -72,7 +89,11 @@ class LLMClient:
         return response.choices[0].message.content
 
     def _call_anthropic(
-        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
+        self,
+        messages: List[Dict],
+        system: Optional[str],
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
     ) -> str:
         import anthropic
 
@@ -83,13 +104,15 @@ class LLMClient:
             messages=messages,
         )
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
         response = client.messages.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
             getattr(response.usage, "input_tokens", 0),
             getattr(response.usage, "output_tokens", 0),
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
         )
         return response.content[0].text
 
@@ -107,13 +130,17 @@ class LLMClient:
     # ── async API ─────────────────────────────────────────────────────
 
     async def acall(
-        self, messages: List[Dict], system: Optional[str] = None, agent_name: str = "unknown"
+        self,
+        messages: List[Dict],
+        system: Optional[str] = None,
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
     ) -> str:
         """Async equivalent of call() — same return type, same provider routing."""
         if self.config.provider == "openai":
             return await self._acall_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
-            return await self._acall_anthropic(messages, system, agent_name)
+            return await self._acall_anthropic(messages, system, agent_name, cacheable_system)
         elif self.config.provider == "ollama":
             return await self._acall_ollama(messages, system)
         else:
@@ -144,7 +171,11 @@ class LLMClient:
         return response.choices[0].message.content
 
     async def _acall_anthropic(
-        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
+        self,
+        messages: List[Dict],
+        system: Optional[str],
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
     ) -> str:
         import anthropic
 
@@ -155,13 +186,15 @@ class LLMClient:
             messages=messages,
         )
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
         response = await client.messages.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
             getattr(response.usage, "input_tokens", 0),
             getattr(response.usage, "output_tokens", 0),
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
         )
         return response.content[0].text
 
@@ -176,3 +209,20 @@ class LLMClient:
             response = await client.post(url, json=payload)
             response.raise_for_status()
             return response.json()["message"]["content"]
+
+
+def _wrap_cacheable(system_text: str) -> list[dict]:
+    """
+    Wrap a system prompt in Anthropic's cache_control format.
+
+    The minimum cacheable block is 1024 tokens (Sonnet/Opus) or 2048 (Haiku);
+    smaller blocks are silently ignored by the API and billed at full rate.
+    Default TTL is 5 minutes, refreshed on each cache hit.
+    """
+    return [
+        {
+            "type": "text",
+            "text": system_text,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
