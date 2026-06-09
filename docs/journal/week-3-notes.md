@@ -49,3 +49,27 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 - `usage` в response теперь имеет 4 поля: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` — все надо учесть в `CostTracker`
 
 **Метрики:** prompt с CWE Top 25 при втором вызове даёт ~10× экономию на input-токенах (по моку).
+
+## День 19 — Native LLM tool calling
+
+**Ветка:** `feat/llm-tools-native` → merge commit. 307 тестов зелёные (+13).
+
+**Коммиты:**
+1. `Tool` → OpenAI spec converter + `ToolCall`/`LLMResponse` dataclass, `Tool.input_schema`
+2. `Tool` → Anthropic spec converter
+3. ExploitAgent native chain building (флаг `use_native_tools`, default False) + `call_tools` в LLMClient + provider-aware threading
+4. mocked tool calling flow test
+
+**Решения:**
+- Контракт `call() -> str` не трогал; native — отдельный `call_tools() -> LLMResponse`
+- Модель не эхоит полные CVE-dict'ы: tool args = идентификаторы (`cve_id`/`target`), `_exec_native_tool` резолвит реальные данные из `ranked_cves` агентом. Защита от галлюцинаций модели + меньше токенов.
+- Native-путь под флагом в дополнение к детерминированному — no-regression, fallback на `call_tool` если модель не вызвала build_chain.
+
+**SDK shapes (зафиксировано для 0.100.0 / 2.36.0):**
+- OpenAI: spec `{"type":"function","function":{name,description,parameters}}`; ответ `tool_calls[].function.arguments` — **JSON-строка**, нужен `json.loads`
+- Anthropic: spec flat `{name,description,input_schema}`; ответ — `ToolUseBlock(id,name,input:dict)`
+- Threading: OpenAI `role:"tool"` + `tool_call_id`; Anthropic `tool_result` блок в `role:"user"` контенте
+
+**Уроки:**
+- Ollama tool calling не реализован — `call_tools` бросает ValueError для него (явно, не молча)
+- `_make_agent` через `__new__` обходит `__init__` — для loop-тестов хватает (audit/kb/memory не задействованы в native-пути)
