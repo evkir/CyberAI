@@ -284,3 +284,19 @@ def _tools_to_openai_format(tools: List["Tool"]) -> List[Dict[str, Any]]:
         }
         for t in tools
     ]
+
+
+def _tools_to_anthropic_format(tools: List["Tool"]) -> List[Dict[str, Any]]:
+    """Convert Tools to the Anthropic messages `tools` shape.
+
+    Anthropic uses a flat {name, description, input_schema} per tool,
+    where input_schema is the JSON Schema for the arguments object.
+    """
+    return [
+        {
+            "name": t.name,
+            "description": t.description,
+            "input_schema": _params_to_schema(t),
+        }
+        for t in tools
+    ]
