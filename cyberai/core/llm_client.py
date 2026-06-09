@@ -1,7 +1,12 @@
-from typing import List, Dict, Optional, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, List, Dict, Optional, Any
+
 from .config import LLMConfig
 from .cost_tracker import CostTracker, BudgetExceeded
 import httpx
+
+if TYPE_CHECKING:
+    from .base_agent import Tool
 
 
 class LLMClient:
@@ -225,4 +230,57 @@ def _wrap_cacheable(system_text: str) -> list[dict]:
             "text": system_text,
             "cache_control": {"type": "ephemeral"},
         }
+    ]
+
+
+# ── native tool calling: response types + spec converters ─────────────
+
+
+@dataclass
+class ToolCall:
+    """A single tool invocation requested by the model."""
+
+    id: str
+    name: str
+    arguments: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class LLMResponse:
+    """Tool-enabled call result: free text and/or requested tool calls."""
+
+    text: Optional[str] = None
+    tool_calls: List[ToolCall] = field(default_factory=list)
+    stop_reason: Optional[str] = None
+
+
+def _params_to_schema(tool: "Tool") -> Dict[str, Any]:
+    """JSON Schema for a Tool's arguments.
+
+    Prefers tool.input_schema when set; otherwise derives an all-string
+    object schema from tool.params (arg name -> description). params cannot
+    express non-string/nested types — set input_schema for those.
+    """
+    explicit = getattr(tool, "input_schema", None)
+    if explicit:
+        return explicit
+    props = {
+        name: {"type": "string", "description": desc}
+        for name, desc in (getattr(tool, "params", None) or {}).items()
+    }
+    return {"type": "object", "properties": props, "required": list(props)}
+
+
+def _tools_to_openai_format(tools: List["Tool"]) -> List[Dict[str, Any]]:
+    """Convert Tools to the OpenAI chat.completions `tools` shape."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": _params_to_schema(t),
+            },
+        }
+        for t in tools
     ]
