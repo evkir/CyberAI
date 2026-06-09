@@ -63,3 +63,85 @@ class TestPricingTable:
             "claude-haiku-4-5",
         ):
             assert required in PRICING, f"missing flagship model: {required}"
+
+
+class TestCachePricing:
+    """Anthropic prompt caching: write @ 1.25x input, read @ 0.10x input."""
+
+    def test_cache_write_costs_125_percent_of_input(self):
+        # claude-sonnet-4-6 input = $3/M
+        # cache write 1M tokens = $3 * 1.25 = $3.75
+        cost = price_call(
+            "claude-sonnet-4-6",
+            0,
+            0,
+            cache_creation_tokens=1_000_000,
+            cache_read_tokens=0,
+        )
+        assert abs(cost - 3.75) < 1e-9
+
+    def test_cache_read_costs_10_percent_of_input(self):
+        # claude-sonnet-4-6 input = $3/M
+        # cache read 1M tokens = $3 * 0.10 = $0.30
+        cost = price_call(
+            "claude-sonnet-4-6",
+            0,
+            0,
+            cache_creation_tokens=0,
+            cache_read_tokens=1_000_000,
+        )
+        assert abs(cost - 0.30) < 1e-9
+
+    def test_mixed_cached_and_regular_input(self):
+        # claude-opus-4-7: in=$5/M, out=$25/M
+        # 10k regular input @ $5/M       = 0.050
+        # 5k output @ $25/M              = 0.125
+        # 100k cache_creation @ $5*1.25  = 0.625
+        # 50k cache_read @ $5*0.10       = 0.025
+        # total = 0.825
+        cost = price_call(
+            "claude-opus-4-7",
+            10_000,
+            5_000,
+            cache_creation_tokens=100_000,
+            cache_read_tokens=50_000,
+        )
+        assert abs(cost - 0.825) < 1e-9
+
+    def test_cache_savings_vs_uncached_call(self):
+        # Same total prompt content, but one is fully cached on second call.
+        # First call: full input bill + cache write surcharge
+        # Second call: tiny non-cached delta + 10% cache read
+        first = price_call(
+            "claude-sonnet-4-6",
+            500,
+            200,
+            cache_creation_tokens=10_000,  # written to cache
+        )
+        second = price_call(
+            "claude-sonnet-4-6",
+            500,
+            200,
+            cache_read_tokens=10_000,  # served from cache
+        )
+        # First call: 0.0015 in + 0.003 out + 0.0375 cache_write = 0.042
+        # Second call: 0.0015 in + 0.003 out + 0.003 cache_read = 0.0075
+        # Second call must be much cheaper.
+        assert second < first
+        assert second < first * 0.25  # roughly 4x+ cheaper
+
+    def test_price_usage_handles_cache_fields(self):
+        u = TokenUsage(
+            agent="exploit",
+            model="claude-opus-4-7",
+            input_tokens=1_000,
+            output_tokens=500,
+            cache_creation_tokens=10_000,
+            cache_read_tokens=5_000,
+        )
+        # 1k in @ $5/M = 0.005
+        # 0.5k out @ $25/M = 0.0125
+        # 10k cache_write @ $5 * 1.25 = 0.0625
+        # 5k cache_read @ $5 * 0.10 = 0.0025
+        # total = 0.0825
+        assert abs(price_usage(u) - 0.0825) < 1e-9
