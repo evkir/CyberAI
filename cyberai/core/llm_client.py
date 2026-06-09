@@ -1,7 +1,13 @@
-from typing import List, Dict, Optional, Any
+import json
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, List, Dict, Optional, Any
+
 from .config import LLMConfig
 from .cost_tracker import CostTracker, BudgetExceeded
 import httpx
+
+if TYPE_CHECKING:
+    from .base_agent import Tool
 
 
 class LLMClient:
@@ -127,6 +133,93 @@ class LLMClient:
         response.raise_for_status()
         return response.json()["message"]["content"]
 
+    # ── native tool calling (sync) ────────────────────────────────────
+
+    def call_tools(
+        self,
+        messages: List[Dict],
+        system: Optional[str] = None,
+        tools: Optional[List["Tool"]] = None,
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
+    ) -> "LLMResponse":
+        """One tool-enabled round-trip. Ollama tool calling is unsupported."""
+        tools = tools or []
+        if self.config.provider == "openai":
+            return self._call_tools_openai(messages, system, tools, agent_name)
+        elif self.config.provider == "anthropic":
+            return self._call_tools_anthropic(messages, system, tools, agent_name, cacheable_system)
+        else:
+            raise ValueError(f"Tool calling unsupported for provider: {self.config.provider}")
+
+    def _call_tools_openai(self, messages, system, tools, agent_name="unknown"):
+        import openai
+
+        client = openai.OpenAI(api_key=self.config.api_key)
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+        response = client.chat.completions.create(
+            model=self.config.model,
+            messages=full_messages,
+            max_tokens=self.config.max_tokens,
+            temperature=self.config.temperature,
+            tools=_tools_to_openai_format(tools),
+        )
+        self._record_usage(
+            agent_name,
+            getattr(response, "model", self.config.model),
+            getattr(response.usage, "prompt_tokens", 0),
+            getattr(response.usage, "completion_tokens", 0),
+        )
+        choice = response.choices[0]
+        msg = choice.message
+        calls = []
+        for tc in getattr(msg, "tool_calls", None) or []:
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+        return LLMResponse(text=msg.content, tool_calls=calls, stop_reason=choice.finish_reason)
+
+    def _call_tools_anthropic(
+        self, messages, system, tools, agent_name="unknown", cacheable_system=False
+    ):
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=self.config.api_key)
+        kwargs: Dict[str, Any] = dict(
+            model=self.config.model,
+            max_tokens=self.config.max_tokens,
+            messages=messages,
+            tools=_tools_to_anthropic_format(tools),
+        )
+        if system:
+            kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
+        response = client.messages.create(**kwargs)
+        self._record_usage(
+            agent_name,
+            getattr(response, "model", self.config.model),
+            getattr(response.usage, "input_tokens", 0),
+            getattr(response.usage, "output_tokens", 0),
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+        )
+        text_parts = []
+        calls = []
+        for block in response.content:
+            if block.type == "text":
+                text_parts.append(block.text)
+            elif block.type == "tool_use":
+                calls.append(ToolCall(id=block.id, name=block.name, arguments=dict(block.input)))
+        return LLMResponse(
+            text="".join(text_parts) or None,
+            tool_calls=calls,
+            stop_reason=getattr(response, "stop_reason", None),
+        )
+
     # ── async API ─────────────────────────────────────────────────────
 
     async def acall(
@@ -226,3 +319,115 @@ def _wrap_cacheable(system_text: str) -> list[dict]:
             "cache_control": {"type": "ephemeral"},
         }
     ]
+
+
+# ── native tool calling: response types + spec converters ─────────────
+
+
+@dataclass
+class ToolCall:
+    """A single tool invocation requested by the model."""
+
+    id: str
+    name: str
+    arguments: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class LLMResponse:
+    """Tool-enabled call result: free text and/or requested tool calls."""
+
+    text: Optional[str] = None
+    tool_calls: List[ToolCall] = field(default_factory=list)
+    stop_reason: Optional[str] = None
+
+
+def _params_to_schema(tool: "Tool") -> Dict[str, Any]:
+    """JSON Schema for a Tool's arguments.
+
+    Prefers tool.input_schema when set; otherwise derives an all-string
+    object schema from tool.params (arg name -> description). params cannot
+    express non-string/nested types — set input_schema for those.
+    """
+    explicit = getattr(tool, "input_schema", None)
+    if explicit:
+        return explicit
+    props = {
+        name: {"type": "string", "description": desc}
+        for name, desc in (getattr(tool, "params", None) or {}).items()
+    }
+    return {"type": "object", "properties": props, "required": list(props)}
+
+
+def _tools_to_openai_format(tools: List["Tool"]) -> List[Dict[str, Any]]:
+    """Convert Tools to the OpenAI chat.completions `tools` shape."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": _params_to_schema(t),
+            },
+        }
+        for t in tools
+    ]
+
+
+def _tools_to_anthropic_format(tools: List["Tool"]) -> List[Dict[str, Any]]:
+    """Convert Tools to the Anthropic messages `tools` shape.
+
+    Anthropic uses a flat {name, description, input_schema} per tool,
+    where input_schema is the JSON Schema for the arguments object.
+    """
+    return [
+        {
+            "name": t.name,
+            "description": t.description,
+            "input_schema": _params_to_schema(t),
+        }
+        for t in tools
+    ]
+
+
+# ── native tool calling: provider-aware message threading ─────────────
+
+
+def format_assistant_tool_turn(provider: str, response: "LLMResponse") -> Dict[str, Any]:
+    """Rebuild the assistant turn that requested tool calls, for re-sending."""
+    if provider == "anthropic":
+        content: List[Dict[str, Any]] = []
+        if response.text:
+            content.append({"type": "text", "text": response.text})
+        for tc in response.tool_calls:
+            content.append(
+                {"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.arguments}
+            )
+        return {"role": "assistant", "content": content}
+    return {
+        "role": "assistant",
+        "content": response.text,
+        "tool_calls": [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+            }
+            for tc in response.tool_calls
+        ],
+    }
+
+
+def format_tool_results(provider: str, results: List[tuple]) -> List[Dict[str, Any]]:
+    """results: list of (ToolCall, output_str) -> provider-shaped messages."""
+    if provider == "anthropic":
+        return [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": tc.id, "content": out}
+                    for tc, out in results
+                ],
+            }
+        ]
+    return [{"role": "tool", "tool_call_id": tc.id, "content": out} for tc, out in results]
