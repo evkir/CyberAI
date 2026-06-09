@@ -47,6 +47,9 @@ class Tool:
     func: Callable
     params: Dict[str, str] = field(default_factory=dict)
     parameters: Optional[Dict[str, str]] = None
+    # Explicit JSON Schema for native LLM tool calling. params expresses only
+    # flat string args; set this for typed/nested/list args (KI: build_chain).
+    input_schema: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         # KI-6: agents pass parameters=...; mirror it into params.
