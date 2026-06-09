@@ -32,3 +32,20 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 - **Технический долг зафиксирован**: 30 unused-import ошибок в `tests/` (legacy с дней 8-15). CI не цепляет (job запускает `ruff check cyberai/` без tests). Чистка отдельным coммитом-уборкой в конце недели 3.
 - CLI прирос строкой типа `LLM cost: $0.0750 (3,500 in / 1,200 out tokens, 2 calls)`. Точная цифра ($0.2050 для тестового набора) подтверждена ручным расчётом.
 - 20 новых unit-тестов (6 cost_tracker + 10 pricing + 4 budget). Total 284 → +4 deselected (slow/smoke).
+
+## День 18 — Anthropic prompt caching
+
+**Ветка:** `feat/prompt-caching` → merge commit в main.
+
+**Коммиты:**
+1. `cache_control` параметр в `LLMClient.acall`/`call` для Anthropic (ephemeral, на system + последнем user-блоке)
+2. `EXPLOIT_PROMPT` расширен до ~1256 токенов: добавлен CWE Top 25 с описанием паттернов эксплуатации, маркер кэширования стоит после статической секции
+3. `pricing.py`: cache-aware множители — `cache_write = 1.25× input`, `cache_read = 0.10× input` (модели Sonnet/Opus 4.x по прайсу 06.2026)
+4. `tests/unit/test_prompt_caching.py` — 5 кейсов с `unittest.mock` на `AsyncAnthropic.messages.create`: проверка отправки `cache_control`, парсинг `usage.cache_creation_input_tokens`/`cache_read_input_tokens`, корректный расчёт стоимости
+
+**Уроки:**
+- Anthropic SDK 0.100.0 принимает `cache_control={"type": "ephemeral"}` только на блоках типа `text` внутри `content` массива — не на верхнем уровне `system`
+- Кэш живёт 5 минут, для тестов важно мокать а не бить API
+- `usage` в response теперь имеет 4 поля: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` — все надо учесть в `CostTracker`
+
+**Метрики:** prompt с CWE Top 25 при втором вызове даёт ~10× экономию на input-токенах (по моку).
