@@ -73,3 +73,26 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 **Уроки:**
 - Ollama tool calling не реализован — `call_tools` бросает ValueError для него (явно, не молча)
 - `_make_agent` через `__new__` обходит `__init__` — для loop-тестов хватает (audit/kb/memory не задействованы в native-пути)
+
+## День 20 — Structured outputs для отчёта
+
+**Ветка:** `feat/structured-outputs` → merge commit. 319 тестов зелёные (+12).
+
+**Коммиты:**
+1. `structured_call() -> dict` — OpenAI json_schema / Anthropic forced-tool
+2. `ReportSection` (pydantic, severity field_validator) + флаг-gated `_structured_summary` в ReportAgent
+3. `h1_exporter.py` — HackerOne Markdown
+4. structured output roundtrip тесты
+
+**SDK shapes (зафиксировано 0.100.0 / 2.36.0):**
+- OpenAI: `response_format={"type":"json_schema","json_schema":{"name","schema","strict"}}`; strict=False + ручной pydantic-парс (strict требует additionalProperties:false на всех уровнях, pydantic-схема не гарантирует)
+- Anthropic: structured output = single forced tool, `tool_choice={"type":"tool","name":...}`, результат = `tool_use.input` (dict напрямую)
+
+**Решения:**
+- ReportAgent LLM-free → structured-путь под флагом `use_llm_summary` (default False), fail-safe try/except: детерминированный отчёт никогда не падает из-за LLM
+- `ReportSection.impact` добавлено сверх плана — требование H1-шаблона
+- `Finding` — dataclass, не pydantic → `ReportSection.findings: list[str]`, не переиспользую Finding
+
+**Уроки:**
+- OpenAI strict json_schema на вложенных pydantic-моделях капризен — проще strict=False + `model_validate`
+- Anthropic structured output элегантнее через forced tool, чем через промпт-инжекцию JSON; переиспользовал day-19 конвертер мысленно, но тут схема идёт напрямую
