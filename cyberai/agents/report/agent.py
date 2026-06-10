@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import json
+
 from cyberai.core.base_agent import BaseAgent, Tool
+from cyberai.core.types import ReportSection
 
 from .json_exporter import export_json
 from .markdown_renderer import render_markdown
@@ -58,9 +61,59 @@ class ReportAgent(BaseAgent):
         self.kb.set("report.markdown_path", md_path, agent=self.AGENT_NAME)
         self.kb.set("report.json_path", json_path, agent=self.AGENT_NAME)
 
+        # Flag-gated: LLM-generated structured executive section.
+        if getattr(self.config, "use_llm_summary", False) and self.llm is not None:
+            section = self._structured_summary(target)
+            if section is not None:
+                self.kb.set("report.section", section.model_dump(), agent=self.AGENT_NAME)
+
         return {
             "status": "done",
             "markdown": md_path,
             "json": json_path,
             "total_findings": len(self.session.findings),
         }
+
+    def _structured_summary(self, target: str):
+        """Flag-gated: ask the LLM for a Pydantic-validated ReportSection.
+
+        Uses LLMClient.structured_call with ReportSection's JSON Schema; the
+        provider returns JSON, which we validate. Returns None on any failure
+        so the deterministic report is never blocked.
+        """
+        if self.llm is None:
+            return None
+        findings = [
+            {
+                "title": f.title,
+                "severity": getattr(f.severity, "value", str(f.severity)),
+                "description": f.description,
+            }
+            for f in self.session.findings
+        ]
+        system = (
+            "You are a penetration-test report writer. Summarize the findings "
+            "into one executive ReportSection: a concise title, the highest "
+            "applicable severity, key findings, concrete recommendations, and "
+            "a short business impact statement."
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": (f"Target: {target}\nFindings JSON:\n{json.dumps(findings, indent=2)}"),
+            }
+        ]
+        schema = ReportSection.model_json_schema()
+        try:
+            raw = self.llm.structured_call(
+                messages,
+                schema=schema,
+                schema_name="report_section",
+                description="Executive pentest report section.",
+                system=system,
+                agent_name=self.AGENT_NAME,
+            )
+            return ReportSection.model_validate(raw)
+        except Exception as exc:  # noqa: BLE001 — report must never hard-fail
+            self._log(f"LLM structured summary failed: {exc}")
+            return None

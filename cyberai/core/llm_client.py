@@ -220,6 +220,115 @@ class LLMClient:
             stop_reason=getattr(response, "stop_reason", None),
         )
 
+    # ── structured output (sync) ──────────────────────────────────────
+
+    def structured_call(
+        self,
+        messages: List[Dict],
+        schema: Dict[str, Any],
+        schema_name: str = "response",
+        description: str = "",
+        system: Optional[str] = None,
+        agent_name: str = "unknown",
+        cacheable_system: bool = False,
+    ) -> Dict[str, Any]:
+        """Force the model to return JSON matching `schema`; returns parsed dict.
+
+        OpenAI: response_format=json_schema. Anthropic: a single forced tool
+        whose input_schema is `schema` — the tool_use input IS the structured
+        output. Ollama is unsupported. Caller validates via pydantic.
+        """
+        if self.config.provider == "openai":
+            return self._structured_openai(
+                messages, schema, schema_name, description, system, agent_name
+            )
+        elif self.config.provider == "anthropic":
+            return self._structured_anthropic(
+                messages,
+                schema,
+                schema_name,
+                description,
+                system,
+                agent_name,
+                cacheable_system,
+            )
+        else:
+            raise ValueError(f"Structured output unsupported for provider: {self.config.provider}")
+
+    def _structured_openai(
+        self, messages, schema, schema_name, description, system, agent_name="unknown"
+    ):
+        import openai
+
+        client = openai.OpenAI(api_key=self.config.api_key)
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+        response = client.chat.completions.create(
+            model=self.config.model,
+            messages=full_messages,
+            max_tokens=self.config.max_tokens,
+            temperature=self.config.temperature,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": schema,
+                    "strict": False,
+                },
+            },
+        )
+        self._record_usage(
+            agent_name,
+            getattr(response, "model", self.config.model),
+            getattr(response.usage, "prompt_tokens", 0),
+            getattr(response.usage, "completion_tokens", 0),
+        )
+        content = response.choices[0].message.content or "{}"
+        return json.loads(content)
+
+    def _structured_anthropic(
+        self,
+        messages,
+        schema,
+        schema_name,
+        description,
+        system,
+        agent_name="unknown",
+        cacheable_system=False,
+    ):
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=self.config.api_key)
+        tool = {
+            "name": schema_name,
+            "description": description or f"Return a structured {schema_name}.",
+            "input_schema": schema,
+        }
+        kwargs: Dict[str, Any] = dict(
+            model=self.config.model,
+            max_tokens=self.config.max_tokens,
+            messages=messages,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": schema_name},
+        )
+        if system:
+            kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
+        response = client.messages.create(**kwargs)
+        self._record_usage(
+            agent_name,
+            getattr(response, "model", self.config.model),
+            getattr(response.usage, "input_tokens", 0),
+            getattr(response.usage, "output_tokens", 0),
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+        )
+        for block in response.content:
+            if block.type == "tool_use":
+                return dict(block.input)
+        return {}
+
     # ── async API ─────────────────────────────────────────────────────
 
     async def acall(
