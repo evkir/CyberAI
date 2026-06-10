@@ -6,7 +6,7 @@ Centralises type hints — import from here, not redefine everywhere.
 from typing import Any, Union
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # Target types
 Target = str  # IP, CIDR, or domain
@@ -104,6 +104,29 @@ class ExploitResult(BaseModel):
 # Report
 ReportPath = Path
 ReportFormat = str  # "markdown" | "html" | "json" | "pdf"
+
+_VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
+
+
+class ReportSection(BaseModel):
+    """LLM-generated structured report section (day 20 structured outputs).
+
+    `impact` is included for HackerOne-style export; not in the original
+    plan column but required by the H1 template.
+    """
+
+    title: str
+    severity: str = "INFO"
+    findings: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    impact: str = ""
+
+    @field_validator("severity")
+    @classmethod
+    def _norm_severity(cls, v: str) -> str:
+        up = (v or "INFO").strip().upper()
+        return up if up in _VALID_SEVERITIES else "INFO"
+
 
 # Pipeline
 PipelineInput = Target
