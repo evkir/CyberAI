@@ -1,6 +1,7 @@
-from typing import Any
+from typing import Any, List, Dict, Optional
 import logging
 import json
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from rich.console import Console
@@ -47,19 +48,95 @@ class JsonFormatter(logging.Formatter):
 
 
 class AuditLogger:
-    """Wrapper for structured pentest audit logging"""
+    """Wrapper for structured pentest audit logging.
 
-    def __init__(self, session_id: str, output_dir: str = "reports/"):
+    Always writes a JSONL trail. When `db_path` is given, every event is
+    also appended to an append-only SQLite `audit_events` table, enabling
+    queryable audit and session replay (day 21). db_path=None keeps the
+    legacy JSONL-only behaviour (no regression).
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        output_dir: str = "reports/",
+        db_path: Optional[str] = None,
+    ):
         log_path = f"{output_dir}/audit_{session_id}.jsonl"
         self.logger = get_logger(f"cyberai.audit.{session_id}", log_path)
         self.session_id = session_id
+        self.db_path = db_path
+        if db_path:
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            self._init_db()
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    agent TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    inputs_json TEXT,
+                    outputs_json TEXT,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+
+    def _db_append(
+        self,
+        agent: str,
+        action: str,
+        inputs: Any = None,
+        outputs: Any = None,
+    ) -> None:
+        if not self.db_path:
+            return
+        inputs_json = json.dumps(inputs, default=str) if inputs is not None else None
+        outputs_json = json.dumps(outputs, default=str) if outputs is not None else None
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO audit_events "
+                "(session_id, agent, action, inputs_json, outputs_json, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    self.session_id,
+                    agent,
+                    action,
+                    inputs_json,
+                    outputs_json,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
+    def read_events(self, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Read audit events (all, or for one session) ordered by id.
+
+        Returns [] when no SQLite backend is configured.
+        """
+        if not self.db_path:
+            return []
+        sid = session_id or self.session_id
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT * FROM audit_events WHERE session_id = ? ORDER BY id",
+                (sid,),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def agent_action(self, agent: str, action: str, data: Any = None):
         extra = {"agent": agent, "data": data}
         self.logger.info(f"[{agent}] {action}", extra=extra)
+        self._db_append(agent, action, inputs=data)
 
     def finding(self, agent: str, title: str, severity: str):
         self.logger.warning(f"[FINDING][{severity}] {title}", extra={"agent": agent})
+        self._db_append(agent, "finding", outputs={"title": title, "severity": severity})
 
     def error(self, agent: str, msg: str):
         self.logger.error(f"[{agent}] {msg}", extra={"agent": agent})
+        self._db_append(agent, "error", outputs={"message": msg})
