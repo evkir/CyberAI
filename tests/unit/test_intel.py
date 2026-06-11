@@ -1,4 +1,3 @@
-import pytest
 from cyberai.agents.intel.service_mapper import ports_to_queries, score_to_severity
 from cyberai.agents.intel.nvd_client import _parse_cves
 
