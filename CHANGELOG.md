@@ -2,6 +2,25 @@
 
 All notable changes to CyberAI are documented here.
 
+## [0.4.0] - 2026-06-12
+
+### Accelerated & Observable — Week 3
+
+Week 3 turns the working pipeline into a fast, cost-aware and auditable one.
+
+### Added
+- Async pipeline: `AsyncOrchestrator`, async DNS / subdomain enum, batched
+  async CVE lookups with a sync-vs-async no-regression benchmark gate.
+- Cost tracking: `CostTracker` + `TokenUsage`, per-model pricing, CLI cost
+  summary, `BudgetExceeded` hard cap via `max_cost_usd`.
+- Anthropic prompt caching (`cache_control`) with cache-aware pricing.
+- Native LLM tool calling: Tool→OpenAI/Anthropic spec converters, `call_tools`
+  returning structured `LLMResponse`, provider-aware tool-result threading.
+- Structured outputs: `structured_call` (OpenAI `json_schema` / Anthropic
+  forced tool), Pydantic `ReportSection`, HackerOne-compatible export.
+- Observability: SQLite-backed audit log, full session export/import
+  (`to_json` / `from_json`), and `cyberai replay <session_id>`.
+
 ## [0.3.0] - 2026-06-02
 
 ### Hardening — Week 2 complete
