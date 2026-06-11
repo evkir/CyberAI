@@ -56,7 +56,13 @@ def scan(
     console.print("[yellow]→[/yellow] Starting pipeline...")
     session = orchestrator.run(target, authorized_scope=list(scope))
 
+    from cyberai.cli.replay import save_session
+
+    saved = save_session(session, config.output_dir)
     console.print(f"\n[green]✓[/green] Done. Findings: {len(session.findings)}")
+    console.print(
+        f"[dim]Session saved: {saved} (replay with: cyberai replay {session.session_id})[/dim]"
+    )
 
     from cyberai.core.cost_tracker import format_summary
 
@@ -65,6 +71,16 @@ def scan(
     summary = session.summary()
     for key, value in summary.items():
         console.print(f"  {key}: {value}")
+
+
+@cli.command()
+@click.argument("session_id")
+def replay(session_id: str) -> None:
+    """Reload SESSION_ID, re-run in dry-run mode and diff the phases."""
+    from cyberai.cli.replay import run_replay
+
+    config = CyberAIConfig.from_env()
+    raise SystemExit(run_replay(session_id, config))
 
 
 @cli.command()
