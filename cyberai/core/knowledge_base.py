@@ -60,6 +60,14 @@ class KnowledgeBase:
     def snapshot(self) -> Dict[str, Any]:
         return {k: v.value for k, v in self._store.items()}
 
+    @classmethod
+    def from_snapshot(cls, data: Dict[str, Any]) -> "KnowledgeBase":
+        """Rebuild a KB from a snapshot() dict (agent/tags/ts not restored)."""
+        kb = cls()
+        for key, value in (data or {}).items():
+            kb.set(key, value, agent="replay")
+        return kb
+
     def history(self) -> List[Dict]:
         return [{"key": e.key, "agent": e.agent, "timestamp": e.timestamp} for e in self._history]
 

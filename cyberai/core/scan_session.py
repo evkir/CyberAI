@@ -13,8 +13,9 @@ for backward compatibility; new code should import from `scan_session`.
 
 from __future__ import annotations
 
+import json
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -230,6 +231,53 @@ class ScanSession:
             "kb_keys": list(self.kb.keys()),
         }
 
+    # ── full serialization for replay (day 21) ────────────────────────
+
+    def to_json(self, indent: int = 2) -> str:
+        """Full session export including KB values, findings and phases.
+
+        Non-JSON-native values fall back to str(). Restorable via from_json().
+        """
+        payload = {
+            "session_id": self.session_id,
+            "target": self.target,
+            "state": self.state.value,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "ended_at": self.ended_at,
+            "authorized_scope": list(self.authorized_scope),
+            "errors": list(self.errors),
+            "findings": [_finding_to_dict(f) for f in self.findings],
+            "phases": [_phase_to_dict(p) for p in self.phases],
+            "kb": self.kb.snapshot(),
+        }
+        return json.dumps(payload, indent=indent, default=str)
+
+    @classmethod
+    def from_json(cls, raw: str) -> "ScanSession":
+        """Rebuild a ScanSession from to_json() output.
+
+        Findings/phases are restored as dataclasses; KB values are restored
+        verbatim from the snapshot. Timestamps and ids are preserved.
+        """
+        data = json.loads(raw)
+        session = cls(
+            target=data["target"],
+            session_id=data.get("session_id", str(uuid.uuid4())[:8]),
+        )
+        session.state = ScanState(data.get("state", "created"))
+        session.created_at = data.get("created_at", session.created_at)
+        session.started_at = data.get("started_at")
+        session.ended_at = data.get("ended_at")
+        session.authorized_scope = list(data.get("authorized_scope", []))
+        session.errors = list(data.get("errors", []))
+        session.kb = KnowledgeBase.from_snapshot(data.get("kb", {}))
+        for fd in data.get("findings", []):
+            session.findings.append(_finding_from_dict(fd))
+        for pd in data.get("phases", []):
+            session.phases.append(_phase_from_dict(pd))
+        return session
+
     def __repr__(self) -> str:
         return (
             f"ScanSession(id={self.session_id}, "
@@ -261,3 +309,36 @@ def _phase_summary(p: PhaseResult) -> Dict[str, Any]:
         "duration_s": p.duration_s,
         "error": p.error,
     }
+
+
+# ── (de)serialization helpers for replay (day 21) ─────────────────────
+
+
+def _finding_to_dict(f: "Finding") -> Dict[str, Any]:
+    d = asdict(f)
+    if isinstance(d.get("severity"), Severity):
+        d["severity"] = f.severity.value
+    elif hasattr(f.severity, "value"):
+        d["severity"] = f.severity.value
+    return d
+
+
+def _finding_from_dict(d: Dict[str, Any]) -> "Finding":
+    data = dict(d)
+    sev = data.get("severity", "INFO")
+    data["severity"] = sev if isinstance(sev, Severity) else Severity(str(sev).upper())
+    return Finding(**data)
+
+
+def _phase_to_dict(p: "PhaseResult") -> Dict[str, Any]:
+    d = asdict(p)
+    if hasattr(p.phase, "value"):
+        d["phase"] = p.phase.value
+    return d
+
+
+def _phase_from_dict(d: Dict[str, Any]) -> "PhaseResult":
+    data = dict(d)
+    ph = data.get("phase")
+    data["phase"] = ph if isinstance(ph, ScanPhase) else ScanPhase(str(ph))
+    return PhaseResult(**data)
