@@ -117,3 +117,26 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 - `KnowledgeBase` имел `snapshot()` но не restore — добавил `from_snapshot`
 - `Finding`/`PhaseResult` — dataclass → `asdict` + ручная enum→.value сериализация; `json.dumps(default=str)` страхует несериализуемые KB values
 - dry_run детерминирован → replay phases совпадают 4/4
+
+## День 21 — Audit log в SQLite + replay (v0.4.0)
+
+**Ветка:** `feat/audit-replay` → merge commit (PR #104). 319 тестов зелёные.
+
+**Коммиты:**
+1. SQLite audit log — опц. `db_path`, таблица `audit_events`, `read_events()`
+2. `ScanSession.to_json/from_json` + `KnowledgeBase.from_snapshot`
+3. `cyberai replay <session_id>` (cli/replay.py) + save_session в scan
+4. v0.4.0 + CHANGELOG
++ hotfix: убран unused `import json` в replay.py (F401)
+
+**Решения:**
+- SQLite как опц. sink (default None) — JSONL-путь нетронут, no-regression
+- replay-семантика: load → re-run dry_run → diff phases. Observability = детерминизм пайплайна, не mock-LLM
+- `outputs_json` nullable: `agent_action` имеет одно поле `data`→inputs
+- save_session добавлен в scan (план не упоминал) — иначе replay нечего читать
+
+**Уроки:**
+- `KnowledgeBase` имел `snapshot()` но не restore → добавил `from_snapshot`
+- `Finding`/`PhaseResult` — dataclass → `asdict` + enum→.value; `json.dumps(default=str)` для несериализуемых KB values
+- dry_run детерминирован → replay phases 4/4 match
+- **CI-гейт ≠ локальный:** `ruff format` (форматирование) не ловит F401; CI гоняет `ruff check cyberai/`. Локальный pre-commit гонял только format+pytest → unused import утёк в CI. Фикс процесса: гонять `ruff check cyberai/` перед каждым push.
