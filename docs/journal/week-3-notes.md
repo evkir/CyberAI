@@ -96,3 +96,24 @@ Async pipeline, prompt caching, token/cost tracking. Phase: ACCELERATION.
 **Уроки:**
 - OpenAI strict json_schema на вложенных pydantic-моделях капризен — проще strict=False + `model_validate`
 - Anthropic structured output элегантнее через forced tool, чем через промпт-инжекцию JSON; переиспользовал day-19 конвертер мысленно, но тут схема идёт напрямую
+
+## День 21 — Audit log в SQLite + replay (v0.4.0)
+
+**Ветка:** `feat/audit-replay` → merge commit. 319 тестов зелёные.
+
+**Коммиты:**
+1. SQLite audit log — опц. `db_path`, таблица `audit_events`, `read_events()`
+2. `ScanSession.to_json/from_json` + `KnowledgeBase.from_snapshot`
+3. `cyberai replay <session_id>` (cli/replay.py) + save_session в scan
+4. v0.4.0 + CHANGELOG
+
+**Решения:**
+- SQLite как опц. sink (default None) — JSONL-путь нетронут, no-regression
+- replay-семантика: load → re-run dry_run → diff phases. Observability = детерминизм пайплайна, а не mock-LLM (инфры пока нет)
+- `outputs_json` nullable: `agent_action` имеет одно поле `data`→inputs; сигнатуру не ломал
+- save_session добавлен в scan (план не упоминал) — иначе replay нечего читать
+
+**Уроки:**
+- `KnowledgeBase` имел `snapshot()` но не restore — добавил `from_snapshot`
+- `Finding`/`PhaseResult` — dataclass → `asdict` + ручная enum→.value сериализация; `json.dumps(default=str)` страхует несериализуемые KB values
+- dry_run детерминирован → replay phases совпадают 4/4
