@@ -1,7 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
 from cyberai.agents.recon.nmap_tool import _parse_ports
-from cyberai.agents.recon.dns_tool import run_dns
 
 
 def test_parse_ports_empty():

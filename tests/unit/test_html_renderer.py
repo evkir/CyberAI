@@ -1,4 +1,3 @@
-import pytest
 from pathlib import Path
 from cyberai.agents.report.html_renderer import (
     render_html_report,

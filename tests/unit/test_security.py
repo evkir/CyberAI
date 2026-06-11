@@ -1,4 +1,3 @@
-import pytest
 from cyberai.core.security.injection_detector import detect_injection, scan_messages
 from cyberai.core.security.input_sanitizer import (
     sanitize_target,
