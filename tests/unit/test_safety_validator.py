@@ -1,7 +1,5 @@
-import pytest
 from cyberai.agents.exploit.safety_validator import (
     validate_exploit_scope,
-    _check_target_ip,
     _target_in_scope,
 )
 

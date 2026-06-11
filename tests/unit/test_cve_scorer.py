@@ -3,9 +3,7 @@ from cyberai.agents.intel.cve_scorer import (
     score_cve,
     score_all,
     CVEScore,
-    CVSS_WEIGHT,
     EXPLOIT_WEIGHT,
-    RECENCY_WEIGHT,
     EPSS_WEIGHT,
 )
 
