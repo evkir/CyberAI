@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanPhase, ScanState
 

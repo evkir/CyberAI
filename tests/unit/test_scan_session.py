@@ -1,4 +1,3 @@
-import pytest
 from cyberai.core.scan_session import ScanSession, ScanState, ScanPhase, PhaseResult
 
 

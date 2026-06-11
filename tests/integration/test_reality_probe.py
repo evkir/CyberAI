@@ -2,8 +2,7 @@
 reality-probe integration tests — mock client, no live server needed.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from cyberai.integrations.reality_probe_client import RealityProbeClient, TLSResult
 from cyberai.agents.recon.tls_tool import TLSTool
 from cyberai.agents.intel.tls_cve_mapper import TLSCVEMapper

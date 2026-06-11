@@ -7,7 +7,6 @@ and the CLI wiring works in dry-run.
 
 from __future__ import annotations
 
-import pytest
 from click.testing import CliRunner
 
 from cyberai.__main__ import cli

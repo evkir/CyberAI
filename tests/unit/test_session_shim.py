@@ -7,8 +7,8 @@ import warnings
 
 def test_legacy_imports_still_work():
     from cyberai.core.session import (
-        Finding,
-        PentestSession,
+        Finding,  # noqa: F401 — shim must re-export this legacy name
+        PentestSession,  # noqa: F401 — shim must re-export this legacy name
         Severity,
         SessionState,
     )
