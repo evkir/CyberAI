@@ -21,7 +21,7 @@ class LLMConfig:
 @dataclass
 class PhantomConfig:
     intel_db: Path = Path("~/.phantom/intel.db")
-    grid_url: str = "http://127.0.0.1:8080"
+    grid_url: str = "http://127.0.0.1:9090"
     grid_api_key: Optional[str] = field(default_factory=lambda: os.getenv("PHANTOM_GRID_KEY"))
 
 
