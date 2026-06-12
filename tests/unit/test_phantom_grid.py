@@ -113,7 +113,7 @@ def test_rce_payloads_contain_curl_and_wget():
 
 def test_get_all_payloads_keys():
     all_p = get_all_payloads("grid.example.com", "abc123")
-    assert set(all_p.keys()) == {"ssrf", "xxe", "ssti", "rce"}
+    assert set(all_p.keys()) == {"ssrf", "xxe", "ssti", "rce", "crlf", "sqli", "cmdi"}
 
 
 def test_get_all_payloads_non_empty():
