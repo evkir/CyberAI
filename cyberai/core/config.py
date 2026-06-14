@@ -41,6 +41,8 @@ class CyberAIConfig:
     max_agent_iterations: int = 10
     # Hard budget for total LLM spend in this scan, USD. 0.0 disables the check.
     max_cost_usd: float = 0.0
+    # Flag-gated: run the nuclei template engine in ExploitAgent (day 23).
+    use_nuclei: bool = False
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":
