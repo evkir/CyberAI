@@ -16,6 +16,8 @@ from rich.console import Console
 from cyberai.core.base_agent import BaseAgent, Tool
 
 from .etherscan import EtherscanClient
+from .immunefi_severity import classify_all, highest_tier
+from .slither_tool import SlitherTool
 
 console = Console()
 
@@ -35,6 +37,14 @@ class SmartContractAgent(BaseAgent):
                 parameters={"address": "str"},
             )
         )
+        self.register_tool(
+            Tool(
+                name="slither_scan",
+                description="Static-analyze a Solidity file with slither",
+                func=self._slither_scan,
+                parameters={"path": "str"},
+            )
+        )
 
     def _fetch_source(self, address: str) -> Dict[str, Any]:
         client = EtherscanClient()
@@ -47,6 +57,17 @@ class SmartContractAgent(BaseAgent):
             "verified": src.verified,
             "compiler_version": src.compiler_version,
             "source_len": len(src.source_code),
+        }
+
+    def _slither_scan(self, path: str) -> Dict[str, Any]:
+        tool = SlitherTool()
+        findings = tool.analyze(path)
+        classified = classify_all(findings)
+        return {
+            "available": tool.available,
+            "findings": classified,
+            "highest_severity": highest_tier(findings),
+            "count": len(classified),
         }
 
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -63,8 +84,16 @@ class SmartContractAgent(BaseAgent):
             "mode": "local" if is_local else "address",
             "findings": [],
         }
-        if not is_local:
+        if is_local:
+            scan = self.call_tool("slither_scan", path=target)
+            result["findings"] = scan["findings"]
+            result["highest_severity"] = scan["highest_severity"]
+            result["slither_available"] = scan["available"]
+        else:
             result["source_meta"] = self.call_tool("fetch_source", address=target)
         self.kb.set("web3", result, agent=self.AGENT_NAME)
-        self._log("Smart-contract skeleton complete", {"mode": result["mode"]})
+        self._log(
+            "Smart-contract analysis complete",
+            {"mode": result["mode"], "findings": len(result["findings"])},
+        )
         return result
