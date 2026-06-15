@@ -31,3 +31,81 @@ def register(
         inputSchema=input_schema,
         handler=handler,
     )
+
+
+# ── recon tools (day 25 commit 2) ─────────────────────────────────────
+
+from cyberai.agents.recon.dns_tool import (  # noqa: E402
+    detect_subdomains,
+    run_dns,
+    run_whois,
+)
+from cyberai.agents.recon.nmap_tool import run_nmap  # noqa: E402
+
+register(
+    name="nmap_scan",
+    description="Port-scan a target host with nmap and return parsed results.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Host or IP to scan"},
+            "flags": {
+                "type": "string",
+                "description": "nmap flags (whitelisted)",
+                "default": "-sV -T4 --top-ports 1000",
+            },
+        },
+        "required": ["target"],
+    },
+    handler=run_nmap,
+)
+
+register(
+    name="dns_enum",
+    description="Resolve DNS records (A/AAAA/MX/NS/TXT) for a domain.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Domain to resolve"},
+        },
+        "required": ["target"],
+    },
+    handler=run_dns,
+)
+
+register(
+    name="whois_lookup",
+    description="WHOIS lookup for domain registration info.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Domain to query"},
+        },
+        "required": ["target"],
+    },
+    handler=run_whois,
+)
+
+
+def _subdomain_handler(target: str, wordlist: list[str] | None = None) -> dict:
+    """Adapt detect_subdomains to MCP (wordlist optional)."""
+    return detect_subdomains(target, wordlist)
+
+
+register(
+    name="subdomain_enum",
+    description="Enumerate subdomains for a domain via a wordlist probe.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Base domain"},
+            "wordlist": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional subdomain candidates",
+            },
+        },
+        "required": ["target"],
+    },
+    handler=_subdomain_handler,
+)
