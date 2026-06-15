@@ -44,3 +44,23 @@
 - ДВАЖДЫ предложил коммит при красном выводе: (1) smoke коммита 3 с неполным фикстуром (_iterations) — pytest спас, флаг-gated код не тронул тесты; (2) коммит 4 — 5 тестов красные из-за os.path.exists на фейк-путях. Правило закреплено жёстко: НЕ предлагать коммит при красном ЛЮБОЙ проверки, даже если уверен что артефакт.
 - available через os.path.exists(path) → тесты с фейк-путём (/fake/nuclei) дают available=False. Фикс: @patch os.path.exists=True. А find_nuclei находит реальный go/bin/nuclei → "unavailable" тесты надо мокать find_nuclei=None.
 - @patch stack: аргументы снизу вверх (subprocess.run первым, os.path.exists вторым).
+
+## День 24 — Smart Contract Agent (Web3 заход)
+
+**Ветка:** `feat/web3-agent` → merge commit. 349 тестов зелёные (+5).
+
+**Коммиты:**
+1. web3/agent.py (SmartContractAgent skeleton) + etherscan.py (graceful)
+2. slither_tool.py — subprocess --json -, парсер results.detectors
+3. immunefi_severity.py — check→tier mapping + impact/confidence fallback
+4. test_web3.py + fixtures/dao_reentrant.sol (TheDAO-style) — e2e
+
+**Решения:**
+- slither JSON сверен с реальным 0.11.5: results.detectors[].{check,impact,confidence,description}. На vuln-контракте: reentrancy-eth/solc-version/low-level-calls.
+- Immunefi: per-check таблица (reentrancy-eth/arbitrary-send/suicidal/delegatecall→Critical) + fallback impact×confidence для неизвестных detector'ов.
+- agent standalone (не в network-пайплайне) — contract ≠ сетевой target.
+- etherscan graceful (нет ключа) — local .sol основной путь.
+- live-тесты под skipif(not slither.available) — CI без slither пропустит, mocked покрывают логику.
+
+**Уроки (процесс — снова анкоры):**
+- python3<<PY patch агента ОТКАТИЛСЯ ЦЕЛИКОМ: анкор `def run(` был трёхстрочным (как до ruff format), а файл после format коммита 1 имел однострочную сигнатуру. assert на 3-й замене оборвал ДО write → файл нетронут. Тесты поймали (нет SlitherTool). Это РОВНО мой же урок дней 15/17: анкоры составлять ПОСЛЕ ruff format, читая реальный файл. Закрепляю: перед multi-replace patch — sed реального файла, не по памяти.
