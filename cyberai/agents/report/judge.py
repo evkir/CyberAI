@@ -22,14 +22,20 @@ from cyberai.core.scan_session import ScanSession
 class JudgeVerdict(BaseModel):
     """Structured verdict returned by the judge LLM."""
 
-    hallucination_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    hallucination_score: float = 0.0
     supported: bool = True
     unsupported_claims: List[str] = Field(default_factory=list)
     notes: str = ""
 
-    @field_validator("hallucination_score")
+    @field_validator("hallucination_score", mode="before")
     @classmethod
-    def _clamp(cls, v: float) -> float:
+    def _clamp(cls, v: Any) -> float:
+        """Clamp to [0,1] BEFORE type validation — the LLM may over/undershoot.
+
+        A misbehaving judge returning 1.2 must not crash the report; we squash
+        it into range rather than raising, matching the graceful-degradation
+        contract of the whole judge path.
+        """
         try:
             return max(0.0, min(1.0, float(v)))
         except (TypeError, ValueError):
