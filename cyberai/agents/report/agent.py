@@ -12,6 +12,7 @@ from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.types import ReportSection
 
 from .json_exporter import export_json
+from .judge import judge_report
 from .markdown_renderer import render_markdown
 
 
@@ -67,12 +68,59 @@ class ReportAgent(BaseAgent):
             if section is not None:
                 self.kb.set("report.section", section.model_dump(), agent=self.AGENT_NAME)
 
-        return {
+        # Flag-gated: LLM-as-Judge cross-checks the report against KB evidence.
+        verdict_dump = None
+        if getattr(self.config, "use_judge", False) and self.llm is not None:
+            verdict = judge_report(
+                md_content,
+                self.session,
+                self.llm,
+                threshold=getattr(self.config, "judge_threshold", 0.7),
+                judge_model=getattr(self.config, "judge_model", None),
+            )
+            verdict_dump = verdict.model_dump()
+            self.kb.set("report.judge_verdict", verdict_dump, agent=self.AGENT_NAME)
+            md_content = self._append_verdict(md_content, verdict)
+            with open(md_path, "w") as f:
+                f.write(md_content)
+            self._log(
+                f"Judge: score={verdict.hallucination_score:.2f} supported={verdict.supported}"
+            )
+
+        result = {
             "status": "done",
             "markdown": md_path,
             "json": json_path,
             "total_findings": len(self.session.findings),
         }
+        if verdict_dump is not None:
+            result["judge_verdict"] = verdict_dump
+        return result
+
+    def _append_verdict(self, md: str, verdict) -> str:
+        """Append the judge verdict as a Markdown section to the report."""
+        status = "✅ SUPPORTED" if verdict.supported else "⚠️ UNSUPPORTED"
+        lines = [
+            md,
+            "",
+            "---",
+            "",
+            "## 🧑‍⚖️ Report Validation (LLM-as-Judge)",
+            "",
+            f"**Status:** {status}  ",
+            f"**Hallucination score:** {verdict.hallucination_score:.2f}  ",
+        ]
+        if verdict.unsupported_claims:
+            lines.append("")
+            lines.append("**Unsupported claims:**")
+            lines.append("")
+            for claim in verdict.unsupported_claims:
+                lines.append(f"- {claim}")
+        if verdict.notes:
+            lines.append("")
+            lines.append(f"_Notes: {verdict.notes}_")
+        lines.append("")
+        return "\n".join(lines)
 
     def _structured_summary(self, target: str):
         """Flag-gated: ask the LLM for a Pydantic-validated ReportSection.
