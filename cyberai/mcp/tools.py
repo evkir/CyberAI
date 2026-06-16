@@ -109,3 +109,62 @@ register(
     },
     handler=_subdomain_handler,
 )
+
+
+# ── intel tools (day 25 commit 3) ─────────────────────────────────────
+
+from cyberai.agents.intel.epss_client import get_epss_scores  # noqa: E402
+from cyberai.agents.intel.nvd_client import get_cve, search_cves  # noqa: E402
+
+register(
+    name="cve_search",
+    description="Search the NVD for CVEs matching a keyword, optionally by severity.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "keyword": {"type": "string", "description": "Search term"},
+            "max_results": {
+                "type": "integer",
+                "description": "Max CVEs to return",
+                "default": 10,
+            },
+            "severity": {
+                "type": "string",
+                "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+                "description": "Filter by CVSS v3 severity",
+            },
+        },
+        "required": ["keyword"],
+    },
+    handler=search_cves,
+)
+
+register(
+    name="cve_detail",
+    description="Fetch a single CVE by id (e.g. CVE-2021-44228).",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "cve_id": {"type": "string", "description": "CVE identifier"},
+        },
+        "required": ["cve_id"],
+    },
+    handler=get_cve,
+)
+
+register(
+    name="epss_score",
+    description="Fetch EPSS exploitation-probability scores for CVE ids.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "cve_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of CVE identifiers",
+            },
+        },
+        "required": ["cve_ids"],
+    },
+    handler=get_epss_scores,
+)
