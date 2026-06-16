@@ -64,3 +64,25 @@
 
 **Уроки (процесс — снова анкоры):**
 - python3<<PY patch агента ОТКАТИЛСЯ ЦЕЛИКОМ: анкор `def run(` был трёхстрочным (как до ruff format), а файл после format коммита 1 имел однострочную сигнатуру. assert на 3-й замене оборвал ДО write → файл нетронут. Тесты поймали (нет SlitherTool). Это РОВНО мой же урок дней 15/17: анкоры составлять ПОСЛЕ ruff format, читая реальный файл. Закрепляю: перед multi-replace patch — sed реального файла, не по памяти.
+
+## День 25 — MCP Server (Anthropic MCP)
+
+**Ветка:** `feat/mcp-server` → merge commit. 357 тестов зелёные (+8).
+
+**Коммиты:**
+1. server.py skeleton — Server("cyberai") на mcp SDK 1.27.2, stdio, list/call handlers, graceful dispatch + pyproject mcp>=1.0
+2. recon tools — nmap_scan/dns_enum/whois_lookup/subdomain_enum (JSON Schema)
+3. intel tools — cve_search/cve_detail/epss_score + test_mcp.py (8 тестов)
+4. docs/mcp/integration.md — Claude Desktop/Cursor/Inspector
+
+**Решения:**
+- Официальный mcp SDK (Server low-level), НЕ своя реализация — для server-роли правильно. В mas-sentry-toolkit наоборот делал свою (там MCP-СКАНЕР шлёт malformed-трафик, SDK мешал бы). Разные роли — разный выбор.
+- Реестр TOOL_REGISTRY: name→{description, inputSchema, handler}. register() + тонкие async-обёртки в list_tools/call_tool. sync recon/intel функции переиспользованы как handlers без изменений.
+- graceful dispatch: unknown tool / handler error → TextContent с error-json, не raise. Клиент всегда получает структурированный ответ.
+- +cve_detail (сверх плана), +test_mcp.py (MCP = публичный интерфейс → CI-покрытие).
+
+**SDK факты (mcp 1.27.2):**
+- Server(name, version, ...); @server.list_tools() / @server.call_tool() — декораторы без аргументов над async-функциями
+- mcp.types.Tool(name, description, inputSchema); TextContent(type="text", text=...)
+- mcp.server.stdio.stdio_server() → (read, write) streams; server.run(read, write, create_initialization_options())
+- нет mcp.__version__ (pip показывает версию)
