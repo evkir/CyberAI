@@ -89,16 +89,21 @@ def scope() -> None:
 
 
 @scope.command("import")
-@click.argument("platform", type=click.Choice(["h1", "hackerone"]))
+@click.argument("platform", type=click.Choice(["h1", "hackerone", "bugcrowd", "bc"]))
 @click.argument("scope_file", type=click.Path(exists=True))
 def scope_import(platform: str, scope_file: str) -> None:
     """Import authorized scope from a PLATFORM SCOPE_FILE (JSON export).
 
-    Example: cyberai scope import h1 acme_scope.json
+    Examples:
+        cyberai scope import h1 acme_scope.json
+        cyberai scope import bugcrowd acme_bc.json
     """
-    from cyberai.cli.scope import import_h1_scope
+    from cyberai.cli.scope import import_bugcrowd_scope, import_h1_scope
 
-    result = import_h1_scope(scope_file)
+    if platform in ("bugcrowd", "bc"):
+        result = import_bugcrowd_scope(scope_file)
+    else:
+        result = import_h1_scope(scope_file)
     console.print(
         Panel(
             "\n".join(result.in_scope) or "[dim]none[/dim]",
