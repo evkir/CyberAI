@@ -82,6 +82,9 @@ class Finding:
     evidence: List[Any] = field(default_factory=list)
     # Free-form structured data
     data: Any = None
+    # Confidence this finding is real, 0..1. 1.0 = fully evidenced (default).
+    # Lowered by the LLM-as-Judge / agents when evidence is weak (day 26).
+    confidence: float = 1.0
 
     def __post_init__(self) -> None:
         # Keep `cve` and `cve_ids` in sync for callers that use either
