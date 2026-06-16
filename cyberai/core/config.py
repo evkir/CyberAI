@@ -43,6 +43,12 @@ class CyberAIConfig:
     max_cost_usd: float = 0.0
     # Flag-gated: run the nuclei template engine in ExploitAgent (day 23).
     use_nuclei: bool = False
+    # Flag-gated: LLM-as-Judge validates the report vs KB evidence (day 26).
+    use_judge: bool = False
+    # Hallucination score >= threshold marks the report unsupported.
+    judge_threshold: float = 0.7
+    # Optional more-powerful model for the judge; None = same as main LLM.
+    judge_model: Optional[str] = None
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":

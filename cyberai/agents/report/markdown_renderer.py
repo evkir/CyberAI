@@ -60,6 +60,9 @@ def render_markdown(session: PentestSession) -> str:
             f"{finding.description}",
             "",
         ]
+        if getattr(finding, "confidence", 1.0) < 1.0:
+            lines.append(f"**Confidence:** {finding.confidence:.0%} ⚠️")
+            lines.append("")
         if finding.cve:
             lines.append(f"**CVE:** `{finding.cve}`")
             lines.append("")
