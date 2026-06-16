@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "openai>=2.0,<3",
     "anthropic>=0.28.0,<1",
+    "mcp>=1.0,<2",
     "click>=8.1.7,<9",
     "rich>=13.7.0,<14",
     "pydantic>=2.7.0,<3",
