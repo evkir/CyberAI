@@ -86,3 +86,42 @@
 - mcp.types.Tool(name, description, inputSchema); TextContent(type="text", text=...)
 - mcp.server.stdio.stdio_server() → (read, write) streams; server.run(read, write, create_initialization_options())
 - нет mcp.__version__ (pip показывает версию)
+
+## День 26 — LLM-as-Judge для отчётов
+
+**Ветка:** `feat/llm-judge` → merge commit. 368 тестов зелёные (+11).
+
+**Коммиты:**
+1. judge.py — JudgeVerdict (pydantic) + VERDICT_SCHEMA (flat, OpenAI-strict-friendly) + judge_report() + _collect_evidence + _judge_model контекст-менеджер
+2. ReportAgent: use_judge флаг → judge_report(md, session, llm), verdict в kb + Markdown-блок «Report Validation», judge_verdict в return
+3. Finding.confidence: float=1.0 (scan_session.py, НЕ types.py — план неточен) + отрисовка <1.0 с ⚠ в markdown_renderer + config-флаги use_judge/judge_threshold/judge_model
+4. test_judge.py — 11 тестов (галлюцинация CVE-9999, clean, threshold-авторитет, graceful×2, evidence-сериализация+truncate, model-swap×3, clamp)
+
+**Решения:**
+- Модель судьи: `_judge_model` контекст-менеджер временно подменяет `llm.config.model` на judge_model (try/finally restore). НЕ трогал `structured_call` контракт дня 20 — он берёт model из config.
+- threshold авторитетен: `verdict.supported` пересчитывается из score, НЕ доверяем модельному `supported` (LLM может соврать).
+- Retry-семантика честная: детерминированный md НЕ перегенерируется (он не из LLM). Judge даёт verdict-пометку; реальный retry осмыслен только для use_llm_summary пути.
+- graceful везде: llm=None / structured_call raise → verdict score=0.0 supported=True notes="unavailable". Отчёт НИКОГДА не падает из-за судьи.
+
+**Грабли (снова pydantic):**
+- `Field(ge=0.0, le=1.0)` + `field_validator` (after) → Field-констрейнт бьёт ПЕРВЫМ, на 1.5 ValidationError, clamp не успевает. Тест поймал.
+- Фикс: убрал ge/le из Field, валидатор `mode="before"` → clamp срабатывает ДО типовой проверки. LLM вернул 1.2 → зажимается в 1.0, не роняет. Урок: для graceful-clamp использовать `mode="before"` БЕЗ Field-границ, иначе констрейнт конфликтует с валидатором.
+
+## День 27 — HackerOne/Bugcrowd scope import
+
+**Ветка:** `feat/bb-scope-import` → merge commit. 387 тестов зелёные (+19).
+
+**Коммиты:**
+1. import_h1_scope — H1 structured_scopes JSON (envelope {data:[]} или bare list), asset_type фильтр (URL/WILDCARD/CIDR scannable, *_APP_ID/OTHER skip), URL→host нормализация, eligible_for_submission→in/out. ScopeImport dataclass + CLI scope-группа.
+2. import_bugcrowd_scope — 3 формата (target_groups / flat list / in_scope+out_of_scope), category-фильтр (website/api scannable). CLI dispatch h1|bugcrowd.
+3. safety_validator: вынесен _matches_entry + _split_scope, _target_in_scope теперь exclusion-aware (!host бьёт раньше allow). Wildcard минус подсети — как в реальных брифах.
+4. test_scope_matching.py — 19 тестов (matches/split/exclusions/CIDR-exclusion/H1-envelope+bare/Bugcrowd×3 форматов).
+
+**Решения:**
+- Локальный JSON-файл, НЕ живой API. Graceful-паттерн проекта (etherscan/searchsploit). Багхантер делает `curl H1-API > scope.json` сам, парсер ест выгрузку. Формат H1/Bugcrowd сверен веб-поиском (structured_scopes attributes, target_groups).
+- Выход парсера = list[str] (формат authorized_scope, реально едет в session/orchestrator/safety_validator). НЕ трогал параллельную ScopeConfig-систему (core/safety.py) — незачем плодить связи.
+- Exclusions в той системе что РЕАЛЬНО дёргает orchestrator (_target_in_scope), не в легаси ScopeValidator.
+
+**Процессный косяк (зафиксировать):**
+- sed-правка (удаление unused `import pytest`) сделана ПОСЛЕ финального гейта и коммита, не до. Обошлось (удаление безвредно, перепроверил 19 зелёных), но нарушило флоу гейт→коммит. Правило: любые правки файла (sed/ручные) — ДО финального гейта.
+- ruff check cyberai/ не цепляет tests/ — unused import в тесте не ловится автоматом, надо вручную.
