@@ -26,6 +26,16 @@ SCANNABLE_ASSET_TYPES = {
     "WEBSITE",
 }
 
+# Bugcrowd target categories that map to network-scannable targets.
+SCANNABLE_BC_CATEGORIES = {
+    "website",
+    "api",
+    "url",
+    "ip",
+    "cidr",
+    "wildcard",
+}
+
 
 def parse_scope(scope_str: str) -> ScopeConfig:
     """
@@ -144,6 +154,79 @@ def import_h1_scope(path: str) -> ScopeImport:
             result.skipped.append(f"{ident} ({atype})")
             continue
         if attrs.get("eligible_for_submission", True):
+            result.in_scope.append(token)
+        else:
+            result.out_of_scope.append(token)
+    return result
+
+
+def _bc_iter_targets(raw: Any) -> List[dict]:
+    """Yield flat target dicts from any of the common Bugcrowd JSON shapes.
+
+    Handles three real-world shapes:
+      1. API export: {"data":[{"attributes":{"target_groups":[{"targets":[...]}]}}]}
+         or {"target_groups":[{"targets":[...], "in_scope":bool}]}
+      2. bounty-targets-data flat list: [{"name"/"target", "type", "in_scope"}]
+      3. rescope/bbscope: {"in_scope":[...], "out_of_scope":[...]}
+    """
+    targets: List[dict] = []
+
+    # Shape 3: explicit in/out lists of strings.
+    if isinstance(raw, dict) and ("in_scope" in raw or "out_of_scope" in raw):
+        for name in raw.get("in_scope", []):
+            targets.append({"name": name, "in_scope": True, "category": "website"})
+        for name in raw.get("out_of_scope", []):
+            targets.append({"name": name, "in_scope": False, "category": "website"})
+        return targets
+
+    # Shape 1: target_groups (possibly under data[].attributes).
+    groups = None
+    if isinstance(raw, dict):
+        if "target_groups" in raw:
+            groups = raw["target_groups"]
+        elif "data" in raw and isinstance(raw["data"], list):
+            groups = []
+            for prog in raw["data"]:
+                attrs = prog.get("attributes", prog) if isinstance(prog, dict) else {}
+                groups.extend(attrs.get("target_groups", []))
+    if groups:
+        for grp in groups:
+            grp_in = grp.get("in_scope", True)
+            for t in grp.get("targets", []):
+                t = dict(t)
+                t.setdefault("in_scope", grp_in)
+                targets.append(t)
+        return targets
+
+    # Shape 2: flat list.
+    if isinstance(raw, list):
+        return [t for t in raw if isinstance(t, dict)]
+    return targets
+
+
+def import_bugcrowd_scope(path: str) -> ScopeImport:
+    """Parse a Bugcrowd scope export into a ScopeImport.
+
+    Tolerant of several JSON shapes (see `_bc_iter_targets`). A target's
+    `category` decides scannability; `in_scope` (default True) splits the
+    eligible targets from explicitly out-of-scope ones.
+    """
+    raw = json.loads(Path(path).read_text())
+    result = ScopeImport()
+    for t in _bc_iter_targets(raw):
+        name = (t.get("name") or t.get("target") or t.get("uri") or "").strip()
+        if not name:
+            continue
+        category = (t.get("category") or t.get("type") or "website").lower()
+        if category not in SCANNABLE_BC_CATEGORIES:
+            result.skipped.append(f"{name} ({category})")
+            continue
+        atype = "WILDCARD" if name.startswith("*") else "URL"
+        token = _normalize_asset(name, atype)
+        if not token:
+            result.skipped.append(f"{name} ({category})")
+            continue
+        if t.get("in_scope", True):
             result.in_scope.append(token)
         else:
             result.out_of_scope.append(token)
