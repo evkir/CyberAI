@@ -83,6 +83,51 @@ def replay(session_id: str) -> None:
     raise SystemExit(run_replay(session_id, config))
 
 
+@cli.group()
+def scope() -> None:
+    """Import and inspect bug-bounty program scopes."""
+
+
+@scope.command("import")
+@click.argument("platform", type=click.Choice(["h1", "hackerone", "bugcrowd", "bc"]))
+@click.argument("scope_file", type=click.Path(exists=True))
+def scope_import(platform: str, scope_file: str) -> None:
+    """Import authorized scope from a PLATFORM SCOPE_FILE (JSON export).
+
+    Examples:
+        cyberai scope import h1 acme_scope.json
+        cyberai scope import bugcrowd acme_bc.json
+    """
+    from cyberai.cli.scope import import_bugcrowd_scope, import_h1_scope
+
+    if platform in ("bugcrowd", "bc"):
+        result = import_bugcrowd_scope(scope_file)
+    else:
+        result = import_h1_scope(scope_file)
+    console.print(
+        Panel(
+            "\n".join(result.in_scope) or "[dim]none[/dim]",
+            title=f"In scope ({len(result.in_scope)})",
+            style="green",
+        )
+    )
+    if result.out_of_scope:
+        console.print(
+            Panel(
+                "\n".join(result.out_of_scope),
+                title=f"Out of scope ({len(result.out_of_scope)})",
+                style="red",
+            )
+        )
+    console.print(f"[dim]{result.summary()}[/dim]")
+    console.print(
+        "[dim]Use with: cyberai scan <target> "
+        + " ".join(f"--scope {s}" for s in result.in_scope[:3])
+        + (" ..." if len(result.in_scope) > 3 else "")
+        + "[/dim]"
+    )
+
+
 @cli.command()
 def status() -> None:
     """Show CyberAI status and config."""
