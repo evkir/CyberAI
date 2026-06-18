@@ -2,6 +2,33 @@
 
 All notable changes to CyberAI are documented here.
 
+## [0.5.0] - 2026-06-18
+### Differentiated Platform — Week 4
+Week 4 gives CyberAI its unique edge: out-of-band-driven exploitation, a
+Web3 audit track, an MCP server, report self-validation, bug-bounty scope
+import, and a web dashboard.
+
+### Added
+- OOB-driven exploitation: phantom-grid v2.0 client (token-flow), payload
+  library v2 (7 categories), `OOBWorkflow` + `ExploitAgentOOB` correlating
+  injected payloads against live callbacks.
+- Nuclei exploit engine: subprocess wrapper with JSONL parsing, searchsploit
+  integration (graceful), CVE→OOB heuristic for JNDI/SSRF templates.
+- Web3 track: standalone `SmartContractAgent`, Slither wrapper, Immunefi
+  severity classifier (per-check table + impact×confidence fallback).
+- MCP server: official `mcp` SDK, recon + intel tools exposed as MCP tools
+  with JSON Schema and graceful dispatch (Claude Desktop / Cursor docs).
+- LLM-as-Judge: `judge_report` cross-checks report claims against KB
+  evidence, `JudgeVerdict`, feedback-driven retry, per-finding confidence.
+- Bug-bounty scope import: HackerOne / Bugcrowd JSON → in/out scope with
+  exclusion-aware matching (`!host` overrides allow-wildcards).
+- Web dashboard: FastAPI backend reading sessions from disk, SSE live phase
+  progress, single-file htmx + alpinejs UI (no build step).
+
+### Changed
+- Web backend migrated from dead Flask stubs to FastAPI; sessions are now
+  read from disk (single source of truth shared with `cyberai replay`).
+
 ## [0.4.0] - 2026-06-12
 
 ### Accelerated & Observable — Week 3
