@@ -37,6 +37,8 @@ dependencies = [
     "requests>=2.31.0,<3",
     "networkx>=3.2.1,<4",
     "colorama>=0.4.6,<1",
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.29,<1",
 ]
 
 [project.optional-dependencies]

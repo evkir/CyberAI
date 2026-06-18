@@ -1,112 +1,102 @@
 """
-/api/session — start scans, query session state.
+/api/sessions — list and inspect scan sessions read from disk.
+
+Sessions live as session_<id>.json in config.output_dir, written by the
+CLI scan flow (cyberai.cli.replay.save_session). This router never mutates
+them; it is a read-only window for the dashboard.
 """
 
-from flask import Blueprint, request, jsonify
-from dataclasses import dataclass, field, asdict
-from typing import Dict, Optional
-import uuid
-import time
-import threading
+from __future__ import annotations
 
-session_bp = Blueprint("session", __name__)
+import asyncio
+import json
+from pathlib import Path
 
-# In-memory session store (replaced by DB in production)
-_sessions: Dict[str, dict] = {}
-_lock = threading.Lock()
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 
+router = APIRouter()
 
-@dataclass
-class SessionRecord:
-    session_id: str
-    target: str
-    status: str = "pending"  # pending | running | done | error
-    created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
-    result: dict = field(default_factory=dict)
-    error: Optional[str] = None
+_SESSION_GLOB = "session_*.json"
 
 
-@session_bp.post("/session")
-def create_session():
-    """
-    POST /api/session
-    Body: {"target": "10.10.10.1"}
-    Returns: {"session_id": "...", "status": "pending"}
-    """
-    data = request.get_json(silent=True) or {}
-    target = data.get("target", "").strip()
-
-    if not target:
-        return jsonify({"error": "target is required"}), 400
-
-    session_id = str(uuid.uuid4())
-    record = SessionRecord(session_id=session_id, target=target)
-
-    with _lock:
-        _sessions[session_id] = asdict(record)
-
-    # Fire pipeline in background thread
-    thread = threading.Thread(
-        target=_run_pipeline,
-        args=(session_id, target),
-        daemon=True,
-    )
-    thread.start()
-
-    return jsonify(
-        {
-            "session_id": session_id,
-            "target": target,
-            "status": "pending",
-        }
-    ), 202
+def _sessions_dir(request: Request) -> Path:
+    return Path(request.app.state.config.output_dir)
 
 
-@session_bp.get("/session/<session_id>")
-def get_session(session_id: str):
-    """
-    GET /api/session/<session_id>
-    Returns session status and result when complete.
-    """
-    with _lock:
-        record = _sessions.get(session_id)
-
-    if not record:
-        return jsonify({"error": "session not found"}), 404
-
-    return jsonify(record)
-
-
-@session_bp.get("/session")
-def list_sessions():
-    """GET /api/session — list all sessions"""
-    with _lock:
-        sessions = list(_sessions.values())
-    return jsonify({"sessions": sessions, "count": len(sessions)})
-
-
-def _run_pipeline(session_id: str, target: str):
-    """Background worker: runs async pipeline, updates session record."""
-    import asyncio
-    from cyberai.core.pipeline import AsyncPipeline
-
-    _update(session_id, status="running")
+def _load(path: Path) -> dict | None:
     try:
-        pipeline = AsyncPipeline()
-        result = asyncio.run(pipeline.run(target))
-        _update(
-            session_id,
-            status="done" if result.success else "error",
-            result=result.recon,
-            completed_at=time.time(),
-            error=result.error,
-        )
-    except Exception as e:
-        _update(session_id, status="error", error=str(e), completed_at=time.time())
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
 
 
-def _update(session_id: str, **kwargs):
-    with _lock:
-        if session_id in _sessions:
-            _sessions[session_id].update(kwargs)
+def _summary(data: dict) -> dict:
+    """Compact view for the list endpoint."""
+    return {
+        "session_id": data.get("session_id"),
+        "target": data.get("target"),
+        "state": data.get("state"),
+        "created_at": data.get("created_at"),
+        "ended_at": data.get("ended_at"),
+        "findings": len(data.get("findings") or []),
+    }
+
+
+@router.get("/sessions")
+def list_sessions(request: Request) -> dict:
+    """List all sessions on disk, newest first."""
+    out = _sessions_dir(request)
+    items: list[dict] = []
+    if out.exists():
+        for path in out.glob(_SESSION_GLOB):
+            data = _load(path)
+            if data:
+                items.append(_summary(data))
+    items.sort(key=lambda s: s.get("created_at") or "", reverse=True)
+    return {"sessions": items, "count": len(items)}
+
+
+@router.get("/sessions/{session_id}")
+def get_session(session_id: str, request: Request) -> dict:
+    """Full session JSON for one id, or a 404-shaped error dict."""
+    safe = Path(session_id).name
+    path = _sessions_dir(request) / f"session_{safe}.json"
+    data = _load(path) if path.exists() else None
+    if data is None:
+        return {"error": "session not found", "session_id": session_id}
+    return data
+
+
+@router.get("/sessions/{session_id}/stream")
+async def stream_session(session_id: str, request: Request) -> StreamingResponse:
+    """
+    SSE: poll the session file and emit phase deltas until terminal state.
+
+    Emits `event: phase` for each newly-seen phase and `event: done` when
+    the session reaches a terminal state or after a bounded number of polls.
+    """
+    safe = Path(session_id).name
+    path = _sessions_dir(request) / f"session_{safe}.json"
+
+    async def gen():
+        seen: set[str] = set()
+        terminal = {"completed", "failed", "error"}
+        for _ in range(120):
+            if await request.is_disconnected():
+                return
+            data = _load(path) if path.exists() else None
+            if data:
+                for ph in data.get("phases") or []:
+                    name = ph.get("phase") or ph.get("name")
+                    if name and name not in seen:
+                        seen.add(name)
+                        yield f"event: phase\ndata: {json.dumps(ph)}\n\n"
+                state = data.get("state")
+                if state and state.lower() in terminal:
+                    yield f"event: done\ndata: {json.dumps({'state': state})}\n\n"
+                    return
+            await asyncio.sleep(0.5)
+        yield 'event: done\ndata: {"state": "timeout"}\n\n'
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
