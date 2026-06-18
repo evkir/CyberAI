@@ -16,3 +16,4 @@ htmlcov/
 
 # audit logs from scan runs
 reports/*.jsonl
+reports/
