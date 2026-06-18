@@ -1,40 +1,55 @@
 """
-CyberAI Flask API server.
-REST interface for starting scans, querying sessions, serving reports.
+CyberAI FastAPI server.
+
+REST + SSE interface for listing scan sessions and serving reports.
+Sessions are read from disk (config.output_dir / session_<id>.json),
+the same artifacts the CLI `replay` command consumes.
 """
 
-from flask import Flask, jsonify
-from cyberai.web.routes.session import session_bp
-from cyberai.web.routes.report import report_bp
+from __future__ import annotations
+
 import logging
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+from cyberai.core.config import CyberAIConfig
+from cyberai.web.routes.report import router as report_router
+from cyberai.web.routes.session import router as session_router
 
 logger = logging.getLogger("cyberai.web")
 
+_TEMPLATES = Path(__file__).parent / "templates"
 
-def create_app() -> Flask:
-    app = Flask(__name__)
-    app.config["JSON_SORT_KEYS"] = False
 
-    # Register blueprints
-    app.register_blueprint(session_bp, url_prefix="/api")
-    app.register_blueprint(report_bp, url_prefix="/api")
+def create_app(config: CyberAIConfig | None = None) -> FastAPI:
+    """Build the FastAPI app. Pass a config to override the sessions dir."""
+    app = FastAPI(title="CyberAI API", version="0.5.0")
+    app.state.config = config or CyberAIConfig()
+
+    app.include_router(session_router, prefix="/api")
+    app.include_router(report_router, prefix="/api")
 
     @app.get("/health")
-    def health():
-        return jsonify({"status": "ok", "service": "CyberAI API"})
+    def health() -> dict:
+        return {"status": "ok", "service": "CyberAI API"}
 
-    @app.errorhandler(404)
-    def not_found(e):
-        return jsonify({"error": "not found"}), 404
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard() -> str:
+        index = _TEMPLATES / "dashboard.html"
+        if not index.exists():
+            return "<h1>CyberAI</h1><p>dashboard.html missing</p>"
+        return index.read_text()
 
-    @app.errorhandler(500)
-    def server_error(e):
-        return jsonify({"error": "internal server error"}), 500
-
-    logger.info("CyberAI API server created")
+    logger.info("CyberAI FastAPI app created")
     return app
 
 
+app = create_app()
+
+
 if __name__ == "__main__":
-    app = create_app()
-    app.run(host="127.0.0.1", port=8888, debug=False)
+    import uvicorn
+
+    uvicorn.run("cyberai.web.app:app", host="127.0.0.1", port=8888, reload=False)
