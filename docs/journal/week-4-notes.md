@@ -125,3 +125,30 @@
 **Процессный косяк (зафиксировать):**
 - sed-правка (удаление unused `import pytest`) сделана ПОСЛЕ финального гейта и коммита, не до. Обошлось (удаление безвредно, перепроверил 19 зелёных), но нарушило флоу гейт→коммит. Правило: любые правки файла (sed/ручные) — ДО финального гейта.
 - ruff check cyberai/ не цепляет tests/ — unused import в тесте не ловится автоматом, надо вручную.
+
+## День 28 — Web dashboard (минимальный, v0.5.0)
+
+**Ветка:** `feat/web-dashboard` → merge commit (PR #33). 395 тестов зелёные (+8). Закрывает неделю 4.
+
+**Коммиты:**
+1. FastAPI backend (app.py Flask→FastAPI; routes/session.py + report.py read-only с диска) + deps fastapi/uvicorn + 8 TestClient тестов
+2. dashboard.html — htmx+alpinejs, single-file, CDN, без билда
+3. docs/journal/week-4.md — рефлексия недели 4
+4. bump 0.5.0 + CHANGELOG секция
+
+**Расхождения план vs реальность:**
+- Старый web/ был на Flask и МЁРТВЫЙ: session.py импортил несуществующий `cyberai.core.pipeline.AsyncPipeline` (реальный класс — `AsyncOrchestrator`), in-memory `_sessions` store расходился с диском. CI его не покрывал → тихо гнил. Переписал целиком на FastAPI.
+- План дробил SSE в отдельный коммит 2 (routes/session.py). По факту SSE-эндпоинт логически принадлежит session-роутеру → написал+протестировал в коммите 1. Коммиты переназначены (схема C): 1=backend+SSE, 2=dashboard, 3=journal, 4=bump. План = карта, не контракт.
+- Дашборд читает session_*.json С ДИСКА (единый источник правды с CLI replay), НЕ из памяти. /sessions/{id}/report резолвит путь через kb report.markdown_path, не через имя файла (report-agent не кладёт session_id в имя отчёта).
+
+**Решения:**
+- SSE на голом `StreamingResponse` (media_type text/event-stream), НЕ sse-starlette (хоть и стоит 3.4.4) — минус один pin. Поллит файл, шлёт phase-дельты до terminal state.
+- state на диске = lowercase ("completed") — terminal-set сравнивается через `.lower()`. Поймал разведкой ДО гейта (иначе SSE крутился бы до timeout).
+- kb keys=[] у dry-run сессий → /report возвращает 404 graceful (no report).
+- Path-traversal guard: report должен резолвиться внутри output_dir (relative_to).
+
+**Уроки:**
+- **Мёртвый публичный интерфейс без тестов = тихо гниющий код.** Flask-web никто не дёргал, импорты били несуществующий API, никто не замечал. Теперь web покрыт 8 тестами, CI его держит.
+- Разведка shape ДО написания роутов окупилась: phases[].phase (не .name), state lowercase, kb-wrap value+meta — всё сверено по реальному session_*.json, не по памяти.
+
+**📌 Неделя 4 закрыта.** 395 тестов. Дальше — дни 29-30: docs sprint + release v1.0.0.
