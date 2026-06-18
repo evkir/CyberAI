@@ -1,16 +1,14 @@
 <div align="center">
 
-
-![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-v0.5.0-orange)
+![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-blueviolet)
 
 # 🤖 CyberAI
 
-**AI-powered pentest orchestration platform**
-
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Status](https://img.shields.io/badge/Status-Active%20Development-orange?style=flat-square)
-![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-blueviolet?style=flat-square)
+**OOB-driven, agent-trust-aware AI pentest platform**
 
 > Built by someone who red-teams AI, not just with it.
 
@@ -20,94 +18,85 @@
 
 ## What is CyberAI?
 
-CyberAI is a multi-agent orchestration layer for offensive security workflows.
-It connects the **phantom toolchain** — OOB detection, CVE intelligence, TLS analysis —
-and routes findings through an AI pipeline that surfaces actionable attack paths.
+CyberAI is a multi-agent orchestration layer for offensive security. Five
+specialized agents — **Recon, Intel, Exploit, Report, Web3** — run a typed,
+auditable pipeline that turns a target into actionable attack paths and a
+validated report.
 
-This is not a chatbot wrapper for pentesters.
-It's an agentic system where specialized AI agents handle recon, correlation,
-and reporting autonomously — while you focus on what matters: exploitation.
+Two things set it apart from "LLM wrapper over nmap":
+
+- **OOB-driven exploitation.** Blind vulns (SSRF, XXE, blind injection) are
+  confirmed through out-of-band callbacks captured by
+  [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
+  response diffs.
+- **Agent-trust-aware design.** Every banner and tool output is treated as
+  untrusted input: sanitized, injection-scanned, and parsed before it ever
+  reaches the LLM context. Adversarial thinking is a design input, not a
+  disclaimer.
+
+Reach beyond the network: the **Web3 agent** runs Slither static analysis and
+maps detectors to Immunefi severity tiers for smart-contract audits.
 
 ---
 
-## Architecture
+## Architecture                                                                            +------------------+                                                                       target -----------> |   Orchestrator   |  typed pipeline, dry-run, budget
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                        CyberAI Core                      │
-│                                                          │
-│   ┌──────────────────┐       ┌────────────────────────┐  │
-│   │   Orchestrator   │──────▶│      Agent Pool        │  │
-│   │      Agent       │       │  ┌─────────────────┐   │  │
-│   └──────────────────┘       │  │  Recon Agent    │   │  │
-│           │                  │  │  Intel Agent    │   │  │
-│           │                  │  │  Exploit Agent  │   │  │
-│           │                  │  │  Report Agent   │   │  │
-│           │                  │  └─────────────────┘   │  │
-│           │                  └────────────────────────┘  │
-│           ▼                                              │
-│   ┌──────────────────────────────────────────────────┐   │
-│   │                  Phantom Stack                   │   │
-│   │        phantom-grid  ·  phantom-intel            │   │
-│   │                  reality-probe                   │   │
-│   └──────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────┘
-```
++--------+---------+  injection-scan at phase boundaries
 
-### Agent responsibilities
+|
 
-| Agent | Role |
-|-------|------|
-| **Orchestrator** | Routes tasks, manages agent lifecycle, aggregates results |
-| **Recon** | Target enumeration — DNS, WHOIS, subdomains, open ports |
-| **Intel** | CVE lookups, CVSS scoring, exploit availability |
-| **Exploit** | CVE → PoC mapping, attack surface analysis |
-| **Report** | Findings aggregation → structured Markdown / PDF output |
++-----------+----------+-----------+------------+
+
+v           v          v           v            v
+
++------+   +------+   +--------+  +--------+   +------+
+
+|Recon |-->|Intel |-->|Exploit |->|Report  |   | Web3 | (standalone)
+
++------+   +------+   +---+----+  +--------+   +--+---+
+
+DNS       NVD/CVE     OOB |  PoC  judge         | Slither
+
+nmap      EPSS        nuclei H1-export          | Immunefi
+
+subdom    prioritize      |                     | severity
+
+v
+
++-------------+
+
+| phantom-grid|  OOB callback capture
+
++-------------+
+Observability:  SQLite audit log . session export/import . cyberai replay
+
+Interfaces:     CLI . FastAPI dashboard (SSE) . MCP server (Claude Desktop)                ### Agents
+
+| Agent | Input | Output | Key tools |
+|-------|-------|--------|-----------|
+| **Recon** | target | open ports, DNS, WHOIS, subdomains | nmap (flag-whitelisted), async DNS, subdomain enum |
+| **Intel** | recon kb | ranked CVEs | NVD client, EPSS enrichment, risk prioritizer |
+| **Exploit** | intel kb | attack paths, OOB findings | nuclei, searchsploit, OOB/SSRF/XXE workflows |
+| **Report** | session kb | structured Markdown / H1 export | LLM summary + LLM-as-judge validation |
+| **Web3** | .sol path / address | severity-tiered findings | Slither, Etherscan, Immunefi classifier |
 
 ---
 
 ## Security design
 
-Multi-agent security is a first-class concern, not an afterthought:
-
-- **Agent trust boundaries** — each agent operates with minimal necessary permissions
-- **Input validation** — all external data sanitized before entering the LLM context
-- **Prompt injection resistance** — structured prompts, output parsing, no raw passthrough
-- **Audit trail** — every agent action logged with full inputs and outputs
-
-> The irony of building an AI pentest tool while studying AI attack surfaces
-> is intentional. Adversarial thinking is a design input.
-
----
-
-## Project structure
-
-```
-CyberAI/
-├── cyberai/
-│   ├── core/               # Orchestrator, config, LLM client
-│   ├── agents/
-│   │   ├── recon/          # Target enumeration pipeline
-│   │   ├── intel/          # CVE intelligence feed
-│   │   ├── exploit/        # CVE → PoC mapping
-│   │   └── report/         # Report generation
-│   ├── integrations/       # Phantom stack connectors
-│   └── utils/              # Shared helpers
-├── templates/              # Jinja2 report templates
-├── tests/
-│   ├── unit/
-│   └── integration/
-├── config.example.yml
-├── .env.example
-├── requirements.txt
-└── setup.py
-```
+- **Agent trust boundaries** — each agent runs with minimal permissions.
+- **Untrusted input handling** — banners sanitized, length-capped, marked
+  `UNTRUSTED` before LLM context.
+- **Prompt-injection detection** — 33-pattern detector at every phase boundary;
+  hits become MEDIUM findings, visible in the report.
+- **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
+  Bugcrowd briefs (`cyberai scope import`).
+- **Audit trail** — every agent action logged (JSONL or SQLite) with full
+  inputs/outputs; sessions are replayable.
 
 ---
 
 ## Quick start
-
-**1. Clone and install**
 
 ```bash
 git clone https://github.com/evkir/CyberAI.git
@@ -115,25 +104,45 @@ cd CyberAI
 pip install -e .
 ```
 
-> Prefer isolation? Run `python -m venv venv && source venv/bin/activate` first.
-
-**2. Configure**
-
 ```bash
 cp config.example.yml config.yml
 cp .env.example .env
-# Edit .env -- add your OPENAI_API_KEY or ANTHROPIC_API_KEY
+# Edit .env — add OPENAI_API_KEY or ANTHROPIC_API_KEY (not needed for --dry-run)
 ```
-
-**3. Run a scan**
 
 ```bash
-# Dry-run: walks all 4 phases, no network calls, no API key needed
+# Dry-run: walks all 4 phases, no network, no API key
 python -m cyberai scan example.com --dry-run
 
-# Real scan
-python -m cyberai scan target.htb
+# Real scan, scope-restricted
+python -m cyberai scan target.htb --scope '*.target.htb'
+
+# Replay a saved session deterministically
+python -m cyberai replay <session_id>
+
+# Import a bug-bounty scope
+python -m cyberai scope import h1 --program acme
+
+# Status / config
+python -m cyberai status
 ```
+
+### Web dashboard
+
+```bash
+uvicorn cyberai.web.app:app --reload
+# http://127.0.0.1:8000  — session list, live SSE progress, report view
+```
+
+### MCP server (Claude Desktop / Cursor)
+
+```bash
+python -m cyberai.mcp.server
+```
+
+Exposes recon/intel tools (`nmap_scan`, `dns_enum`, `cve_search`,
+`epss_score`, …) over the Model Context Protocol. See
+[docs/mcp/integration.md](docs/mcp/integration.md).
 
 ---
 
@@ -142,37 +151,31 @@ python -m cyberai scan target.htb
 ```yaml
 # config.yml
 llm:
-  provider: openai       # openai | anthropic
+  provider: openai        # openai | anthropic
   model: gpt-4o
   max_tokens: 4096
   temperature: 0.2
 
 phantom:
-  grid_url: http://127.0.0.1:8080
-  intel_db: ~/.phantom/intel.db
+  grid_url: http://127.0.0.1:9090
 
 output_dir: reports/
-verbose: false
-timeout: 60
+max_cost_usd: 0.0         # 0 = disabled; set to enforce a budget
 ```
+
+Optional feature flags (default off, no-regression):
+`use_native_tools`, `use_nuclei`, `use_llm_summary`, `use_judge`.
 
 ---
 
-## Roadmap
+## Documentation
 
-```
-[x] Project structure & scaffolding
-[x] Config system (.env + YAML)
-[ ] LLM client abstraction (OpenAI / Anthropic)
-[ ] Orchestrator agent core loop
-[ ] Recon agent — DNS, WHOIS, subdomain enum
-[ ] phantom-intel integration — CVE context injection
-[ ] phantom-grid integration — OOB result correlation
-[ ] Exploit suggestion agent — CVE → PoC mapping
-[ ] Report generation — Markdown + PDF output
-[ ] Multi-agent safety protocol layer
-[ ] CLI interface (click)
-```
+| Doc | What |
+|-----|------|
+| [docs/api/agents.md](docs/api/agents.md) | Agent API reference |
+| [docs/exploit/oob-exploitation-workflow.md](docs/exploit/oob-exploitation-workflow.md) | OOB / SSRF walkthrough |
+| [docs/web3/web3-audit.md](docs/web3/web3-audit.md) | Smart-contract audit for Immunefi |
+| [docs/mcp/integration.md](docs/mcp/integration.md) | MCP server setup |
 
 ---
 
@@ -180,7 +183,7 @@ timeout: 60
 
 | Tool | Role |
 |------|------|
-| [phantom-grid](https://github.com/evkir/phantom-grid) | OOB interaction capture & analysis |
+| [phantom-grid](https://github.com/evkir/phantom-grid) | OOB interaction capture |
 | [phantom-intel](https://github.com/evkir/phantom-intel) | CVE intelligence feed |
 | [reality-probe](https://github.com/evkir/reality-probe) | TLS analysis & config auditing |
 
@@ -188,17 +191,15 @@ timeout: 60
 
 ## Requirements
 
-- Python 3.10+
-- OpenAI API key **or** Anthropic API key
-- phantom-grid (optional, for OOB correlation)
+- Python 3.11+
+- OpenAI **or** Anthropic API key (not required for `--dry-run`)
+- Optional: phantom-grid (OOB), nuclei, slither, NVD API key
 
 ---
 
 ## License
 
 MIT — see [LICENSE](LICENSE)
-
----
 
 <div align="center">
 <sub>Part of the <a href="https://github.com/evkir">evkir</a> security toolchain.</sub>
