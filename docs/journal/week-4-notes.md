@@ -152,3 +152,25 @@
 - Разведка shape ДО написания роутов окупилась: phases[].phase (не .name), state lowercase, kb-wrap value+meta — всё сверено по реальному session_*.json, не по памяти.
 
 **📌 Неделя 4 закрыта.** 395 тестов. Дальше — дни 29-30: docs sprint + release v1.0.0.
+
+## День 29 — Documentation sprint
+
+**Ветка:** `docs/v1-release` → merge commit (PR #34). 395 тестов зелёные (доки, кода не трогал).
+
+**Коммиты:**
+1. README rewrite — позиционирование «OOB-driven, agent-trust-aware AI pentest platform», 5 агентов, ASCII-архитектура, quickstart (scan/replay/scope/status + dashboard + MCP), feature-флаги
+2. docs/api/agents.md переписан под РЕАЛЬНЫЙ контракт (был фантастический)
+3. docs/exploit/oob-exploitation-workflow.md переписан под phantom-grid v2 token-flow
+4. docs/web3/web3-audit.md новый — SmartContractAgent → Slither → Immunefi
+
+**Расхождения план vs реальность:**
+- `docs/api/agents.md` УЖЕ существовал (22 стр.) и ВРАЛ: `AsyncPipeline.execute`, `AsyncReconAgent().run()` без аргументов, несуществующие импорты из `recon.async_agent`. Реальный контракт: `run(target, context=None) -> dict`, агент создаётся orchestrator'ом с `(config, session, llm, audit)`, данные в `session.kb`. Переписал целиком, не дополнял ложь.
+- `docs/exploit/oob-exploitation-workflow.md` УЖЕ существовал (47 стр.) и врал про API: `/api/interactions/<id>`, client-side `interaction_id` в payload. Реально — server token-flow: `create_token()` → `capture_url(token)` → `get_interactions(token)`, порт 9090. Переписал. План просил `docs/workflows/oob-exploitation.md` — НЕ плодил дубль, переписал существующий в `docs/exploit/`, README ссылается туда же.
+- web3-doc: папки `docs/workflows/` нет, паттерн репы `docs/<topic>/` → положил в `docs/web3/`.
+- `docs/assets/` (скрин дашборда) из плана коммита 1 ПРОПУЩЕН: бинарь-скрин в CLI-флоу не сгенерить, плейсхолдер коммитить смысла нет. Скрин добавлю руками при наличии живого дашборда.
+
+**Чистка дерева:** перед веткой закоммитил в main висевший `M .gitignore` (`reports/` целиком поверх `reports/*.jsonl`) отдельным chore — иначе протёк бы в доки-коммиты.
+
+**Уроки:**
+- Разведка спасла дважды: оба «создать новый файл» из плана оказались «переписать существующий враньё». Без `cat` старых доков закоммитил бы README со ссылками на правильные доки, рядом с которыми лежат лживые. Правило подтверждено: ls/cat ДО написания, план != факт.
+- ASCII-архитектура вместо Unicode box-drawing — надёжнее в любом рендере/терминале/кодировке.
