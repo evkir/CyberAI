@@ -19,6 +19,17 @@ skip_without_key = pytest.mark.skipif(
 )
 
 
+# NVD over the live network occasionally times out / rate-limits. A transient
+# transport failure is not a code regression, so skip rather than fail.
+_TRANSIENT = ("timed out", "timeout", "connection", "temporarily", "429", "503")
+
+
+def _skip_on_transient(result):
+    err = str(result.get("error", "")).lower()
+    if any(m in err for m in _TRANSIENT):
+        pytest.skip(f"NVD transient failure: {result.get('error')}")
+
+
 @skip_without_key
 def test_real_nvd_keyword_search_returns_high_severity_cve():
     """
@@ -27,6 +38,7 @@ def test_real_nvd_keyword_search_returns_high_severity_cve():
     """
     result = search_cves("openssh 7.4", max_results=10)
 
+    _skip_on_transient(result)
     assert "error" not in result, f"NVD failed: {result.get('error')}"
     cves = result.get("cves", [])
     assert len(cves) > 0, "expected at least one CVE for openssh 7.4"
@@ -47,6 +59,7 @@ def test_real_nvd_get_specific_cve_log4shell():
     """
     cve = get_cve("CVE-2021-44228")
 
+    _skip_on_transient(cve)
     assert "error" not in cve, f"NVD failed: {cve.get('error')}"
     assert cve.get("id") == "CVE-2021-44228"
     assert cve.get("cvss", {}).get("score") == 10.0
