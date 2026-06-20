@@ -2,6 +2,36 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.0.0] - 2026-06-20
+### Production Release — STANDOFF complete
+The 30-day STANDOFF is done: a non-working skeleton is now a production-ready
+AI-native multi-agent pentest platform. CLI, web dashboard and MCP server all
+operational; ~120 commits across five phases. This release tags the cumulative
+result of weeks 1-4 plus the polish sprint.
+
+### Highlights by phase
+- **Week 1 — Reanimation:** unified `ScanSession`, `BaseAgent` contract,
+  rewritten orchestrator, all 4 agents migrated, end-to-end `--dry-run`
+  pipeline with smoke coverage.
+- **Week 2 — Hardening:** Pydantic result schemas, prompt-injection defense at
+  phase boundaries, command-injection-safe nmap with caching, EPSS enrichment,
+  NVD API key + rate limiting, datetime/pyproject modernization, real e2e tests.
+- **Week 3 — Acceleration:** async pipeline (`AsyncOrchestrator`), cost tracking
+  with budget caps, Anthropic prompt caching, native LLM tool calling,
+  structured outputs, SQLite audit log + session replay.
+- **Week 4 — Differentiation:** OOB-driven exploitation (phantom-grid v2.0),
+  Nuclei exploit engine, Web3 audit track (Slither + Immunefi severity),
+  MCP server, LLM-as-Judge report validation, bug-bounty scope import,
+  FastAPI dashboard with SSE live progress.
+- **Polish:** full documentation sprint (README, agent API reference, OOB and
+  Web3 workflow guides), PyPI trusted publishing on tag.
+
+### Added
+- `release.yml` workflow: PyPI trusted publishing triggered on `v*` tags.
+
+### Changed
+- Version bumped to 1.0.0 — first stable release.
+
 ## [0.5.0] - 2026-06-18
 ### Differentiated Platform — Week 4
 Week 4 gives CyberAI its unique edge: out-of-band-driven exploitation, a
