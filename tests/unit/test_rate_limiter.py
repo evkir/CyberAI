@@ -40,7 +40,7 @@ def test_rate_limit_enforced():
     for _ in range(3):
         limiter.acquire()
     start = time.monotonic()
-    limiter.acquire()  # 4th — должен подождать
+    limiter.acquire()  # 4th — should block
     elapsed = time.monotonic() - start
     assert elapsed >= 0.5
 

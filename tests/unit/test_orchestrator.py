@@ -49,7 +49,7 @@ def test_dry_run_session_has_id():
 def test_dry_run_kb_has_dry_run_keys():
     orch = Orchestrator(dry_run=True)
     session = orch.run("10.0.0.1")
-    # dry_run записывает данные в phases, не в KB напрямую
+    # dry_run writes data into phases, not directly into the KB
     for p in session.phases:
         assert p.data.get("dry_run") is True
 

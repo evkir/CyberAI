@@ -44,19 +44,19 @@ maps detectors to Immunefi severity tiers for smart-contract audits.
 ```bash
 pip install cyberai
 
-# dry-run: весь пайплайн без реальных сетевых вызовов
+# dry-run: full pipeline, no real network calls
 cyberai scan example.com --dry-run
 
-# реальный скан с локальной моделью (air-gapped, без облака) и скоупом
+# real scan with a local model (air-gapped, no cloud) and scope
 cyberai scan app.target.com --provider ollama --scope "*.target.com"
 
-cyberai status          # конфиг и доступность тулзов
-cyberai replay <id>     # переиграть сохранённую сессию
+cyberai status          # config and tool availability
+cyberai replay <id>     # re-run a saved session
 ```
 
-**Trust-aware в одном предложении:** если Nmap считывает вредоносный SSH-баннер,
-сделанный для взлома контекста LLM, оркестратор нейтрализует вектор *до* того,
-как данные попадут в модель.
+**Trust-aware in one sentence:** if Nmap reads a malicious SSH banner crafted to
+hijack the LLM context, the orchestrator neutralizes that vector *before* the data
+ever reaches the model.
 
 
 ---
