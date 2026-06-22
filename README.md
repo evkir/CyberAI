@@ -202,6 +202,26 @@ Optional feature flags (default off, no-regression):
 - OpenAI **or** Anthropic API key (not required for `--dry-run`)
 - Optional: phantom-grid (OOB), nuclei, slither, NVD API key
 
+## ⚠️ Legal / Authorized Use
+
+CyberAI is an offensive-security tool intended **strictly for authorized
+security testing, research, and education**. Use it **only** against systems
+you own or for which you hold explicit, written permission (e.g. a signed
+engagement, an in-scope bug-bounty program, or a lab you control).
+
+- Unauthorized scanning, exploitation, or access of systems is illegal in most
+  jurisdictions and is **not** condoned by this project.
+- You are solely responsible for ensuring your use complies with all applicable
+  laws and with the rules of any target program.
+- The software is provided "as is", without warranty of any kind. The authors
+  and contributors accept **no liability** for misuse or for any damage arising
+  from its use.
+
+By using CyberAI you agree to operate within these bounds.
+
+---
+
+
 ---
 
 ## License
