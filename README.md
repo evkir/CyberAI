@@ -3,8 +3,9 @@
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-v0.5.0-orange)
-![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic-blueviolet)
+![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen)
+![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
+![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
 
 # 🤖 CyberAI
 
@@ -36,6 +37,27 @@ Two things set it apart from "LLM wrapper over nmap":
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
 maps detectors to Immunefi severity tiers for smart-contract audits.
+
+
+## Quick Start
+
+```bash
+pip install cyberai
+
+# dry-run: весь пайплайн без реальных сетевых вызовов
+cyberai scan example.com --dry-run
+
+# реальный скан с локальной моделью (air-gapped, без облака) и скоупом
+cyberai scan app.target.com --provider ollama --scope "*.target.com"
+
+cyberai status          # конфиг и доступность тулзов
+cyberai replay <id>     # переиграть сохранённую сессию
+```
+
+**Trust-aware в одном предложении:** если Nmap считывает вредоносный SSH-баннер,
+сделанный для взлома контекста LLM, оркестратор нейтрализует вектор *до* того,
+как данные попадут в модель.
+
 
 ---
 
