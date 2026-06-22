@@ -39,38 +39,23 @@ maps detectors to Immunefi severity tiers for smart-contract audits.
 
 ---
 
-## Architecture                                                                            +------------------+                                                                       target -----------> |   Orchestrator   |  typed pipeline, dry-run, budget
+## Architecture
 
-+--------+---------+  injection-scan at phase boundaries
+```mermaid
+flowchart LR
+    T([target]) --> O[Orchestrator<br/>typed · dry-run · budget]
+    O --> R[Recon] --> I[Intel] --> E[Exploit] --> RP[Report] --> V([validated report])
+    E <-->|inject ↔ correlate| PG[(phantom-grid<br/>OOB callbacks)]
+    O --> W3[Web3 track<br/>Slither · Immunefi]
+```
 
-|
+> **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
+> Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
 
-+-----------+----------+-----------+------------+
+**Observability:** SQLite audit log · session export/import · `cyberai replay`
+**Interfaces:** CLI · FastAPI dashboard (SSE) · MCP server (Claude Desktop)
 
-v           v          v           v            v
-
-+------+   +------+   +--------+  +--------+   +------+
-
-|Recon |-->|Intel |-->|Exploit |->|Report  |   | Web3 | (standalone)
-
-+------+   +------+   +---+----+  +--------+   +--+---+
-
-DNS       NVD/CVE     OOB |  PoC  judge         | Slither
-
-nmap      EPSS        nuclei H1-export          | Immunefi
-
-subdom    prioritize      |                     | severity
-
-v
-
-+-------------+
-
-| phantom-grid|  OOB callback capture
-
-+-------------+
-Observability:  SQLite audit log . session export/import . cyberai replay
-
-Interfaces:     CLI . FastAPI dashboard (SSE) . MCP server (Claude Desktop)                ### Agents
+### Agents
 
 | Agent | Input | Output | Key tools |
 |-------|-------|--------|-----------|
