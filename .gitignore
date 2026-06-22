@@ -17,3 +17,8 @@ htmlcov/
 # audit logs from scan runs
 reports/*.jsonl
 reports/
+
+# private planning & journals — local only, never published
+STANDOFF.md
+STANDOFF-II.md
+docs/journal/
