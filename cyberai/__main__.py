@@ -8,6 +8,7 @@ from rich.panel import Panel
 
 from .core.config import CyberAIConfig
 from .core.orchestrator import Orchestrator
+from .cli.bench import bench
 
 console = Console()
 
@@ -141,6 +142,8 @@ def status() -> None:
         )
     )
 
+
+cli.add_command(bench)
 
 if __name__ == "__main__":
     cli()
