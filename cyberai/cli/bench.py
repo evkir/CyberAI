@@ -11,12 +11,15 @@ Subcommands:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 from rich.console import Console
 from rich.table import Table
 
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter
+from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
 console = Console()
 
@@ -70,7 +73,14 @@ def _placeholder_runner(task) -> BenchResult:
     type=click.Choice(sorted(_SUITES)),
     help="Which benchmark suite to run.",
 )
-def run(suite: str) -> None:
+@click.option(
+    "--scorecard",
+    "scorecard_path",
+    default=None,
+    type=click.Path(dir_okay=False, writable=True),
+    help="Write a reproducible Markdown scorecard to this path.",
+)
+def run(suite: str, scorecard_path: str | None) -> None:
     """Run a suite and print a pass@1 scorecard."""
     adapter = _SUITES[suite]()
     report = run_suite(adapter, _placeholder_runner)
@@ -84,3 +94,10 @@ def run(suite: str) -> None:
         table.add_row(r.task_id, mark, f"{r.duration_s:.2f}")
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
+
+    if scorecard_path:
+        md = generate_scorecard(report, RunMeta(note="cyberai bench run"))
+        out = Path(scorecard_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(md)
+        console.print(f"[dim]scorecard written to {out}[/dim]")

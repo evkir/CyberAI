@@ -25,3 +25,15 @@ def test_bench_run_default_suite_exit_zero():
 def test_bench_run_rejects_unknown_suite():
     result = CliRunner().invoke(bench, ["run", "--suite", "nope"])
     assert result.exit_code != 0
+
+
+def test_bench_run_writes_scorecard(tmp_path):
+    from click.testing import CliRunner
+
+    out = tmp_path / "sc.md"
+    result = CliRunner().invoke(bench, ["run", "--scorecard", str(out)])
+    assert result.exit_code == 0
+    assert out.exists()
+    text = out.read_text()
+    assert "Benchmark Scorecard" in text
+    assert "pass@1" in text
