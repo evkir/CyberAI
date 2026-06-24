@@ -37,3 +37,20 @@ def test_bench_run_writes_scorecard(tmp_path):
     text = out.read_text()
     assert "Benchmark Scorecard" in text
     assert "pass@1" in text
+
+
+def test_bench_list_includes_ctf_suite():
+    from click.testing import CliRunner
+
+    result = CliRunner().invoke(bench, ["list"])
+    assert result.exit_code == 0
+    assert "ctf" in result.output
+    assert "Decode the Base" in result.output
+
+
+def test_bench_run_ctf_suite_exit_zero():
+    from click.testing import CliRunner
+
+    result = CliRunner().invoke(bench, ["run", "--suite", "ctf"])
+    assert result.exit_code == 0
+    assert "pass@1" in result.output
