@@ -1,0 +1,2 @@
+The file handler joins your input to /srv/www without normalization.
+Target the secret at ../../etc/ctf_flag.
