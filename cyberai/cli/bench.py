@@ -19,6 +19,7 @@ from rich.table import Table
 
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter
+from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
 console = Console()
@@ -27,6 +28,7 @@ console = Console()
 # register here later without touching the CLI.
 _SUITES = {
     "local": LocalSuiteAdapter,
+    "ctf": CTFAdapter,
 }
 
 

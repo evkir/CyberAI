@@ -1,0 +1,9 @@
+{
+  "id": "ctf-path-of-secrets",
+  "name": "Path of Secrets",
+  "category": "web",
+  "difficulty": "easy",
+  "flag": "flag{traversal_leads_the_way}",
+  "description": "A web service serves files. One it should not. Recover the flag.",
+  "files": ["hint.txt"]
+}

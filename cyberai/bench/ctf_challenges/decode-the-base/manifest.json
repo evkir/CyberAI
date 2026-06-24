@@ -1,0 +1,9 @@
+{
+  "id": "ctf-decode-the-base",
+  "name": "Decode the Base",
+  "category": "crypto",
+  "difficulty": "easy",
+  "flag": "flag{base64_is_not_encryption}",
+  "description": "A note was left base64-encoded. Recover the flag.",
+  "files": ["note.txt"]
+}
