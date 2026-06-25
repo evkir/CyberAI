@@ -44,11 +44,13 @@ class ModelRouter:
         routing: RoutingConfig,
         cost_tracker: Optional["CostTracker"] = None,
         budget_usd: float = 0.0,
+        air_gapped: bool = False,
     ) -> None:
         self._base = base_llm
         self._routing = routing
         self._cost_tracker = cost_tracker
         self._budget_usd = budget_usd
+        self._air_gapped = air_gapped
         self._cache: Dict[str, "LLMClient"] = {}
 
     def model_for(self, phase: ScanPhase) -> str:
@@ -67,14 +69,26 @@ class ModelRouter:
             return cached
         from cyberai.core.llm_client import LLMClient
 
+        if self._air_gapped:
+            provider = self._routing.air_gapped_provider
+            base_url = self._routing.air_gapped_base_url
+            api_key = self._base.api_key
+        else:
+            provider = self._base.provider
+            base_url = self._base.base_url
+            api_key = self._base.api_key
         phase_cfg = LLMConfig(
-            provider=self._base.provider,
+            provider=provider,
             model=model,
-            api_key=self._base.api_key,
-            base_url=self._base.base_url,
+            api_key=api_key,
+            base_url=base_url,
             max_tokens=self._base.max_tokens,
             temperature=self._base.temperature,
         )
+        if self._air_gapped:
+            from cyberai.core.egress_guard import assert_air_gapped
+
+            assert_air_gapped(phase_cfg)
         client = LLMClient(
             phase_cfg,
             cost_tracker=self._cost_tracker,

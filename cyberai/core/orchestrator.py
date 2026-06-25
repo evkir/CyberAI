@@ -90,6 +90,7 @@ class Orchestrator:
                 self.config.routing,
                 cost_tracker=self.cost_tracker,
                 budget_usd=self.config.max_cost_usd,
+                air_gapped=self.config.air_gapped,
             )
         return self._router.client_for(phase)
 
