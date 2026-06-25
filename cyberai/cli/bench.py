@@ -19,6 +19,7 @@ from rich.table import Table
 
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter
+from cyberai.bench.engine_runner import make_engine_runner
 from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
@@ -82,10 +83,26 @@ def _placeholder_runner(task) -> BenchResult:
     type=click.Path(dir_okay=False, writable=True),
     help="Write a reproducible Markdown scorecard to this path.",
 )
-def run(suite: str, scorecard_path: str | None) -> None:
+@click.option(
+    "--engine",
+    "engine",
+    default="placeholder",
+    show_default=True,
+    type=click.Choice(["placeholder", "real"]),
+    help="placeholder reports all-unsolved; real runs live probes (local suite).",
+)
+def run(suite: str, scorecard_path: str | None, engine: str) -> None:
     """Run a suite and print a pass@1 scorecard."""
     adapter = _SUITES[suite]()
-    report = run_suite(adapter, _placeholder_runner)
+    if engine == "real" and isinstance(adapter, LocalSuiteAdapter):
+        runner = make_engine_runner(adapter)
+    else:
+        if engine == "real":
+            console.print(
+                "[yellow]⚠ real engine supports the local suite only; using placeholder[/yellow]"
+            )
+        runner = _placeholder_runner
+    report = run_suite(adapter, runner)
 
     table = Table(title=f"bench: {suite}")
     table.add_column("task id", style="cyan")
@@ -98,7 +115,9 @@ def run(suite: str, scorecard_path: str | None) -> None:
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
 
     if scorecard_path:
-        md = generate_scorecard(report, RunMeta(note="cyberai bench run"))
+        md = generate_scorecard(
+            report, RunMeta(note="cyberai bench run", extra={"engine": engine, "suite": suite})
+        )
         out = Path(scorecard_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(md)

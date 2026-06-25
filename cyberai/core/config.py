@@ -9,6 +9,19 @@ load_dotenv()
 
 
 @dataclass
+class RoutingConfig:
+    """Per-phase model routing. Off by default (no-regression)."""
+
+    enable_model_routing: bool = False
+    fast_model: str = "claude-haiku-4-5"
+    strong_model: str = "claude-opus-4-8"
+    phase_models: dict = field(default_factory=dict)
+    # Air-gapped: local endpoint the router forces every phase onto.
+    air_gapped_provider: str = "ollama"
+    air_gapped_base_url: str = "http://localhost:11434"
+
+
+@dataclass
 class LLMConfig:
     provider: Literal["openai", "anthropic", "ollama"] = "openai"
     model: str = "gpt-4o"
@@ -49,6 +62,10 @@ class CyberAIConfig:
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.
     judge_model: Optional[str] = None
+    # Flag-gated: per-phase model routing (day 6).
+    routing: "RoutingConfig" = field(default_factory=lambda: RoutingConfig())
+    # Flag-gated: force all LLM calls onto a local endpoint, assert no egress.
+    air_gapped: bool = False
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":
