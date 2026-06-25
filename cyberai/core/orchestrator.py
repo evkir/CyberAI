@@ -57,6 +57,9 @@ class Orchestrator:
 
         self.cost_tracker = CostTracker()
 
+        # Lazy per-phase model router; built on first phase that needs the LLM.
+        self._router = None
+
     # ── llm (lazy) ────────────────────────────────────────────────────
 
     @property
@@ -71,6 +74,24 @@ class Orchestrator:
                 budget_usd=self.config.max_cost_usd,
             )
         return self._llm
+
+    def _client_for(self, phase: ScanPhase):
+        """Phase-appropriate LLM client. Falls back to the shared client when
+        routing is disabled (default) — no behavioural change."""
+        if self.dry_run:
+            return self.llm
+        if not self.config.routing.enable_model_routing:
+            return self.llm
+        if self._router is None:
+            from cyberai.core.model_router import ModelRouter
+
+            self._router = ModelRouter(
+                self.config.llm,
+                self.config.routing,
+                cost_tracker=self.cost_tracker,
+                budget_usd=self.config.max_cost_usd,
+            )
+        return self._router.client_for(phase)
 
     # ── public API ────────────────────────────────────────────────────
 
@@ -189,7 +210,7 @@ class Orchestrator:
     def _run_recon(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.agent import ReconAgent
 
-        agent = ReconAgent(self.config, session, self.llm, self.audit)
+        agent = ReconAgent(self.config, session, self._client_for(ScanPhase.RECON), self.audit)
         result = agent.run(session.target)
         session.kb_set("recon", result)
         return result
@@ -197,7 +218,7 @@ class Orchestrator:
     def _run_intel(self, session: ScanSession) -> Dict:
         from cyberai.agents.intel.agent import IntelAgent
 
-        agent = IntelAgent(self.config, session, self.llm, self.audit)
+        agent = IntelAgent(self.config, session, self._client_for(ScanPhase.INTEL), self.audit)
         result = agent.run(session.target)
         session.kb_set("intel", result)
         return result
@@ -214,7 +235,7 @@ class Orchestrator:
         for w in v.warnings:
             console.print(f"[yellow]⚠ {w}[/yellow]")
 
-        agent = ExploitAgent(self.config, session, self.llm, self.audit)
+        agent = ExploitAgent(self.config, session, self._client_for(ScanPhase.EXPLOIT), self.audit)
         result = agent.run(session.target)
         session.kb_set("exploit", result)
         return result
@@ -223,7 +244,7 @@ class Orchestrator:
         from cyberai.agents.report.agent import ReportAgent
         from cyberai.agents.report.html_renderer import render_html_report
 
-        agent = ReportAgent(self.config, session, self.llm, self.audit)
+        agent = ReportAgent(self.config, session, self._client_for(ScanPhase.REPORT), self.audit)
         result = agent.run(session.target)
         session.kb_set("report", result)
 
