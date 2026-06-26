@@ -1,4 +1,4 @@
-"""Tests for the air-gapped egress guard (day 6 / STANDOFF II W1)."""
+"""Tests for the air-gapped egress guard."""
 
 from __future__ import annotations
 

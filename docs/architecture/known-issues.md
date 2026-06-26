@@ -1,7 +1,7 @@
 # Known Issues — Pre-W1 Baseline  ✅ ALL RESOLVED
 
 This document tracked the broken state of CyberAI at the start of the
-30-day STANDOFF rewrite. **As of day 6, all 8 issues are fixed.**
+the core rewrite. **All 8 issues are fixed.**
 
 Day 7 un-xfails the smoke tests to lock in regression protection.
 

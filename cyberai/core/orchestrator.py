@@ -2,7 +2,7 @@
 Orchestrator — coordinates the full multi-agent pipeline.
 ReconAgent → IntelAgent → ExploitAgent → ReportAgent
 
-Day 5 of STANDOFF rewrite: closes KI-1.
+Closes the agent-construction contract (KI-1).
 
 The orchestrator now takes a CyberAIConfig, builds the shared LLMClient
 and AuditLogger, and constructs every agent with the new BaseAgent

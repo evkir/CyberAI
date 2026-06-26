@@ -1,7 +1,7 @@
 """
 Tests for IntelAgent CVE scoring (formerly IntelAgentV2) and _normalize.
 
-Day 6 of STANDOFF: IntelAgentV2 is now an alias for IntelAgent with
+IntelAgentV2 is an alias for IntelAgent with
 score_cves=True built in. These tests use the real BaseAgent contract.
 """
 

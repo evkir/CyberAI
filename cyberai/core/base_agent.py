@@ -1,7 +1,7 @@
 """
 BaseAgent — abstract base for all CyberAI agents.
 
-Day 4 of STANDOFF rewrite: this redesign closes KI-3, KI-4, KI-6.
+This redesign gives agents an explicit dependency on the session.
 
 Every agent now receives explicit dependencies (config, session, llm,
 audit) and exposes the attributes agents actually use:

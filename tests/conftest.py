@@ -2,7 +2,7 @@
 Shared pytest fixtures for CyberAI test suite.
 
 Note: The `fresh_session` fixture currently uses PentestSession.
-This will change to ScanSession in day 3 of the STANDOFF plan,
+This will change to ScanSession in a later refactor,
 when the two competing session types are unified.
 """
 
