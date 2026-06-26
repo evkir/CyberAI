@@ -1,7 +1,7 @@
 """
 KnowledgeBase — shared memory store for all agents in a session.
 
-Day 4 of STANDOFF: `agent` is now optional (defaults to "unknown") so
+`agent` is optional (defaults to "unknown") so
 agents can write quick entries without always naming themselves; the
 mutable default `tags=[]` bug is fixed; datetime is timezone-aware.
 """

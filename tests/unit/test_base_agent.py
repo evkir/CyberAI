@@ -1,4 +1,4 @@
-"""Tests for the redesigned BaseAgent contract — day 4 of STANDOFF."""
+"""Tests for the redesigned BaseAgent contract."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """
-Tests for Orchestrator + CyberAIConfig integration — day 5 of STANDOFF.
+Tests for Orchestrator + CyberAIConfig integration.
 
 Covers the KI-1 fix: orchestrator accepts config, builds llm lazily,
 and the CLI wiring works in dry-run.

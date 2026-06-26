@@ -3,7 +3,7 @@
 All notable changes to CyberAI are documented here.
 
 ## [1.1.0] - 2026-06-27
-### STANDOFF II — Week 1: Proof & Benchmark Harness
+### Week 1: Proof & Benchmark Harness
 
 Reproducible benchmark harness and the first honest, public-facing numbers.
 Establishes the regression polygon every later week measures against.
@@ -41,8 +41,8 @@ Establishes the regression polygon every later week measures against.
   solved with no runner change. Honest by design.
 
 ## [1.0.0] - 2026-06-20
-### Production Release — STANDOFF complete
-The 30-day STANDOFF is done: a non-working skeleton is now a production-ready
+### Production Release
+A non-working skeleton is now a production-ready
 AI-native multi-agent pentest platform. CLI, web dashboard and MCP server all
 operational; ~120 commits across five phases. This release tags the cumulative
 result of weeks 1-4 plus the polish sprint.

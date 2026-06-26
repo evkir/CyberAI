@@ -1,5 +1,5 @@
 """
-Real engine runner for the local suite (day 6 / STANDOFF II W1).
+Real engine runner for the local suite.
 
 Replaces the placeholder runner with an honest, reproducible measurement: for
 each local task we bring the target up (Docker, when available), run our live

@@ -4,7 +4,7 @@ End-to-end smoke tests for the cyberai CLI.
 These tests verify that the entire pipeline runs without crashing,
 even in dry-run mode where no real network calls are made.
 
-These tests pass end-to-end as of week 1 of the STANDOFF plan:
+These tests pass end-to-end:
 the CLI, Orchestrator, and agents share a consistent API.
 See docs/architecture/known-issues.md for the issues that were resolved.
 """

@@ -1,4 +1,4 @@
-"""Tests for the per-phase model router (day 6 / STANDOFF II W1)."""
+"""Tests for the per-phase model router."""
 
 from __future__ import annotations
 

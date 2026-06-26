@@ -15,7 +15,7 @@ SessionState is a compatibility enum that mirrors ScanState plus an
 IDLE alias (legacy name for the initial state).
 
 This shim will be removed once all import sites are migrated (planned
-for day 7 of the STANDOFF rewrite).
+in a later release).
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ def _emit_deprecation_once() -> None:
     warnings.warn(
         "cyberai.core.session is deprecated; "
         "import from cyberai.core.scan_session instead. "
-        "This shim will be removed in day 7 of the STANDOFF rewrite.",
+        "This shim will be removed in a future release.",
         DeprecationWarning,
         stacklevel=2,
     )

@@ -1,4 +1,4 @@
-"""Tests for the real bench engine-runner (day 6 / STANDOFF II W1)."""
+"""Tests for the real bench engine-runner."""
 
 from __future__ import annotations
 

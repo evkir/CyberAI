@@ -1,4 +1,4 @@
-"""Backward-compat shim tests for cyberai.core.session — day 3 of STANDOFF."""
+"""Backward-compat shim tests for cyberai.core.session."""
 
 from __future__ import annotations
 
