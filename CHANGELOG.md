@@ -2,6 +2,44 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.1.0] - 2026-06-27
+### STANDOFF II — Week 1: Proof & Benchmark Harness
+
+Reproducible benchmark harness and the first honest, public-facing numbers.
+Establishes the regression polygon every later week measures against.
+
+### Added
+- **Benchmark harness** — `BenchTask`/`BenchResult`/`BenchAdapter`/`SuiteReport`
+  contract with a pluggable `TaskRunner`; external suites attach as optional
+  adapters, never as dependencies.
+- **Local vulnerable-target suite** — self-authored SQLi/CMDi/path-traversal
+  Flask apps under `cyberai/bench/apps/`, served in throwaway containers by an
+  ephemeral Docker builder (graceful without Docker).
+- **Honest evaluator + live probes** — binary per-class success checks plus
+  `probe_sqli`/`probe_cmdi`/`probe_traversal`; a task is solved only on an
+  unambiguous signal from a responding target.
+- **Real engine-runner** — `cyberai bench run --engine real` runs live probes
+  against the local suite; default `--engine placeholder` reports all-unsolved
+  so a scorecard never overstates capability.
+- **Scorecard + reproducibility** — Markdown scorecard with engine/provider/
+  model/timestamp provenance, deterministic run manifest with tamper-evident
+  hashing, per-run cost/token budget, and a regression gate that fails if
+  solve-rate drops or the suite is swapped.
+- **Per-phase model router** (flag-gated) — caches one LLM client per phase
+  model sharing a single cost tracker; fast/strong role defaults with a
+  `phase_models` override map.
+- **Air-gapped local path** — `egress_guard` enforces a local-only endpoint
+  (Ollama/localhost or a private vLLM `base_url`) and asserts no egress; honest
+  `Air-Gapped Ready` badge, not an absolute zero-leak claim.
+- **CTF/flag-submit adapter** and a self-contained CTF mini-suite.
+- **Public docs** — `docs/benchmarks/local-suite.md` and a README Benchmarks
+  section with the methodology and current numbers.
+
+### Notes
+- The Docker builder currently serves a bare base image, so a real run reports
+  unsolved today; once each app ships a Dockerfile the same probes flip to
+  solved with no runner change. Honest by design.
+
 ## [1.0.0] - 2026-06-20
 ### Production Release — STANDOFF complete
 The 30-day STANDOFF is done: a non-working skeleton is now a production-ready
