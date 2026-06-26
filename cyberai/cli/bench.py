@@ -35,7 +35,19 @@ _SUITES = {
 
 @click.group()
 def bench() -> None:
-    """Benchmark the engine against vulnerable targets (honest pass@1)."""
+    """Benchmark the engine against vulnerable targets (honest pass@1).
+
+    \b
+    Examples:
+      cyberai bench list
+      cyberai bench run --suite local
+      cyberai bench run --suite local --engine real
+      cyberai bench run --suite local --scorecard reports/scorecard.md
+
+    Results are reproducible: targets ship in this repo, success is binary
+    (a real signal from a responding target), and every run can emit a
+    Markdown scorecard with engine/provider/model provenance.
+    """
 
 
 @bench.command("list")
