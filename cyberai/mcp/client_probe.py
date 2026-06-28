@@ -109,6 +109,19 @@ async def _dump(
     return [item.model_dump(mode="json", exclude_none=True) for item in items]
 
 
+async def inventory(session: ClientSession) -> dict[str, list[dict[str, Any]]]:
+    """Dump tools/prompts/resources from an already-initialized session.
+
+    Split out from :func:`probe` so the capability dump can be exercised against
+    an in-memory server without spawning a transport.
+    """
+    return {
+        "tools": await _dump(session.list_tools, "tools"),
+        "prompts": await _dump(session.list_prompts, "prompts"),
+        "resources": await _dump(session.list_resources, "resources"),
+    }
+
+
 async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeResult:
     """Connect to a target MCP endpoint and inventory its capability surface."""
     transport = transport or detect_transport(endpoint)
@@ -120,9 +133,10 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
                 result.connected = True
                 result.server_name = init.serverInfo.name
                 result.server_version = init.serverInfo.version
-                result.tools = await _dump(session.list_tools, "tools")
-                result.prompts = await _dump(session.list_prompts, "prompts")
-                result.resources = await _dump(session.list_resources, "resources")
+                surface = await inventory(session)
+                result.tools = surface["tools"]
+                result.prompts = surface["prompts"]
+                result.resources = surface["resources"]
     except Exception as exc:  # noqa: BLE001 — surface connection errors on result
         result.error = f"{type(exc).__name__}: {exc}"
     return result
