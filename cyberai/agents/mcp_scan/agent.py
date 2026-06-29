@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from rich.console import Console
 
+from cyberai.agents.mcp_scan.exposure import assess_exposure
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
 from cyberai.core.base_agent import BaseAgent, Tool
@@ -69,10 +70,12 @@ class MCPScanAgent(BaseAgent):
         }
         poisoning = self._analyze_poisoning(target, probe_result["tools"])
         overprivilege = self._analyze_overprivilege(target, probe_result["tools"])
+        exposure = self._assess_exposure(target, probe_result["transport"], probe_result["tools"])
         result: dict[str, Any] = {
             **summary,
             "poisoning": poisoning,
             "overprivilege": overprivilege,
+            "exposure": exposure,
             "probe": probe_result,
         }
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
@@ -82,6 +85,7 @@ class MCPScanAgent(BaseAgent):
                 **summary,
                 "poisoned_tools": poisoning["suspicious"],
                 "overprivileged_tools": overprivilege["overprivileged"],
+                "exposed": exposure["exposed"],
             },
         )
         return result
@@ -142,3 +146,27 @@ class MCPScanAgent(BaseAgent):
             "overprivileged": len(flagged),
             "tools": [scan.to_dict() for scan in flagged],
         }
+
+    def _assess_exposure(
+        self, target: str, transport: str, tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Assess DNS-rebinding / network exposure of the target endpoint.
+
+        Unlike poisoning and over-privilege (per-tool), exposure is a property
+        of the server endpoint, so at most one Finding is recorded. stdio
+        endpoints are not network-reachable and produce no Finding.
+        """
+        scan = assess_exposure(target, transport, tools)
+        if scan.is_exposed:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"MCP endpoint exposed to DNS rebinding ({target})",
+                description=(
+                    f"Endpoint '{target}' over {transport} is reachable by DNS "
+                    f"rebinding. {' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {"exposed": scan.is_exposed, "scan": scan.to_dict()}
