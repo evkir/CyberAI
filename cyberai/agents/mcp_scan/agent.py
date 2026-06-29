@@ -17,7 +17,9 @@ from typing import Any, Optional
 
 from rich.console import Console
 
+from cyberai.agents.mcp_scan.poisoning import analyze_tools
 from cyberai.core.base_agent import BaseAgent, Tool
+from cyberai.core.scan_session import Severity
 from cyberai.mcp.client_probe import probe
 
 console = Console()
@@ -64,7 +66,38 @@ class MCPScanAgent(BaseAgent):
             "resources": len(probe_result["resources"]),
             "error": probe_result["error"],
         }
-        result: dict[str, Any] = {**summary, "probe": probe_result}
+        poisoning = self._analyze_poisoning(target, probe_result["tools"])
+        result: dict[str, Any] = {**summary, "poisoning": poisoning, "probe": probe_result}
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
-        self._log("MCP scan complete", summary)
+        self._log("MCP scan complete", {**summary, "poisoned_tools": poisoning["suspicious"]})
         return result
+
+    def _analyze_poisoning(self, target: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run static poisoning analysis on probed tools and record findings.
+
+        Each suspicious tool becomes a Finding on the session; clean tools are
+        not recorded. The returned summary is attached to the scan result.
+        """
+        scans = analyze_tools(tools)
+        suspicious = [scan for scan in scans if scan.is_suspicious]
+        for scan in suspicious:
+            labels = sorted(
+                {m["type"] for m in scan.matches} | {m["type"] for m in scan.mcp_matches}
+            )
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"MCP tool poisoning in '{scan.tool_name}'",
+                description=(
+                    f"Tool '{scan.tool_name}' carries suspicious metadata "
+                    f"({', '.join(labels)}) in fields: {', '.join(scan.scanned_fields)}. "
+                    "An LLM reading this metadata could be steered before any tool runs."
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "scanned": len(scans),
+            "suspicious": len(suspicious),
+            "tools": [scan.to_dict() for scan in suspicious],
+        }
