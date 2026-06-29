@@ -14,10 +14,34 @@ layered on top in the scorer.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from cyberai.core.scan_session import Severity
 from cyberai.core.security.injection_detector import detect_injection
+
+# MCP-specific poisoning patterns not covered by the generic injection detector.
+# These target the tool-metadata channel directly: shadowing other tools,
+# smuggled "important"/hidden directives the model is told to obey, and
+# exfiltration instructions embedded in a description.
+MCP_POISONING_PATTERNS: list[tuple[str, str]] = [
+    (r"<\s*important\s*>", "hidden_directive"),
+    (r"do not (tell|mention|inform|reveal to) (the )?(user|human)", "concealment"),
+    (r"without (telling|informing|alerting) (the )?(user|human)", "concealment"),
+    (r"before (using|calling|invoking) this tool", "line_jumping"),
+    (r"when (using|calling) (any |the )?other tool", "tool_shadowing"),
+    (r"instead of (the |calling )?\w+ tool", "tool_shadowing"),
+    (
+        r"(send|forward|leak|exfiltrate|post) .{0,40}(to )?(http|https|attacker|webhook)",
+        "exfil_instruction",
+    ),
+    (r"include .{0,30}(api[_ ]?key|token|secret|password|credential)", "credential_harvest"),
+    (r"read .{0,30}(\.env|id_rsa|/etc/passwd|ssh key|config file)", "sensitive_read"),
+]
+_MCP_COMPILED = [
+    (re.compile(pat, re.IGNORECASE | re.DOTALL), label) for pat, label in MCP_POISONING_PATTERNS
+]
 
 
 @dataclass
@@ -29,6 +53,8 @@ class MetadataScan:
     is_suspicious: bool
     matches: list[dict[str, Any]] = field(default_factory=list)
     scanned_fields: list[str] = field(default_factory=list)
+    mcp_matches: list[dict[str, Any]] = field(default_factory=list)
+    severity: str = Severity.INFO.value
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -76,16 +102,50 @@ def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     return "\n".join(parts), fields
 
 
+def _scan_mcp_patterns(text: str) -> list[dict[str, Any]]:
+    """Match MCP-specific poisoning patterns the generic detector misses."""
+    out: list[dict[str, Any]] = []
+    for pattern, label in _MCP_COMPILED:
+        found = pattern.findall(text)
+        if found:
+            out.append({"type": label, "pattern": pattern.pattern})
+    return out
+
+
+def _severity_for(risk_score: int, mcp_matches: list[dict[str, Any]]) -> Severity:
+    """Map combined signals to a severity tier.
+
+    MCP-specific hits (concealment, exfil, tool-shadowing) are a stronger
+    signal than generic prompt-injection text and raise the floor.
+    """
+    mcp_labels = {m["type"] for m in mcp_matches}
+    if mcp_labels & {"exfil_instruction", "credential_harvest", "sensitive_read", "concealment"}:
+        return Severity.CRITICAL
+    if mcp_labels:
+        return Severity.HIGH
+    if risk_score >= 75:
+        return Severity.HIGH
+    if risk_score >= 50:
+        return Severity.MEDIUM
+    if risk_score >= 25:
+        return Severity.LOW
+    return Severity.INFO
+
+
 def analyze_tool(tool: dict[str, Any]) -> MetadataScan:
-    """Scan one probed tool dict for injection signals in its metadata."""
+    """Scan one probed tool dict for poisoning signals in its metadata."""
     text, scanned_fields = _collect_text(tool)
     result = detect_injection(text)
+    mcp_matches = _scan_mcp_patterns(text)
+    severity = _severity_for(result["risk_score"], mcp_matches)
     return MetadataScan(
         tool_name=tool.get("name", "<unnamed>"),
         risk_score=result["risk_score"],
-        is_suspicious=result["is_injection"],
+        is_suspicious=result["is_injection"] or bool(mcp_matches),
         matches=result["matches"],
         scanned_fields=scanned_fields,
+        mcp_matches=mcp_matches,
+        severity=severity.value,
     )
 
 
