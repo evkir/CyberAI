@@ -18,6 +18,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from cyberai.core.scan_session import Severity
+
 # Capability-class signals keyed by class. Matched against a normalized,
 # lower-cased projection of the tool metadata where every non-alphanumeric run
 # is collapsed to a single space, so word boundaries behave across
@@ -60,7 +62,6 @@ CAPABILITY_SIGNALS: dict[str, list[str]] = {
         r"\bpost\b",
         r"\bwebhook\b",
         r"\bendpoint\b",
-        r"\bapi\b",
         r"\bsocket\b",
     ],
     "exec": [
@@ -195,3 +196,115 @@ def map_capability_surface(tool: dict[str, Any]) -> CapabilitySurface:
 def map_capability_surfaces(tools: list[dict[str, Any]]) -> list[CapabilitySurface]:
     """Map the capability surface of every tool in a probe inventory."""
     return [map_capability_surface(tool) for tool in tools]
+
+
+# Severity ranking so the scorer can take the max across matched rules.
+_SEVERITY_RANK = {
+    Severity.INFO: 0,
+    Severity.LOW: 1,
+    Severity.MEDIUM: 2,
+    Severity.HIGH: 3,
+    Severity.CRITICAL: 4,
+}
+_IO_CLASSES = {"net", "fs_read", "fs_write", "cred", "db"}
+
+
+@dataclass
+class OverPrivScan:
+    """Over-privilege assessment of a single tool's capability surface."""
+
+    tool_name: str
+    capabilities: list[str] = field(default_factory=list)
+    severity: str = Severity.INFO.value
+    reasons: list[str] = field(default_factory=list)
+    surface: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_overprivileged(self) -> bool:
+        return _SEVERITY_RANK[Severity(self.severity)] >= _SEVERITY_RANK[Severity.MEDIUM]
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["is_overprivileged"] = self.is_overprivileged
+        return data
+
+
+def score_overprivilege(surface: CapabilitySurface) -> OverPrivScan:
+    """Score a capability surface for dangerous over-privileged combinations.
+
+    The score is the maximum severity across all matched rules — a tool is as
+    dangerous as its worst capability combination, not the sum. This is a
+    static inference from declared metadata, not a runtime proof of access.
+    """
+    caps = set(surface.capabilities)
+    rules: list[tuple[Severity, str]] = []
+
+    has_exec = "exec" in caps
+    exec_io = caps & _IO_CLASSES
+    if has_exec and exec_io:
+        rules.append(
+            (
+                Severity.CRITICAL,
+                f"exec capability paired with {', '.join(sorted(exec_io))} "
+                "forms a full command-and-I/O primitive",
+            )
+        )
+    if "cred" in caps and "net" in caps:
+        rules.append(
+            (
+                Severity.CRITICAL,
+                "credential access paired with network egress is a direct exfil channel",
+            )
+        )
+    if "fs_read" in caps and "net" in caps:
+        rules.append(
+            (Severity.HIGH, "filesystem read paired with network egress enables data exfiltration")
+        )
+    if "fs_write" in caps and "net" in caps:
+        rules.append(
+            (
+                Severity.HIGH,
+                "filesystem write paired with network egress enables remote drop / backdoor",
+            )
+        )
+    if "db" in caps and "net" in caps:
+        rules.append(
+            (
+                Severity.HIGH,
+                "database access paired with network egress enables data dump exfiltration",
+            )
+        )
+    if has_exec and not exec_io:
+        rules.append((Severity.HIGH, "process-execution capability is high-risk on its own"))
+    if "cred" in caps and "net" not in caps:
+        rules.append(
+            (Severity.MEDIUM, "credential access declared without an obvious egress channel")
+        )
+    if len(caps) >= 3:
+        rules.append(
+            (
+                Severity.MEDIUM,
+                f"broad capability surface ({', '.join(sorted(caps))}) violates least privilege",
+            )
+        )
+
+    if rules:
+        worst = max(rules, key=lambda r: _SEVERITY_RANK[r[0]])
+        severity = worst[0]
+        reasons = [reason for sev, reason in rules]
+    else:
+        severity = Severity.LOW if caps else Severity.INFO
+        reasons = []
+
+    return OverPrivScan(
+        tool_name=surface.tool_name,
+        capabilities=surface.capabilities,
+        severity=severity.value,
+        reasons=reasons,
+        surface=surface.to_dict(),
+    )
+
+
+def analyze_overprivilege(tools: list[dict[str, Any]]) -> list[OverPrivScan]:
+    """Map and score the over-privilege risk of every tool in an inventory."""
+    return [score_overprivilege(map_capability_surface(tool)) for tool in tools]
