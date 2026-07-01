@@ -203,3 +203,12 @@ def build_corpus(canary: str = "") -> list[InjectionPayload]:
 def payloads_by_category(category: PayloadCategory, canary: str = "") -> list[InjectionPayload]:
     """Filter the corpus to a single category."""
     return [p for p in build_corpus(canary) if p.category == category]
+
+
+def full_corpus() -> list[InjectionPayload]:
+    """Return every payload, including OOB ones, regardless of canary.
+
+    Callers that mint a capture token per payload (e.g. the channel fuzzer)
+    need the complete set; the canary is substituted later via `render()`.
+    """
+    return list(_ALL_PAYLOADS)
