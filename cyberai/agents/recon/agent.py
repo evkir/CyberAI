@@ -9,6 +9,7 @@ from cyberai.core.scan_session import Severity
 from cyberai.core.types import OpenPort, ReconResult
 
 from .dns_tool import detect_subdomains, run_dns, run_whois
+from .llm_detector import detect_llm_endpoints
 from .nmap_tool import run_nmap
 
 
@@ -85,6 +86,27 @@ class ReconAgent(BaseAgent):
         self.kb.set("recon.subdomains", sub_result, agent=self.AGENT_NAME)
         results["recon.subdomains"] = sub_result
         self._log("subdomain_scan complete", sub_result)
+
+        # 5. LLM/RAG endpoint discovery — flags an injection-fuzzing surface.
+        self._check_iteration_limit()
+        llm_result = detect_llm_endpoints(target)
+        self.kb.set("recon.llm_endpoints", llm_result, agent=self.AGENT_NAME)
+        results["recon.llm_endpoints"] = llm_result
+        self._log("llm_endpoint_detect complete", llm_result)
+
+        if llm_result.get("is_llm_target"):
+            eps = llm_result.get("llm_endpoints", [])
+            self.session.add_finding(
+                severity=Severity.INFO,
+                title=f"LLM/RAG endpoint(s) detected on {target}",
+                description=(
+                    f"Found {len(eps)} candidate LLM/RAG endpoint(s); "
+                    "candidate surface for injection fuzzing."
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[e["url"] for e in eps],
+            )
 
         # Surface open ports as an informational finding
         ports = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
