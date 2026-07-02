@@ -21,6 +21,7 @@ from cyberai.agents.mcp_scan.attestation import assess_attestation
 from cyberai.agents.mcp_scan.exposure import assess_exposure
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
+from cyberai.agents.mcp_scan.trust import analyze_trust_propagation
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.mcp.client_probe import probe
@@ -75,12 +76,14 @@ class MCPScanAgent(BaseAgent):
         attestation = self._assess_attestation(
             target, probe_result["transport"], probe_result["connected"], probe_result["error"]
         )
+        trust = self._analyze_trust(target, probe_result["tools"])
         result: dict[str, Any] = {
             **summary,
             "poisoning": poisoning,
             "overprivilege": overprivilege,
             "exposure": exposure,
             "attestation": attestation,
+            "trust": trust,
             "probe": probe_result,
         }
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
@@ -92,6 +95,7 @@ class MCPScanAgent(BaseAgent):
                 "overprivileged_tools": overprivilege["overprivileged"],
                 "exposed": exposure["exposed"],
                 "unauthenticated": attestation["unauthenticated"],
+                "shadowing_tools": trust["shadowing"],
             },
         )
         return result
@@ -202,4 +206,31 @@ class MCPScanAgent(BaseAgent):
         return {
             "unauthenticated": scan.unauthenticated,
             "scan": scan.to_dict(),
+        }
+
+    def _analyze_trust(self, target: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+        """Score probed tools for cross-server trust-propagation / shadowing.
+
+        Each tool whose metadata steers behaviour toward a sibling tool, or
+        whose name collides with a trusted tool, becomes a Finding. Clean tools
+        stay only in the returned inventory.
+        """
+        scans = analyze_trust_propagation(tools)
+        flagged = [scan for scan in scans if scan.is_finding]
+        for scan in flagged:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"MCP tool-shadowing risk in '{scan.tool_name}'",
+                description=(
+                    f"Tool '{scan.tool_name}' presents cross-server "
+                    f"trust-propagation risk. {' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "scanned": len(scans),
+            "shadowing": len(flagged),
+            "tools": [scan.to_dict() for scan in flagged],
         }
