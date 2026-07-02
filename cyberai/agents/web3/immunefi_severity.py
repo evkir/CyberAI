@@ -1,4 +1,4 @@
-"""Immunefi severity classification for slither findings (day 24).
+"""Immunefi severity classification for slither findings.
 
 Maps slither detector checks to Immunefi's severity tiers
 (Critical / High / Medium / Low / Insight) following their bug-bounty

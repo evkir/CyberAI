@@ -52,7 +52,7 @@ class AuditLogger:
 
     Always writes a JSONL trail. When `db_path` is given, every event is
     also appended to an append-only SQLite `audit_events` table, enabling
-    queryable audit and session replay (day 21). db_path=None keeps the
+    queryable audit and session replay. db_path=None keeps the
     legacy JSONL-only behaviour (no regression).
     """
 

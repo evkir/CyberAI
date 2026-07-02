@@ -1,4 +1,4 @@
-"""Unit tests for the FastAPI dashboard backend (day 28)."""
+"""Unit tests for the FastAPI dashboard backend."""
 
 from __future__ import annotations
 

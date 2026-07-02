@@ -1,4 +1,4 @@
-"""Day 27 — scope import + wildcard/exclusion matching edge cases."""
+"""Scope import + wildcard/exclusion matching edge cases."""
 
 import json
 

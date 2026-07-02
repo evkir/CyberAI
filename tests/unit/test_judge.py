@@ -1,4 +1,4 @@
-"""Day 26 — LLM-as-Judge: catches hallucinated claims in reports.
+"""LLM-as-Judge: catches hallucinated claims in reports.
 
 The judge is an LLM call, so we mock `structured_call` and verify the
 judge logic: hallucination detection, threshold authority, graceful

@@ -61,7 +61,7 @@ class Finding:
     """
     A single vulnerability finding.
 
-    Fields target/evidence/cve_ids added in day 3 (KI-5 fix) — agents
+    Fields target/evidence/cve_ids are present so agents
     were already passing these but the dataclass didn't accept them.
     """
 
@@ -83,7 +83,7 @@ class Finding:
     # Free-form structured data
     data: Any = None
     # Confidence this finding is real, 0..1. 1.0 = fully evidenced (default).
-    # Lowered by the LLM-as-Judge / agents when evidence is weak (day 26).
+    # Lowered by the LLM-as-Judge / agents when evidence is weak.
     confidence: float = 1.0
 
     def __post_init__(self) -> None:
@@ -121,7 +121,7 @@ class ScanSession:
     errors: List[str] = field(default_factory=list)
     authorized_scope: List[str] = field(default_factory=list)
 
-    # Findings live on the session — added in day 3 to unify with PentestSession
+    # Findings live on the session to unify with the former PentestSession
     findings: List[Finding] = field(default_factory=list)
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ class ScanSession:
             "kb_keys": list(self.kb.keys()),
         }
 
-    # ── full serialization for replay (day 21) ────────────────────────
+    # ── full serialization for replay ─────────────────────────────────
 
     def to_json(self, indent: int = 2) -> str:
         """Full session export including KB values, findings and phases.
@@ -314,7 +314,7 @@ def _phase_summary(p: PhaseResult) -> Dict[str, Any]:
     }
 
 
-# ── (de)serialization helpers for replay (day 21) ─────────────────────
+# ── (de)serialization helpers for replay ──────────────────────────────
 
 
 def _finding_to_dict(f: "Finding") -> Dict[str, Any]:

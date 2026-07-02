@@ -1,4 +1,4 @@
-"""Unit tests for EPSS client + prioritizer integration (day 11).
+"""Unit tests for EPSS client + prioritizer integration.
 
 Uses a captured api.first.org response (epss_log4shell.json) to drive
 deterministic tests without hitting the network.

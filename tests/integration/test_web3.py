@@ -1,4 +1,4 @@
-"""Day 24 — SmartContractAgent e2e: reentrant fixture -> slither -> Critical."""
+"""SmartContractAgent e2e: reentrant fixture -> slither -> Critical."""
 
 from __future__ import annotations
 
