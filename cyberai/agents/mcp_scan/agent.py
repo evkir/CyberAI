@@ -17,9 +17,12 @@ from typing import Any, Optional
 
 from rich.console import Console
 
+from cyberai.agents.mcp_scan.attestation import assess_attestation
 from cyberai.agents.mcp_scan.exposure import assess_exposure
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
+from cyberai.agents.mcp_scan.scorecard import build_mcp_scorecard
+from cyberai.agents.mcp_scan.trust import analyze_trust_propagation
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.mcp.client_probe import probe
@@ -71,13 +74,20 @@ class MCPScanAgent(BaseAgent):
         poisoning = self._analyze_poisoning(target, probe_result["tools"])
         overprivilege = self._analyze_overprivilege(target, probe_result["tools"])
         exposure = self._assess_exposure(target, probe_result["transport"], probe_result["tools"])
+        attestation = self._assess_attestation(
+            target, probe_result["transport"], probe_result["connected"], probe_result["error"]
+        )
+        trust = self._analyze_trust(target, probe_result["tools"])
         result: dict[str, Any] = {
             **summary,
             "poisoning": poisoning,
             "overprivilege": overprivilege,
             "exposure": exposure,
+            "attestation": attestation,
+            "trust": trust,
             "probe": probe_result,
         }
+        result["scorecard"] = build_mcp_scorecard(result)
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
         self._log(
             "MCP scan complete",
@@ -86,6 +96,8 @@ class MCPScanAgent(BaseAgent):
                 "poisoned_tools": poisoning["suspicious"],
                 "overprivileged_tools": overprivilege["overprivileged"],
                 "exposed": exposure["exposed"],
+                "unauthenticated": attestation["unauthenticated"],
+                "shadowing_tools": trust["shadowing"],
             },
         )
         return result
@@ -170,3 +182,57 @@ class MCPScanAgent(BaseAgent):
                 evidence=[scan.to_dict()],
             )
         return {"exposed": scan.is_exposed, "scan": scan.to_dict()}
+
+    def _assess_attestation(
+        self, target: str, transport: str, connected: bool, error: str | None
+    ) -> dict[str, Any]:
+        """Assess the transport-authentication posture of the target endpoint.
+
+        Like exposure this is an endpoint property, so at most one Finding is
+        recorded, and only when the endpoint accepted an unauthenticated
+        session. stdio and undetermined remote endpoints produce no Finding.
+        """
+        scan = assess_attestation(target, transport, connected, error)
+        if scan.is_finding:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"Unauthenticated MCP endpoint ({target})",
+                description=(
+                    f"Endpoint '{target}' over {transport} accepted an MCP session "
+                    f"with no credential. {' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "unauthenticated": scan.unauthenticated,
+            "scan": scan.to_dict(),
+        }
+
+    def _analyze_trust(self, target: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+        """Score probed tools for cross-server trust-propagation / shadowing.
+
+        Each tool whose metadata steers behaviour toward a sibling tool, or
+        whose name collides with a trusted tool, becomes a Finding. Clean tools
+        stay only in the returned inventory.
+        """
+        scans = analyze_trust_propagation(tools)
+        flagged = [scan for scan in scans if scan.is_finding]
+        for scan in flagged:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"MCP tool-shadowing risk in '{scan.tool_name}'",
+                description=(
+                    f"Tool '{scan.tool_name}' presents cross-server "
+                    f"trust-propagation risk. {' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "scanned": len(scans),
+            "shadowing": len(flagged),
+            "tools": [scan.to_dict() for scan in flagged],
+        }
