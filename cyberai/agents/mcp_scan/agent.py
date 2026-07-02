@@ -21,6 +21,7 @@ from cyberai.agents.mcp_scan.attestation import assess_attestation
 from cyberai.agents.mcp_scan.exposure import assess_exposure
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
+from cyberai.agents.mcp_scan.scorecard import build_mcp_scorecard
 from cyberai.agents.mcp_scan.trust import analyze_trust_propagation
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
@@ -86,6 +87,7 @@ class MCPScanAgent(BaseAgent):
             "trust": trust,
             "probe": probe_result,
         }
+        result["scorecard"] = build_mcp_scorecard(result)
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
         self._log(
             "MCP scan complete",
