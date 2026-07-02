@@ -1,4 +1,4 @@
-"""Day 25 — MCP server: tool registry, list_tools, call_tool dispatch."""
+"""MCP server: tool registry, list_tools, call_tool dispatch."""
 
 from __future__ import annotations
 

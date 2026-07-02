@@ -33,7 +33,7 @@ def register(
     )
 
 
-# ── recon tools (day 25 commit 2) ─────────────────────────────────────
+# ── recon tools ───────────────────────────────────────────────────────
 
 from cyberai.agents.recon.dns_tool import (  # noqa: E402
     detect_subdomains,
@@ -111,7 +111,7 @@ register(
 )
 
 
-# ── intel tools (day 25 commit 3) ─────────────────────────────────────
+# ── intel tools ───────────────────────────────────────────────────────
 
 from cyberai.agents.intel.epss_client import get_epss_scores  # noqa: E402
 from cyberai.agents.intel.nvd_client import get_cve, search_cves  # noqa: E402

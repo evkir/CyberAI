@@ -1,4 +1,4 @@
-"""Slither static-analysis wrapper for Solidity contracts (day 24).
+"""Slither static-analysis wrapper for Solidity contracts.
 
 Runs `slither <target> --json -` and parses results.detectors into structured
 findings. Degrades gracefully when the binary is absent. Slither resolves the

@@ -1,4 +1,4 @@
-"""Unit tests for nmap flag whitelist and result caching (day 10)."""
+"""Unit tests for nmap flag whitelist and result caching."""
 
 from __future__ import annotations
 

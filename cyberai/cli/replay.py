@@ -1,4 +1,4 @@
-"""Session replay (day 21): reload a saved ScanSession and re-run it.
+"""Session replay: reload a saved ScanSession and re-run it.
 
 The saved session JSON (written by `cyberai scan`) is reloaded, the pipeline
 is re-run in dry-run mode against the same target, and the replayed phases

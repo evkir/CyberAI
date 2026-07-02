@@ -1,4 +1,4 @@
-"""Day 23 — nuclei engine + searchsploit: parsing, subprocess mock, OOB wiring."""
+"""Nuclei engine + searchsploit: parsing, subprocess mock, OOB wiring."""
 
 from __future__ import annotations
 

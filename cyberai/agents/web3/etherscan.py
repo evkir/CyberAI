@@ -1,4 +1,4 @@
-"""Etherscan API client — fetch verified source, ABI, status (day 24).
+"""Etherscan API client — fetch verified source, ABI, status.
 
 Degrades gracefully when no API key is set (available=False), so the agent
 can still analyze local .sol files without an internet/Etherscan dependency.

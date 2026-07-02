@@ -1,6 +1,6 @@
 """Integration test: prompt-injection defense during the recon phase.
 
-Verifies the two layers wired up on day 9:
+Verifies the two wired-up layers:
   1. detect_injection flags malicious content in phase output;
   2. sanitize_banner wraps attacker-controlled banners as untrusted data
      so the LLM never sees them as instructions.

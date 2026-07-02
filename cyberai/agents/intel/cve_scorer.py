@@ -11,7 +11,7 @@ from typing import Any, Dict
 CVSS_WEIGHT = 0.35
 EXPLOIT_WEIGHT = 0.30
 RECENCY_WEIGHT = 0.10
-EPSS_WEIGHT = 0.25  # day 11: EPSS is a strong signal, not a footnote
+EPSS_WEIGHT = 0.25  # EPSS is a strong signal, not a footnote
 
 
 @dataclass

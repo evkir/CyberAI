@@ -1,4 +1,4 @@
-"""Day 19 — native LLM tool calling: spec converters, executor, loop."""
+"""Native LLM tool calling: spec converters, executor, loop."""
 
 from __future__ import annotations
 

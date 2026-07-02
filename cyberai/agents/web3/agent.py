@@ -1,4 +1,4 @@
-"""SmartContractAgent — Solidity static analysis & severity triage (day 24).
+"""SmartContractAgent — Solidity static analysis & severity triage.
 
 Standalone agent (not in the recon→intel→exploit→report network pipeline):
 takes a contract address or local .sol path, runs static analysis, and triages

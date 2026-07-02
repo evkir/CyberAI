@@ -1,4 +1,4 @@
-"""HackerOne-compatible Markdown export for a ReportSection (day 20)."""
+"""HackerOne-compatible Markdown export for a ReportSection."""
 
 from __future__ import annotations
 

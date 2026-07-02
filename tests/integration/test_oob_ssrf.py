@@ -1,4 +1,4 @@
-"""Day 22 — OOB SSRF detection, mocked end-to-end against phantom-grid v2.0."""
+"""OOB SSRF detection, mocked end-to-end against phantom-grid v2.0."""
 
 from __future__ import annotations
 

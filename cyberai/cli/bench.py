@@ -67,7 +67,7 @@ def list_suites() -> None:
 
 
 def _placeholder_runner(task) -> BenchResult:
-    """Default runner used until the live engine path is wired (day 6+).
+    """Default runner used until the live engine path is wired.
 
     It does NOT fake success: every task is reported unsolved so the scorecard
     never overstates capability. Replaced by the real engine runner later.

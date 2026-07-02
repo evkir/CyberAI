@@ -54,15 +54,15 @@ class CyberAIConfig:
     max_agent_iterations: int = 10
     # Hard budget for total LLM spend in this scan, USD. 0.0 disables the check.
     max_cost_usd: float = 0.0
-    # Flag-gated: run the nuclei template engine in ExploitAgent (day 23).
+    # Flag-gated: run the nuclei template engine in ExploitAgent.
     use_nuclei: bool = False
-    # Flag-gated: LLM-as-Judge validates the report vs KB evidence (day 26).
+    # Flag-gated: LLM-as-Judge validates the report vs KB evidence.
     use_judge: bool = False
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.
     judge_model: Optional[str] = None
-    # Flag-gated: per-phase model routing (day 6).
+    # Flag-gated: per-phase model routing.
     routing: "RoutingConfig" = field(default_factory=lambda: RoutingConfig())
     # Flag-gated: force all LLM calls onto a local endpoint, assert no egress.
     air_gapped: bool = False

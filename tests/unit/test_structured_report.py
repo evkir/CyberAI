@@ -1,4 +1,4 @@
-"""Day 20 — structured outputs: ReportSection, structured_call, H1 export."""
+"""Structured outputs: ReportSection, structured_call, H1 export."""
 
 from __future__ import annotations
 

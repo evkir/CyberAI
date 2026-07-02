@@ -109,7 +109,7 @@ _VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
 
 
 class ReportSection(BaseModel):
-    """LLM-generated structured report section (day 20 structured outputs).
+    """LLM-generated structured report section (structured outputs).
 
     `impact` is included for HackerOne-style export; not in the original
     plan column but required by the H1 template.
