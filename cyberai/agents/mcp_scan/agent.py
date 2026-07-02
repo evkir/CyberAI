@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from rich.console import Console
 
+from cyberai.agents.mcp_scan.attestation import assess_attestation
 from cyberai.agents.mcp_scan.exposure import assess_exposure
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
@@ -71,11 +72,15 @@ class MCPScanAgent(BaseAgent):
         poisoning = self._analyze_poisoning(target, probe_result["tools"])
         overprivilege = self._analyze_overprivilege(target, probe_result["tools"])
         exposure = self._assess_exposure(target, probe_result["transport"], probe_result["tools"])
+        attestation = self._assess_attestation(
+            target, probe_result["transport"], probe_result["connected"], probe_result["error"]
+        )
         result: dict[str, Any] = {
             **summary,
             "poisoning": poisoning,
             "overprivilege": overprivilege,
             "exposure": exposure,
+            "attestation": attestation,
             "probe": probe_result,
         }
         self.kb.set("mcp_scan", result, agent=self.AGENT_NAME)
@@ -86,6 +91,7 @@ class MCPScanAgent(BaseAgent):
                 "poisoned_tools": poisoning["suspicious"],
                 "overprivileged_tools": overprivilege["overprivileged"],
                 "exposed": exposure["exposed"],
+                "unauthenticated": attestation["unauthenticated"],
             },
         )
         return result
@@ -170,3 +176,30 @@ class MCPScanAgent(BaseAgent):
                 evidence=[scan.to_dict()],
             )
         return {"exposed": scan.is_exposed, "scan": scan.to_dict()}
+
+    def _assess_attestation(
+        self, target: str, transport: str, connected: bool, error: str | None
+    ) -> dict[str, Any]:
+        """Assess the transport-authentication posture of the target endpoint.
+
+        Like exposure this is an endpoint property, so at most one Finding is
+        recorded, and only when the endpoint accepted an unauthenticated
+        session. stdio and undetermined remote endpoints produce no Finding.
+        """
+        scan = assess_attestation(target, transport, connected, error)
+        if scan.is_finding:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"Unauthenticated MCP endpoint ({target})",
+                description=(
+                    f"Endpoint '{target}' over {transport} accepted an MCP session "
+                    f"with no credential. {' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "unauthenticated": scan.unauthenticated,
+            "scan": scan.to_dict(),
+        }
