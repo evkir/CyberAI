@@ -38,7 +38,10 @@ def _rich_result() -> dict:
             "overprivileged": 1,
             "tools": [{"tool_name": "exec", "severity": "CRITICAL"}],
         },
-        "exposure": {"exposed": True, "scan": {"severity": "HIGH", "dangerous_capabilities": ["exec"]}},
+        "exposure": {
+            "exposed": True,
+            "scan": {"severity": "HIGH", "dangerous_capabilities": ["exec"]},
+        },
         "attestation": {"unauthenticated": True, "scan": {"severity": "HIGH"}},
         "trust": {"shadowing": 1, "tools": [{"tool_name": "hook", "severity": "MEDIUM"}]},
     }
@@ -124,7 +127,9 @@ def test_report_rich_mapping_and_summary():
     ]
     assert data["atlas_techniques"] == ["AML.T0040", "AML.T0051", "AML.T0086", "AML.T0110"]
     assert data["severity_summary"]["CRITICAL"] == 2  # exec + stdio_rce
-    assert data["severity_summary"]["HIGH"] == 3  # poisoning + attestation + exposure (trust is MEDIUM)
+    assert (
+        data["severity_summary"]["HIGH"] == 3
+    )  # poisoning + attestation + exposure (trust is MEDIUM)
     # flagged items section lists tool names
     assert "read_env" in md and "exec" in md and "hook" in md
     # MCP06 beta-drift note present

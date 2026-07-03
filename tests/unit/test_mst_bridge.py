@@ -26,7 +26,9 @@ def test_find_mst_env_override(tmp_path, monkeypatch):
 
 def test_find_mst_uses_path(monkeypatch):
     monkeypatch.delenv("MAS_SENTRY_PATH", raising=False)
-    with patch("cyberai.agents.mcp_scan.mst_bridge.shutil.which", return_value="/usr/bin/mas-sentry"):
+    with patch(
+        "cyberai.agents.mcp_scan.mst_bridge.shutil.which", return_value="/usr/bin/mas-sentry"
+    ):
         assert find_mst() == "/usr/bin/mas-sentry"
 
 
@@ -100,7 +102,9 @@ def test_fuzz_parses_report(tmp_path):
 
         return _P()
 
-    with patch("cyberai.agents.mcp_scan.mst_bridge.subprocess.run", side_effect=_write_report) as run:
+    with patch(
+        "cyberai.agents.mcp_scan.mst_bridge.subprocess.run", side_effect=_write_report
+    ) as run:
         findings = bridge.fuzz("stdio://python3 server.py")
 
     run.assert_called_once()
