@@ -168,3 +168,59 @@ register(
     },
     handler=get_epss_scores,
 )
+
+
+# ── mcp red-team tool ─────────────────────────────────────────────────
+#
+# Meta capability: the CyberAI MCP server exposes an offensive tool that scans
+# *other* MCP servers / LLM endpoints. The handler runs a one-shot scan in a
+# throwaway session and returns the full result (capability inventory plus the
+# poisoning / over-privilege / exposure / attestation / trust analyses and the
+# STRIDE scorecard).
+
+
+def run_mcp_scan(endpoint: str, transport: str | None = None) -> Dict[str, Any]:
+    """Scan a target MCP server or LLM endpoint; return the full result dict.
+
+    Imports are deferred so importing the tool registry stays cheap. The target
+    is scanned in a fresh, throwaway ScanSession.
+    """
+    from cyberai.agents.mcp_scan import MCPScanAgent
+    from cyberai.core.config import CyberAIConfig
+    from cyberai.core.llm_client import LLMClient
+    from cyberai.core.logger import AuditLogger
+    from cyberai.core.scan_session import ScanSession
+
+    config = CyberAIConfig.from_env()
+    session = ScanSession(target=endpoint)
+    llm = LLMClient(config.llm)
+    audit = AuditLogger(session.session_id, output_dir=config.output_dir)
+    agent = MCPScanAgent(config, session, llm, audit)
+    context = {"transport": transport} if transport else None
+    return agent.run(endpoint, context=context)
+
+
+register(
+    name="mcp_scan",
+    description=(
+        "Offensively scan a target MCP server or LLM endpoint: inventory its "
+        "tools/prompts/resources and analyze for tool poisoning, over-privilege, "
+        "network exposure, weak attestation, and cross-server trust risks."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "endpoint": {
+                "type": "string",
+                "description": "MCP endpoint: stdio command, http(s):// or sse:// URL",
+            },
+            "transport": {
+                "type": "string",
+                "enum": ["stdio", "sse", "http"],
+                "description": "Force transport instead of inferring from the endpoint",
+            },
+        },
+        "required": ["endpoint"],
+    },
+    handler=run_mcp_scan,
+)
