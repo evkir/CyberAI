@@ -78,6 +78,7 @@ class MCPScanAgent(BaseAgent):
             target, probe_result["transport"], probe_result["connected"], probe_result["error"]
         )
         trust = self._analyze_trust(target, probe_result["tools"])
+        mst = self._run_mst(target, probe_result["transport"], context)
         result: dict[str, Any] = {
             **summary,
             "poisoning": poisoning,
@@ -85,6 +86,7 @@ class MCPScanAgent(BaseAgent):
             "exposure": exposure,
             "attestation": attestation,
             "trust": trust,
+            "mst": mst,
             "probe": probe_result,
         }
         result["scorecard"] = build_mcp_scorecard(result)
@@ -98,9 +100,44 @@ class MCPScanAgent(BaseAgent):
                 "exposed": exposure["exposed"],
                 "unauthenticated": attestation["unauthenticated"],
                 "shadowing_tools": trust["shadowing"],
+                "mst_findings": len(mst),
             },
         )
         return result
+
+    def _run_mst(
+        self,
+        target: str,
+        transport: Optional[str],
+        context: Optional[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Optionally run the MST low-level MCP fuzzer and record its findings.
+
+        Off by default; enabled via ``context["mst_fuzz"]``. Degrades to [] when
+        MST is not installed. Non-lab targets are fuzzed only when scope is
+        confirmed (``context["confirm_scope"]`` or a session authorized scope).
+        """
+        ctx = context or {}
+        if not ctx.get("mst_fuzz"):
+            return []
+        from cyberai.agents.mcp_scan.mst_bridge import MSTBridge
+
+        bridge = MSTBridge()
+        if not bridge.available:
+            self._log("MST not available - skipping low-level MCP fuzzing")
+            return []
+        confirm = bool(ctx.get("confirm_scope")) or bool(self.session.authorized_scope)
+        findings = bridge.fuzz(target, transport, confirm_scope=confirm)
+        for finding in findings:
+            self.session.add_finding(
+                severity=finding.severity,
+                title=f"MCP low-level fuzzing: {finding.check}",
+                description=finding.detail,
+                agent=self.AGENT_NAME,
+                target=target,
+            )
+        self._log("MST low-level fuzzing complete", {"findings": len(findings)})
+        return [f.to_dict() for f in findings]
 
     def _analyze_poisoning(self, target: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
         """Run static poisoning analysis on probed tools and record findings.
