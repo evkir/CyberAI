@@ -148,8 +148,19 @@ python -m cyberai.mcp.server
 ```
 
 Exposes recon/intel tools (`nmap_scan`, `dns_enum`, `cve_search`,
-`epss_score`, …) over the Model Context Protocol. See
+`epss_score`, …) plus `mcp_scan` — which lets the server scan *other* MCP
+servers — over the Model Context Protocol. See
 [docs/mcp/integration.md](docs/mcp/integration.md).
+
+### MCP / LLM offensive red-team
+
+```bash
+cyberai mcp-scan http://target.example.com/mcp --report
+```
+
+Inventory a target MCP server or LLM endpoint and emit an OWASP-MCP /
+MITRE-ATLAS red-team report. See
+[docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md).
 
 ---
 
@@ -204,6 +215,7 @@ methodology and the current scorecard.
 | [docs/exploit/oob-exploitation-workflow.md](docs/exploit/oob-exploitation-workflow.md) | OOB / SSRF walkthrough |
 | [docs/web3/web3-audit.md](docs/web3/web3-audit.md) | Smart-contract audit for Immunefi |
 | [docs/mcp/integration.md](docs/mcp/integration.md) | MCP server setup |
+| [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md) | MCP/LLM offensive red-team scanning |
 
 ---
 
