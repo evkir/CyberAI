@@ -18,7 +18,11 @@ def _result() -> dict:
         "prompts": 0,
         "resources": 0,
         "error": None,
-        "probe": {"server_name": "t", "server_version": "1.0", "tools": []},
+        "probe": {
+            "server_name": "t",
+            "server_version": "1.0",
+            "tools": [{"name": "read_env", "description": "reads env"}],
+        },
         "poisoning": {"suspicious": 1, "tools": [{"tool_name": "read_env", "severity": "HIGH"}]},
         "overprivilege": {"overprivileged": 0, "tools": []},
         "exposure": {"exposed": True, "scan": {"severity": "HIGH"}},
@@ -69,3 +73,33 @@ def test_no_flags_passes_none_context_and_prints_inventory():
     assert res.exit_code == 0, res.output
     assert "MCP scan" in res.output
     assert fake.run.call_args.kwargs["context"] is None
+
+
+def test_transport_flag_passes_context():
+    res, fake = _run(["stdio://python3 s.py", "--transport", "stdio"])
+    assert res.exit_code == 0, res.output
+    assert fake.run.call_args.kwargs["context"] == {"transport": "stdio"}
+
+
+def test_json_flag_emits_raw_inventory():
+    res, _ = _run(["http://t/mcp", "--json"])
+    assert res.exit_code == 0, res.output
+    assert '"connected"' in res.output
+
+
+def test_error_result_reports_error():
+    fake = MagicMock()
+    result = _result()
+    result["connected"] = False
+    result["error"] = "connection refused"
+    fake.run.return_value = result
+    with (
+        patch("cyberai.cli.mcp_scan.CyberAIConfig"),
+        patch("cyberai.cli.mcp_scan.ScanSession"),
+        patch("cyberai.cli.mcp_scan.LLMClient"),
+        patch("cyberai.cli.mcp_scan.AuditLogger"),
+        patch("cyberai.cli.mcp_scan.MCPScanAgent", return_value=fake),
+    ):
+        res = CliRunner().invoke(cli, ["mcp-scan", "http://t/mcp"])
+    assert res.exit_code == 0, res.output
+    assert "connection refused" in res.output
