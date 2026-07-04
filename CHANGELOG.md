@@ -2,6 +2,42 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.2.0] - 2026-07-03
+### Week 2: MCP / LLM Offensive Red-Team
+
+Turns Model Context Protocol servers and LLM/RAG endpoints into scan
+targets: CyberAI now attacks a target's MCP surface from the outside and
+maps every finding onto the OWASP MCP Top 10 and MITRE ATLAS.
+
+### Added
+- **MCP client probe + `MCPScanAgent`** — connect to a target MCP
+  endpoint (stdio / SSE / streamable-HTTP), inventory tools/prompts/
+  resources, and drive the red-team analyses from a standalone agent.
+- **`cyberai mcp-scan`** — offensive scan CLI with `--report` (OWASP-MCP
+  / MITRE-ATLAS Markdown report), `--report-json`, and `--mst`/
+  `--confirm-scope` for optional low-level fuzzing.
+- **Tool-poisoning detector** — static analysis of tool metadata for
+  hidden instructions, unicode tricks, base64, and hidden HTML.
+- **Over-privilege audit** — capability-surface mapping and heuristics
+  for tools that reach beyond their declared scope.
+- **Exposure check** — remote reachability, DNS-rebinding surface, and
+  dangerous-capability detection (CVE-2025-49596 class).
+- **Attestation + trust-propagation** — anonymous-acceptance and
+  self-asserted identity checks, cross-server shadowing/steering
+  detection, and a STRIDE scorecard per target.
+- **Live injection fuzzer** — payload corpus for MCP tool-responses and
+  web LLM/RAG endpoints, confirmed out-of-band via phantom-grid callbacks.
+- **MST bridge** — optional subprocess integration with
+  mas-sentry-toolkit for protocol-level malformed-traffic fuzzing;
+  degrades gracefully when absent.
+- **MCP red-team report** — representation layer mapping scan stages to
+  OWASP MCP Top 10 and MITRE ATLAS, plus `mcp_scan` exposed as an MCP tool
+  so the server can scan other MCP servers.
+
+### Docs
+- `docs/redteam/mcp-scanning.md` — offensive vs defensive framing and a
+  full `mcp-scan` walkthrough.
+
 ## [1.1.0] - 2026-06-27
 ### Week 1: Proof & Benchmark Harness
 
