@@ -5,9 +5,7 @@ reported by *both* tools for the same SWC is cross-validated (higher
 confidence); single-tool findings are kept but flagged. Findings that do not map
 to a known SWC are kept per-detector so nothing is silently dropped.
 
-The aderyn detector coverage here is intentionally conservative (only verified
-detector names); it is broadened from the live `aderyn registry` in a later
-change.
+Aderyn detector names are taken from the live `aderyn registry` output.
 """
 
 from __future__ import annotations
@@ -31,33 +29,53 @@ DETECTOR_TO_SWC: Dict[str, str] = {
     "reentrancy-no-eth": "SWC-107",
     "reentrancy-benign": "SWC-107",
     "reentrancy-events": "SWC-107",
+    "reentrancy-state-change": "SWC-107",  # aderyn
+    "non-reentrant-not-first": "SWC-107",  # aderyn
     # delegatecall to untrusted callee -> SWC-112
     "controlled-delegatecall": "SWC-112",
     "delegatecall-loop": "SWC-112",
-    "delegate-call-in-loop": "SWC-112",  # aderyn (verified)
+    "delegatecall-in-loop": "SWC-112",  # aderyn
+    "delegate-call-unchecked-address": "SWC-112",  # aderyn
     # authorization through tx.origin -> SWC-115
     "tx-origin": "SWC-115",
+    "tx-origin-used-for-auth": "SWC-115",  # aderyn
     # unchecked call return value -> SWC-104
     "unchecked-lowlevel": "SWC-104",
     "unchecked-send": "SWC-104",
     "unchecked-transfer": "SWC-104",
+    "unchecked-low-level-call": "SWC-104",  # aderyn
+    "unchecked-return": "SWC-104",  # aderyn
+    "eth-send-unchecked-address": "SWC-104",  # aderyn
     # unprotected SELFDESTRUCT -> SWC-106
     "suicidal": "SWC-106",
+    "selfdestruct": "SWC-106",  # aderyn
     # unprotected ether withdrawal / arbitrary send -> SWC-105
     "arbitrary-send-eth": "SWC-105",
     "arbitrary-send-erc20": "SWC-105",
+    "arbitrary-transfer-from": "SWC-105",  # aderyn
     # block values as proxy for time -> SWC-116
     "timestamp": "SWC-116",
+    "block-timestamp-deadline": "SWC-116",  # aderyn
     # weak sources of randomness -> SWC-120
     "weak-prng": "SWC-120",
+    "weak-randomness": "SWC-120",  # aderyn
     # signature malleability -> SWC-117
-    "ecrecover": "SWC-117",  # aderyn (verified)
+    "ecrecover": "SWC-117",  # aderyn
     # uninitialized storage pointer -> SWC-109
     "uninitialized-storage": "SWC-109",
     "uninitialized-state": "SWC-109",
+    # shadowing state variables -> SWC-119
+    "shadowing-state": "SWC-119",
+    "state-variable-shadowing": "SWC-119",  # aderyn
+    "builtin-symbol-shadowing": "SWC-119",  # aderyn
     # floating / outdated pragma -> SWC-103
     "solc-version": "SWC-103",
     "pragma": "SWC-103",
+    "unspecific-solidity-pragma": "SWC-103",  # aderyn
+    # right-to-left override -> SWC-130
+    "rtlo": "SWC-130",  # aderyn
+    # dangerous typographical unary (=+) -> SWC-129
+    "dangerous-unary-operator": "SWC-129",  # aderyn
 }
 
 

@@ -5,7 +5,7 @@
       {
         "title": "Using `delegatecall` in loop",
         "description": "Use of delegatecall inside a loop can be dangerous.",
-        "detector_name": "delegate-call-in-loop",
+        "detector_name": "delegatecall-in-loop",
         "instances": [
           { "contract_path": "src/Vault.sol", "line_no": 42, "src": "1:2:3", "src_char": "1:2" }
         ]
@@ -25,5 +25,5 @@
       }
     ]
   },
-  "detectors_used": ["delegate-call-in-loop", "ecrecover"]
+  "detectors_used": ["delegatecall-in-loop", "ecrecover"]
 }

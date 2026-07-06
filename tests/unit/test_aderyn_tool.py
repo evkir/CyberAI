@@ -17,7 +17,7 @@ _FIXTURE = Path(__file__).parent.parent / "fixtures" / "aderyn_report.json"
 
 def test_parse_fixture_report():
     findings = parse_aderyn_json(_FIXTURE.read_text(encoding="utf-8"))
-    assert [f.detector_name for f in findings] == ["delegate-call-in-loop", "ecrecover"]
+    assert [f.detector_name for f in findings] == ["delegatecall-in-loop", "ecrecover"]
     high, low = findings
     assert high.severity == "High"
     assert high.instances == 1

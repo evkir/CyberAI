@@ -1,6 +1,6 @@
-"""Immunefi severity classification for slither findings.
+"""Immunefi severity classification for slither and aderyn findings.
 
-Maps slither detector checks to Immunefi's severity tiers
+Maps slither/aderyn detector checks to Immunefi's severity tiers
 (Critical / High / Medium / Low / Insight) following their bug-bounty
 severity methodology for smart contracts. A per-check table gives precise
 classification; an impact/confidence fallback covers unknown detectors.
@@ -61,6 +61,43 @@ CHECK_TO_IMMUNEFI = {
     "dead-code": "Insight",
     "assembly": "Insight",
     "external-function": "Insight",
+    # --- aderyn detectors (names from `aderyn registry`) ---
+    # direct fund loss / takeover -> Critical
+    "arbitrary-transfer-from": "Critical",
+    "selfdestruct": "Critical",
+    "delegate-call-unchecked-address": "Critical",
+    "unprotected-initializer": "Critical",
+    # exploitable / conditional -> High
+    "reentrancy-state-change": "High",
+    "delegatecall-in-loop": "High",
+    "tx-origin-used-for-auth": "High",
+    "weak-randomness": "High",
+    "eth-send-unchecked-address": "High",
+    "function-selector-collision": "High",
+    "contract-locks-ether": "High",
+    # logic / contained -> Medium
+    "non-reentrant-not-first": "Medium",
+    "unchecked-low-level-call": "Medium",
+    "unchecked-return": "Medium",
+    "unsafe-casting": "Medium",
+    "dangerous-unary-operator": "Medium",
+    "strict-equality-contract-balance": "Medium",
+    "unsafe-erc20-operation": "Medium",
+    "msg-value-in-loop": "Medium",
+    # best-practice / contained -> Low
+    "block-timestamp-deadline": "Low",
+    "state-variable-shadowing": "Low",
+    "builtin-symbol-shadowing": "Low",
+    "rtlo": "Low",
+    "incorrect-erc20-interface": "Low",
+    "incorrect-erc721-interface": "Low",
+    # informational -> Insight
+    "centralization-risk": "Insight",
+    "unspecific-solidity-pragma": "Insight",
+    "todo": "Insight",
+    "unused-import": "Insight",
+    "unused-state-variable": "Insight",
+    "empty-block": "Insight",
 }
 
 # Fallback: slither impact + confidence -> Immunefi tier.
