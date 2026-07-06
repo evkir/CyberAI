@@ -1,0 +1,29 @@
+{
+  "issue_count": { "high": 1, "low": 1 },
+  "high_issues": {
+    "issues": [
+      {
+        "title": "Using `delegatecall` in loop",
+        "description": "Use of delegatecall inside a loop can be dangerous.",
+        "detector_name": "delegatecall-in-loop",
+        "instances": [
+          { "contract_path": "src/Vault.sol", "line_no": 42, "src": "1:2:3", "src_char": "1:2" }
+        ]
+      }
+    ]
+  },
+  "low_issues": {
+    "issues": [
+      {
+        "title": "`ecrecover` is susceptible to signature malleability",
+        "description": "The ecrecover function is susceptible to signature malleability.",
+        "detector_name": "ecrecover",
+        "instances": [
+          { "contract_path": "src/Vault.sol", "line_no": 88, "src": "4:5:6", "src_char": "4:5" },
+          { "contract_path": "src/Vault.sol", "line_no": 90, "src": "7:8:9", "src_char": "7:8" }
+        ]
+      }
+    ]
+  },
+  "detectors_used": ["delegatecall-in-loop", "ecrecover"]
+}

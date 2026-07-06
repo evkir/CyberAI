@@ -15,8 +15,10 @@ from rich.console import Console
 
 from cyberai.core.base_agent import BaseAgent, Tool
 
+from .aderyn_tool import AderynTool
 from .etherscan import EtherscanClient
 from .immunefi_severity import classify_all, highest_tier
+from .merge import merge_findings
 from .slither_tool import SlitherTool
 
 console = Console()
@@ -45,6 +47,14 @@ class SmartContractAgent(BaseAgent):
                 parameters={"path": "str"},
             )
         )
+        self.register_tool(
+            Tool(
+                name="aderyn_scan",
+                description="Static-analyze a Solidity file with aderyn",
+                func=self._aderyn_scan,
+                parameters={"path": "str"},
+            )
+        )
 
     def _fetch_source(self, address: str) -> Dict[str, Any]:
         client = EtherscanClient()
@@ -70,6 +80,15 @@ class SmartContractAgent(BaseAgent):
             "count": len(classified),
         }
 
+    def _aderyn_scan(self, path: str) -> Dict[str, Any]:
+        tool = AderynTool()
+        findings = tool.analyze(path)
+        return {
+            "available": tool.available,
+            "findings": [f.to_dict() for f in findings],
+            "count": len(findings),
+        }
+
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Analyze a contract.
 
@@ -85,10 +104,17 @@ class SmartContractAgent(BaseAgent):
             "findings": [],
         }
         if is_local:
-            scan = self.call_tool("slither_scan", path=target)
-            result["findings"] = scan["findings"]
-            result["highest_severity"] = scan["highest_severity"]
-            result["slither_available"] = scan["available"]
+            slither_tool = SlitherTool()
+            aderyn_tool = AderynTool()
+            slither_findings = slither_tool.analyze(target)
+            aderyn_findings = aderyn_tool.analyze(target)
+            merged = merge_findings(slither_findings, aderyn_findings)
+            result["findings"] = classify_all(slither_findings)
+            result["aderyn_findings"] = [f.to_dict() for f in aderyn_findings]
+            result["merged_findings"] = [m.to_dict() for m in merged]
+            result["highest_severity"] = highest_tier(slither_findings)
+            result["slither_available"] = slither_tool.available
+            result["aderyn_available"] = aderyn_tool.available
         else:
             result["source_meta"] = self.call_tool("fetch_source", address=target)
         self.kb.set("web3", result, agent=self.AGENT_NAME)
