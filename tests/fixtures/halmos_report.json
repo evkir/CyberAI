@@ -1,0 +1,25 @@
+{
+  "exitcode": 1,
+  "test_results": {
+    "test/DaoReentrant.t.sol:DaoReentrantSymTest": [
+      {
+        "name": "check_reentrancy_withdraw(address)",
+        "exitcode": 1,
+        "num_models": 1,
+        "models": [{"path_id": 7, "result": "sat"}],
+        "num_paths": [9, 8, 1],
+        "time": [4, 2, 2],
+        "num_bounded_loops": 1
+      },
+      {
+        "name": "check_overflow_deposit(uint256)",
+        "exitcode": 0,
+        "num_models": 0,
+        "models": null,
+        "num_paths": [3, 3, 0],
+        "time": [1, 1, 0],
+        "num_bounded_loops": 0
+      }
+    ]
+  }
+}
