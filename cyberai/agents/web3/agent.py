@@ -17,6 +17,7 @@ from cyberai.core.base_agent import BaseAgent, Tool
 
 from .aderyn_tool import AderynTool
 from .etherscan import EtherscanClient
+from .halmos_tool import HalmosTool
 from .immunefi_severity import classify_all, highest_tier
 from .merge import merge_findings
 from .slither_tool import SlitherTool
@@ -55,6 +56,14 @@ class SmartContractAgent(BaseAgent):
                 parameters={"path": "str"},
             )
         )
+        self.register_tool(
+            Tool(
+                name="halmos_scan",
+                description="Symbolically test a Foundry project with halmos",
+                func=self._halmos_scan,
+                parameters={"project": "str"},
+            )
+        )
 
     def _fetch_source(self, address: str) -> Dict[str, Any]:
         client = EtherscanClient()
@@ -89,6 +98,33 @@ class SmartContractAgent(BaseAgent):
             "count": len(findings),
         }
 
+    def _halmos_scan(self, project: str) -> Dict[str, Any]:
+        tool = HalmosTool()
+        findings = tool.analyze(project)
+        return {
+            "available": tool.available,
+            "findings": [f.to_dict() for f in findings],
+            "count": len(findings),
+        }
+
+    def _run_halmos(self, context: Optional[Dict[str, Any]], tool: HalmosTool) -> list:
+        """Run halmos when a prepared Foundry project is supplied via context.
+
+        halmos builds a Foundry project via forge and executes symbolic tests, so
+        it needs a project root rather than a raw .sol file. It runs only when
+        `context["halmos_project"]` is given and the binary is present; otherwise
+        it degrades to no findings.
+        """
+        ctx = context or {}
+        project = ctx.get("halmos_project")
+        if not tool.available or not project:
+            return []
+        return tool.analyze(
+            project,
+            contract=ctx.get("halmos_contract"),
+            loop=ctx.get("halmos_loop", 2),
+        )
+
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Analyze a contract.
 
@@ -106,15 +142,19 @@ class SmartContractAgent(BaseAgent):
         if is_local:
             slither_tool = SlitherTool()
             aderyn_tool = AderynTool()
+            halmos_tool = HalmosTool()
             slither_findings = slither_tool.analyze(target)
             aderyn_findings = aderyn_tool.analyze(target)
+            halmos_findings = self._run_halmos(context, halmos_tool)
             merged = merge_findings(slither_findings, aderyn_findings)
             result["findings"] = classify_all(slither_findings)
             result["aderyn_findings"] = [f.to_dict() for f in aderyn_findings]
+            result["halmos_findings"] = [f.to_dict() for f in halmos_findings]
             result["merged_findings"] = [m.to_dict() for m in merged]
-            result["highest_severity"] = highest_tier(slither_findings)
+            result["highest_severity"] = highest_tier([*slither_findings, *halmos_findings])
             result["slither_available"] = slither_tool.available
             result["aderyn_available"] = aderyn_tool.available
+            result["halmos_available"] = halmos_tool.available
         else:
             result["source_meta"] = self.call_tool("fetch_source", address=target)
         self.kb.set("web3", result, agent=self.AGENT_NAME)
