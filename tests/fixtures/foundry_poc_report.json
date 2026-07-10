@@ -1,0 +1,40 @@
+{
+  "test/Exploit.t.sol:ExploitTest": {
+    "duration": "1.24ms",
+    "test_results": {
+      "testExploit()": {
+        "status": "Success",
+        "reason": null,
+        "counterexample": null,
+        "logs": [],
+        "decoded_logs": ["profit_wei: 4000000000000000000"],
+        "kind": {"Unit": {"gas": 371822}},
+        "traces": [],
+        "labeled_addresses": {},
+        "duration": "300.10us",
+        "breakpoints": {},
+        "gas_snapshots": {}
+      }
+    },
+    "warnings": []
+  },
+  "test/ExploitFail.t.sol:ExploitFailTest": {
+    "duration": "812.00us",
+    "test_results": {
+      "testExploit()": {
+        "status": "Failure",
+        "reason": "no profit -> not confirmed",
+        "counterexample": null,
+        "logs": [],
+        "decoded_logs": [],
+        "kind": {"Unit": {"gas": 21000}},
+        "traces": [],
+        "labeled_addresses": {},
+        "duration": "118.00us",
+        "breakpoints": {},
+        "gas_snapshots": {}
+      }
+    },
+    "warnings": []
+  }
+}
