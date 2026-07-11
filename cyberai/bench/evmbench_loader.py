@@ -42,7 +42,7 @@ from typing import Any
 
 import yaml
 
-from cyberai.bench.runner import BenchAdapter, BenchTask
+from cyberai.bench.runner import BenchAdapter, BenchResult, BenchTask
 
 logger = logging.getLogger("cyberai.bench.evmbench_loader")
 
@@ -260,3 +260,71 @@ class EVMBenchAdapter(BenchAdapter):
     def get_audit(self, audit_id: str) -> EVMBenchAudit | None:
         """Resolve the original audit (with ground truth) for grading a result."""
         return next((a for a in self.load_audits() if a.id == audit_id), None)
+
+
+# --- detect-mode recall grading -------------------------------------------
+
+_SUBMISSION_TITLE_KEYS = ("title", "summary", "impact")
+
+
+def _submission_classes(submission: dict[str, Any]) -> list[str]:
+    """Extract a vulnerability class per reported finding in an agent submission.
+
+    Accepts the EVMBench detect submission contract:
+        {"vulnerabilities": [{"title", "summary", "impact", ...}, ...]}
+    Each finding is classified with the same title heuristic used for ground
+    truth, so reported and known findings live in the same class space.
+    """
+    reported = submission.get("vulnerabilities")
+    if not isinstance(reported, list):
+        return []
+    classes: list[str] = []
+    for item in reported:
+        if not isinstance(item, dict):
+            continue
+        text = " ".join(str(item.get(k, "")) for k in _SUBMISSION_TITLE_KEYS)
+        classes.append(classify_title(text))
+    return classes
+
+
+def grade_detect(audit: EVMBenchAudit, submission: dict[str, Any]) -> list[BenchResult]:
+    """Grade a detect-mode submission against an audit's ground truth.
+
+    Returns one BenchResult per ground-truth vulnerability (task_id
+    "<audit-id>:<vuln-id>"), so the standard scorecard's per-class breakdown
+    aggregates recall correctly across an audit's mixed vulnerability classes.
+
+    Matching is a deterministic, offline class-overlap proxy: a known
+    vulnerability counts as detected if the submission reports at least one
+    finding of the same vulnerability class. This is intentionally a recall
+    *lower bound*, not the upstream LLM-judge score — it is reproducible in CI
+    and never inflates results. A known vulnerability of class "unknown" can only
+    match a reported "unknown", never a real class, so it never scores by luck.
+    """
+    reported_classes = _submission_classes(submission)
+    available = list(reported_classes)
+    results: list[BenchResult] = []
+    for vuln in audit.vulnerabilities:
+        vc = vuln.vuln_class
+        matched = vc in available
+        if matched:
+            # Consume one reported finding so N known vulns of the same class
+            # need N reported findings of that class — no single report scores
+            # multiple known vulnerabilities.
+            available.remove(vc)
+        results.append(
+            BenchResult(
+                task_id=f"{audit.id}:{vuln.id}",
+                suite="evmbench",
+                solved=matched,
+                details={
+                    "mode": "detect",
+                    "vuln_class": vc,
+                    "vuln_id": vuln.id,
+                    "audit_id": audit.id,
+                    "award": vuln.award,
+                    "matched": matched,
+                },
+            )
+        )
+    return results
