@@ -15,6 +15,7 @@ from rich.console import Console
 
 from cyberai.core.base_agent import BaseAgent, Tool
 
+from .access_control import analyze_source, find_escalation_paths
 from .aderyn_tool import AderynTool
 from .etherscan import EtherscanClient
 from .foundry_poc import ForgePoCTool, PoCFinding
@@ -68,6 +69,14 @@ class SmartContractAgent(BaseAgent):
         )
         self.register_tool(
             Tool(
+                name="access_scan",
+                description="Heuristic access-control audit of Solidity source",
+                func=self._access_scan,
+                parameters={"path": "str"},
+            )
+        )
+        self.register_tool(
+            Tool(
                 name="synthesize_poc",
                 description="Synthesize a Foundry exploit PoC scaffold from a finding",
                 func=self._synthesize_poc,
@@ -114,6 +123,16 @@ class SmartContractAgent(BaseAgent):
         return {
             "available": tool.available,
             "findings": [f.to_dict() for f in findings],
+            "count": len(findings),
+        }
+
+    def _access_scan(self, path: str) -> Dict[str, Any]:
+        """Run the heuristic access-control detectors over a .sol file."""
+        source = Path(path).read_text(errors="ignore")
+        findings = analyze_source(source)
+        return {
+            "findings": [f.to_dict() for f in findings],
+            "escalation_paths": [p.to_dict() for p in find_escalation_paths(source)],
             "count": len(findings),
         }
 
@@ -186,14 +205,19 @@ class SmartContractAgent(BaseAgent):
             aderyn_findings = aderyn_tool.analyze(target)
             halmos_findings = self._run_halmos(context, halmos_tool)
             poc_findings = self._run_foundry_poc(context, poc_tool)
+            source = Path(target).read_text(errors="ignore")
+            access_findings = analyze_source(source)
+            escalation_paths = find_escalation_paths(source)
             merged = merge_findings(slither_findings, aderyn_findings)
             result["findings"] = classify_all(slither_findings)
             result["aderyn_findings"] = [f.to_dict() for f in aderyn_findings]
             result["halmos_findings"] = [f.to_dict() for f in halmos_findings]
             result["poc_findings"] = [f.to_dict() for f in poc_findings]
+            result["access_findings"] = [f.to_dict() for f in access_findings]
+            result["escalation_paths"] = [p.to_dict() for p in escalation_paths]
             result["merged_findings"] = [m.to_dict() for m in merged]
             result["highest_severity"] = highest_tier(
-                [*slither_findings, *halmos_findings, *poc_findings]
+                [*slither_findings, *halmos_findings, *poc_findings, *access_findings]
             )
             result["slither_available"] = slither_tool.available
             result["aderyn_available"] = aderyn_tool.available
