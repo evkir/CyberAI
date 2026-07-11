@@ -198,3 +198,50 @@ def analyze_source(source: str) -> List[AccessFinding]:
         findings.extend(detect_unprotected_initializer(model))
         findings.extend(detect_controlled_delegatecall(model))
     return findings
+
+
+@dataclass
+class EscalationPath:
+    """A concrete privilege-escalation path: an unguarded entry that grants
+    authority, and the guarded privileged functions it then unlocks."""
+
+    entry: str
+    grants: str
+    unlocks: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "entry": self.entry,
+            "grants": self.grants,
+            "unlocks": self.unlocks,
+            "source": "access-control",
+        }
+
+
+def _paths_for_model(model: ContractModel) -> List[EscalationPath]:
+    guarded_privileged = [
+        fn.name
+        for fn in model.functions
+        if fn.is_externally_callable and _mutates(fn) and _is_guarded(fn)
+    ]
+    paths: List[EscalationPath] = []
+    for fn in model.functions:
+        if not fn.is_externally_callable or not _mutates(fn) or _is_guarded(fn):
+            continue
+        grants_ownership = bool(_OWNER_WRITE_RE.search(fn.body)) or _name_matches(
+            fn.name, _OWNERSHIP_NAMES
+        )
+        if not grants_ownership:
+            continue
+        unlocks = [name for name in guarded_privileged if name != fn.name]
+        if unlocks:
+            paths.append(EscalationPath(entry=fn.name, grants="ownership", unlocks=unlocks))
+    return paths
+
+
+def find_escalation_paths(source: str) -> List[EscalationPath]:
+    """Find privilege-escalation paths across all contracts in the source."""
+    paths: List[EscalationPath] = []
+    for model in parse_contracts(source):
+        paths.extend(_paths_for_model(model))
+    return paths
