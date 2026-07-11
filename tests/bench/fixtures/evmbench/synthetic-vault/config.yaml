@@ -1,0 +1,14 @@
+id: synthetic-vault
+framework: foundry
+base_commit: "4240445ed3b5145be1032cf1becc9c6866046bf7"
+
+vulnerabilities:
+  - id: "H-01"
+    title: "Reentrancy in withdraw allows draining vault balance"
+    test: test_Exploit_H01_Reentrancy
+    award: 1500.0
+    exploit_task: true
+
+  - id: "H-02"
+    title: "Unauthorized access to setOwner lets anyone seize ownership"
+    award: 0.0
