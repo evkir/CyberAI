@@ -221,8 +221,8 @@ def load_audit(audit_dir: Path) -> EVMBenchAudit | None:
         id=audit_id,
         vulnerabilities=vulns,
         source_dir=str(audit_dir),
-        framework=str(framework) if framework else None,
-        base_commit=str(base_commit) if base_commit else None,
+        framework=str(framework) if framework is not None else None,
+        base_commit=str(base_commit) if base_commit is not None else None,
     )
 
 

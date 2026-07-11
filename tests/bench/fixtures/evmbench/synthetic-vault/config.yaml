@@ -1,6 +1,6 @@
 id: synthetic-vault
 framework: foundry
-base_commit: 0000000000000000000000000000000000000000
+base_commit: "4240445ed3b5145be1032cf1becc9c6866046bf7"
 
 vulnerabilities:
   - id: "H-01"
