@@ -34,6 +34,10 @@ CHECK_TO_IMMUNEFI = {
     "controlled-delegatecall": "Critical",
     "unprotected-upgrade": "Critical",
     "delegatecall-loop": "Critical",
+    # confirmed on-chain exploit (Foundry PoC replayed a real fund extraction on
+    # a mainnet fork) -> Critical; deterministic whether classified from the
+    # finding object or its serialized dict.
+    "onchain-poc-exploit": "Critical",
     # exploitable but conditional / no direct theft -> High
     "reentrancy-no-eth": "High",
     "tx-origin": "High",
