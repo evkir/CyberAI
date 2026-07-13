@@ -2,6 +2,39 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.3.0] - 2026-07-13
+### Week 3: Web3 Discovery Agent
+
+Turns the Slither wrapper into a full discovery chain for smart contracts.
+The hard part of an audit is finding the bug, so the agent stacks static,
+symbolic, and on-chain analysis and confirms exploits out-of-band on a
+mainnet fork — a finding is only *confirmed* when the fork shows real profit.
+
+### Added
+- **aderyn wrapper + cross-validation** — a second static engine (Cyfrin
+  aderyn); findings both Slither and aderyn report are promoted to high
+  confidence. Graceful when the binary is absent.
+- **halmos symbolic runner** — invariant candidates synthesized from the
+  ABI, symbolic counterexamples rendered as findings.
+- **Foundry on-chain PoC** — anvil mainnet-fork harness; a generated
+  exploit is replayed on the fork and only reported when state changed
+  (measured `profit_wei`), removing false positives.
+- **Access-control agent** — owner/role/modifier graph, missing-auth,
+  unprotected-init and delegatecall detectors, privilege-escalation paths.
+- **EVMBench detect adapter** — Web3 benchmark harness wired into the
+  bench runner, with an honest per-vulnerability recall proxy.
+- **Immunefi export** — each finding rendered as an Immunefi submission
+  (VSCS v2.3 severity, funds-at-risk, PoC) via `cyberai web3 audit
+  <target> --immunefi`.
+- **LLM-judge validation for Web3 findings** — reuses the report judge to
+  cross-check an audit narrative against raw detector evidence, flagging
+  hallucinated claims. Graceful when no LLM is available.
+
+### Docs
+- `docs/benchmarks/evmbench.md` — EVMBench methodology and honest numbers.
+- `docs/workflows/web3-discovery.md` — full walkthrough from `.sol` to an
+  Immunefi submission.
+
 ## [1.2.0] - 2026-07-03
 ### Week 2: MCP / LLM Offensive Red-Team
 
