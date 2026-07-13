@@ -125,10 +125,18 @@ def test_cleanup_log_unlink_oserror(tmp_path, monkeypatch):
     assert fork._log_path is None
 
 
-def test_context_manager_real_enter_exit():
-    with AnvilFork(anvil_path=None) as f:  # unavailable -> start no-op
-        assert f.available is False
-        assert f.rpc_url is None
+def test_context_manager_real_enter_exit(monkeypatch):
+    # Force the binary absent so the test is deterministic whether or not anvil
+    # is installed: passing anvil_path=None still falls through to find_anvil(),
+    # which resolves a real binary on a developer machine that has Foundry.
+    monkeypatch.delenv("ANVIL_PATH", raising=False)
+    with (
+        patch.object(ah.shutil, "which", return_value=None),
+        patch.object(ah.os.path, "exists", return_value=False),
+    ):
+        with AnvilFork(anvil_path=None) as f:  # unavailable -> start no-op
+            assert f.available is False
+            assert f.rpc_url is None
 
 
 # ── foundry parse / run edge paths ────────────────────────────────────
