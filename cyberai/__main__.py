@@ -10,6 +10,7 @@ from .core.config import CyberAIConfig
 from .core.orchestrator import Orchestrator
 from .cli.bench import bench
 from .cli.mcp_scan import mcp_scan
+from .cli.web3_audit import web3
 
 console = Console()
 
@@ -146,6 +147,7 @@ def status() -> None:
 
 cli.add_command(bench)
 cli.add_command(mcp_scan)
+cli.add_command(web3)
 
 if __name__ == "__main__":
     cli()

@@ -103,3 +103,40 @@ def web3_finding_to_section(finding: dict[str, Any]) -> ReportSection:
         else [],
     )
     return section
+
+
+# Finding buckets in a Web3 agent local-audit result, in report priority order.
+# poc_findings first: a confirmed on-chain exploit is the strongest evidence.
+_FINDING_KEYS = (
+    "poc_findings",
+    "findings",
+    "aderyn_findings",
+    "access_findings",
+    "halmos_findings",
+)
+
+
+def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
+    """Render every finding in a Web3 agent result as an Immunefi submission.
+
+    Collects findings across the agent's tool buckets (confirmed PoC first),
+    builds a ReportSection per finding, estimates funds-at-risk, and renders each
+    with the shared Immunefi exporter. A confirmed PoC's transaction summary is
+    passed through as the proof-of-concept block. Returns one Markdown document
+    per finding; an empty result yields an empty list.
+    """
+    from cyberai.agents.report.immunefi_exporter import export_immunefi
+
+    submissions: list[str] = []
+    for key in _FINDING_KEYS:
+        for finding in agent_result.get(key, []) or []:
+            if not isinstance(finding, dict):
+                continue
+            tier = immunefi_tier(finding)
+            section = web3_finding_to_section(finding)
+            far = estimate_funds_at_risk(finding, tier)
+            poc = ""
+            if finding.get("confirmed") and finding.get("test"):
+                poc = f"Foundry test `{finding['test']}` passed on a mainnet fork."
+            submissions.append(export_immunefi(section, funds_at_risk=far, proof_of_concept=poc))
+    return submissions
