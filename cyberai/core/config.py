@@ -60,6 +60,9 @@ class CyberAIConfig:
     use_judge: bool = False
     # Flag-gated: on a phase failure, ask the critic whether to re-run it once.
     enable_replan: bool = False
+    # Flag-gated: recall similar past exploit chains from local memory.
+    use_exploit_memory: bool = False
+    exploit_memory_path: Optional[str] = None
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.
