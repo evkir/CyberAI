@@ -58,6 +58,8 @@ class CyberAIConfig:
     use_nuclei: bool = False
     # Flag-gated: LLM-as-Judge validates the report vs KB evidence.
     use_judge: bool = False
+    # Flag-gated: on a phase failure, ask the critic whether to re-run it once.
+    enable_replan: bool = False
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.

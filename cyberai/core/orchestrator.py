@@ -130,7 +130,10 @@ class Orchestrator:
         for phase in self.phases:
             self._run_phase(session, phase)
             if session.phases and not session.phases[-1].success:
-                log.warning(f"Phase {phase.value} failed — continuing pipeline")
+                if getattr(self.config, "enable_replan", False):
+                    self._maybe_replan(session, phase)
+                if session.phases and not session.phases[-1].success:
+                    log.warning(f"Phase {phase.value} failed — continuing pipeline")
 
         if session.phases and all(p.success for p in session.phases):
             session.complete()
@@ -164,6 +167,24 @@ class Orchestrator:
             session.record_phase(phase, success=False, started=started, error=str(exc))
             console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
             log.error(f"Phase {phase.value} raised", exc_info=True)
+
+    def _maybe_replan(self, session: ScanSession, phase: ScanPhase) -> None:
+        """Ask the critic whether a just-failed phase is worth one retry."""
+        from cyberai.agents.planner.critic import CriticAgent
+
+        attempts = sum(1 for p in session.phases if p.phase == phase)
+        if attempts > 1:  # already retried once — do not loop
+            return
+        error = session.phases[-1].error
+        critic = CriticAgent(self.config, session, None, self.audit)
+        verdict = critic.run(session.target, context={"phase": phase.value, "error": error})
+        if verdict.get("decision") == "retry":
+            console.print(f"[yellow]\u21bb critic: re-running {phase.value}[/yellow]")
+            failed_idx = len(session.phases) - 1
+            self._run_phase(session, phase)
+            if session.phases[-1].success:
+                # Drop the earlier failed attempt so the phase counts as passed.
+                session.phases.pop(failed_idx)
 
     def _check_phase_injection(
         self, session: "ScanSession", phase: "ScanPhase", data: Dict[str, Any]
