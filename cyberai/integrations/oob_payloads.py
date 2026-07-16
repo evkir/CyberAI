@@ -236,3 +236,36 @@ def get_all_payloads(grid_host: str, interaction_id: str) -> Dict[str, List[Dict
         "sqli": generate_sqli_oob_payloads(grid_host, interaction_id),
         "cmdi": generate_cmdi_payloads(grid_host, interaction_id),
     }
+
+
+def _mutations(value: str):
+    """Yield (label, variant) encoding/obfuscation transforms of a payload."""
+    from urllib.parse import quote
+
+    yield "urlenc", quote(value, safe="")
+    yield "double_urlenc", quote(quote(value, safe=""), safe="")
+    if "://" in value:
+        scheme, rest = value.split("://", 1)
+        yield "at_embed", f"{scheme}://trusted.example@{rest}"
+
+
+def mutate_payloads(payloads: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Generate deduplicated encoding/obfuscation variants for a retry round."""
+    mutated: List[Dict[str, str]] = []
+    seen: set[str] = set()
+    for p in payloads:
+        original = p.get("payload", "")
+        if not original:
+            continue
+        for label, variant in _mutations(original):
+            if variant == original or variant in seen:
+                continue
+            seen.add(variant)
+            mutated.append(
+                {
+                    "type": f"{p.get('type', 'payload')}_{label}",
+                    "payload": variant,
+                    "description": f"Mutated ({label}) of {p.get('type', 'payload')}",
+                }
+            )
+    return mutated
