@@ -62,6 +62,8 @@ class CyberAIConfig:
     enable_replan: bool = False
     # Flag-gated: recall similar past exploit chains from local memory.
     use_exploit_memory: bool = False
+    # Flag-gated: profile response timing/patterns to detect honeypot/WAF/tarpit.
+    use_behavioral_fingerprint: bool = False
     exploit_memory_path: Optional[str] = None
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -114,3 +114,81 @@ def detect_tarpit(profile: ResponseProfile) -> List[str]:
     if profile.mean_latency >= _TARPIT_LATENCY_SECONDS:
         return ["tarpit:high-latency"]
     return []
+
+
+# Multiplicative trust penalty per signal kind (honeypot most hostile, WAF least).
+_SIGNAL_PENALTY: Dict[str, float] = {"honeypot": 0.9, "tarpit": 0.8, "waf": 0.4}
+_HOSTILE_TRUST_THRESHOLD = 0.3
+
+
+def trust_score(signals: List[str]) -> float:
+    """Derive a 0.0 (hostile) .. 1.0 (clean) trust score from detected signals."""
+    score = 1.0
+    for sig in signals:
+        kind = sig.split(":", 1)[0]
+        score *= 1.0 - _SIGNAL_PENALTY.get(kind, 0.0)
+    return round(max(0.0, min(1.0, score)), 3)
+
+
+@dataclass
+class BehavioralResult:
+    """Outcome of a behavioral fingerprint pass over a target."""
+
+    target: str
+    trust: float
+    signals: List[str]
+    hostile: bool
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "target": self.target,
+            "trust": self.trust,
+            "signals": self.signals,
+            "hostile": self.hostile,
+        }
+
+
+class BehavioralFingerprint:
+    """Profile a target and derive a trust score to modulate aggressiveness."""
+
+    def __init__(self, threshold: float = _HOSTILE_TRUST_THRESHOLD) -> None:
+        self.threshold = threshold
+
+    def run(
+        self,
+        target: str,
+        *,
+        probe_fn: Callable[[int], ProbeResult],
+        headers: Optional[Dict[str, str]] = None,
+        banners: Optional[List[str]] = None,
+        n: int = 5,
+    ) -> BehavioralResult:
+        """Collect a profile, detect defenses, and compute the target trust score."""
+        profile = profile_responses(probe_fn, n=n)
+        signals = (
+            detect_waf(headers or {}) + detect_honeypot(banners or []) + detect_tarpit(profile)
+        )
+        trust = trust_score(signals)
+        return BehavioralResult(
+            target=target, trust=trust, signals=signals, hostile=trust < self.threshold
+        )
+
+    def record(self, result: BehavioralResult, session: Any, agent: str = "recon") -> None:
+        """Store the trust result in the KB and raise a finding when defenses are seen."""
+        from cyberai.core.scan_session import Severity
+
+        session.kb_set("recon.trust", result.to_dict())
+        if not result.signals:
+            return
+        severity = Severity.MEDIUM if result.hostile else Severity.INFO
+        session.add_finding(
+            severity=severity,
+            title=f"Behavioral fingerprint on {result.target}: {', '.join(result.signals)}",
+            description=(
+                f"Trust score {result.trust}; "
+                f"{'hostile — reduce aggressiveness' if result.hostile else 'defended target'}."
+            ),
+            agent=agent,
+            target=result.target,
+            evidence=result.signals,
+        )
