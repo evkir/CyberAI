@@ -65,6 +65,10 @@ class CyberAIConfig:
     # Flag-gated: profile response timing/patterns to detect honeypot/WAF/tarpit.
     use_behavioral_fingerprint: bool = False
     exploit_memory_path: Optional[str] = None
+    # Flag-gated: parse local practice-lab machine artifacts and detect flags.
+    use_lab_dogfood: bool = False
+    # Extra regex patterns for the lab flag detector, on top of built-ins.
+    lab_flag_patterns: list[str] = field(default_factory=list)
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.
