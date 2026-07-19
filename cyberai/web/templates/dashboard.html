@@ -10,66 +10,141 @@
     :root { color-scheme: dark; }
     body { font-family: ui-monospace, "SF Mono", Menlo, monospace; background:#0d1117; color:#c9d1d9; margin:0; padding:24px; }
     h1 { font-size:18px; color:#58a6ff; margin:0 0 16px; }
+    h2 { font-size:15px; color:#58a6ff; margin:0 0 12px; }
     .bar { display:flex; gap:8px; align-items:center; margin-bottom:16px; }
     button { background:#21262d; color:#c9d1d9; border:1px solid #30363d; border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; }
     button:hover { border-color:#58a6ff; }
+    .tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:1px solid #30363d; }
+    .tab { background:none; border:none; border-bottom:2px solid transparent; border-radius:0; padding:8px 14px; color:#8b949e; }
+    .tab.active { color:#58a6ff; border-bottom-color:#58a6ff; }
     table { width:100%; border-collapse:collapse; font-size:13px; }
     th,td { text-align:left; padding:6px 10px; border-bottom:1px solid #21262d; }
     th { color:#8b949e; font-weight:normal; }
     tr.row { cursor:pointer; }
     tr.row:hover { background:#161b22; }
     .state { padding:1px 8px; border-radius:10px; font-size:11px; }
-    .completed { background:#23863633; color:#3fb950; }
-    .failed,.error { background:#da363333; color:#f85149; }
+    .completed,.pass { background:#23863633; color:#3fb950; }
+    .failed,.error,.fail { background:#da363333; color:#f85149; }
     .running,.pending { background:#9e6a0333; color:#d29922; }
     .panel { margin-top:20px; background:#161b22; border:1px solid #30363d; border-radius:6px; padding:16px; }
     pre { white-space:pre-wrap; word-break:break-word; font-size:12px; color:#c9d1d9; }
     .muted { color:#8b949e; font-size:12px; }
     .live { color:#3fb950; font-size:12px; }
+    [x-cloak]{display:none}
   </style>
 </head>
 <body x-data="dashboard()">
-  <h1>🟩 CyberAI — Scan Sessions</h1>
+  <h1>🟩 CyberAI Dashboard</h1>
 
-  <div class="bar">
-    <button @click="load()">↻ Refresh</button>
-    <button @click="alert('Start scans via CLI: cyberai scan <target>')">+ New scan</button>
-    <span class="muted" x-text="`${sessions.length} sessions`"></span>
+  <div class="tabs">
+    <button class="tab" :class="tab==='sessions' && 'active'" @click="tab='sessions'">Sessions</button>
+    <button class="tab" :class="tab==='benchmarks' && 'active'" @click="tab='benchmarks'; loadBench()">Benchmarks</button>
+    <button class="tab" :class="tab==='lab' && 'active'" @click="tab='lab'; loadLab()">Lab</button>
   </div>
 
-  <table>
-    <thead>
-      <tr><th>Session</th><th>Target</th><th>State</th><th>Findings</th><th>Created</th></tr>
-    </thead>
-    <tbody>
-      <template x-for="s in sessions" :key="s.session_id">
-        <tr class="row" @click="open(s)">
-          <td x-text="s.session_id"></td>
-          <td x-text="s.target"></td>
-          <td><span class="state" :class="(s.state||'').toLowerCase()" x-text="s.state"></span></td>
-          <td x-text="s.findings"></td>
-          <td class="muted" x-text="(s.created_at||'').slice(0,19).replace('T',' ')"></td>
-        </tr>
-      </template>
-      <tr x-show="sessions.length===0"><td colspan="5" class="muted">No sessions yet. Run: cyberai scan example.com --dry-run</td></tr>
-    </tbody>
-  </table>
-
-  <div class="panel" x-show="selected" x-cloak>
+  <!-- Sessions -->
+  <div x-show="tab==='sessions'">
     <div class="bar">
-      <strong x-text="selected?.session_id"></strong>
-      <span class="live" x-show="streaming" x-text="liveMsg"></span>
-      <button @click="selected=null" style="margin-left:auto">✕ Close</button>
+      <button @click="load()">↻ Refresh</button>
+      <span class="muted" x-text="`${sessions.length} sessions`"></span>
     </div>
-    <div class="muted" x-text="`Phases seen: ${phases.join(' → ') || '—'}`"></div>
-    <pre x-text="report"></pre>
+    <table>
+      <thead>
+        <tr><th>Session</th><th>Target</th><th>State</th><th>Findings</th><th>Created</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="s in sessions" :key="s.session_id">
+          <tr class="row" @click="open(s)">
+            <td x-text="s.session_id"></td>
+            <td x-text="s.target"></td>
+            <td><span class="state" :class="(s.state||'').toLowerCase()" x-text="s.state"></span></td>
+            <td x-text="s.findings"></td>
+            <td class="muted" x-text="(s.created_at||'').slice(0,19).replace('T',' ')"></td>
+          </tr>
+        </template>
+        <tr x-show="sessions.length===0"><td colspan="5" class="muted">No sessions yet. Run: cyberai scan example.com --dry-run</td></tr>
+      </tbody>
+    </table>
+
+    <div class="panel" x-show="selected" x-cloak>
+      <div class="bar">
+        <strong x-text="selected?.session_id"></strong>
+        <span class="live" x-show="streaming" x-text="liveMsg"></span>
+        <button @click="selected=null" style="margin-left:auto">✕ Close</button>
+      </div>
+      <div class="muted" x-text="`Phases seen: ${phases.join(' → ') || '—'}`"></div>
+      <pre x-text="report"></pre>
+    </div>
+  </div>
+
+  <!-- Benchmarks -->
+  <div x-show="tab==='benchmarks'" x-cloak>
+    <div class="bar">
+      <button @click="loadBench()">↻ Refresh</button>
+      <span class="muted" x-text="`${benchSuites.length} scorecards`"></span>
+    </div>
+    <table>
+      <thead><tr><th>Suite</th><th>Regression</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="s in benchSuites" :key="s">
+          <tr class="row">
+            <td @click="openScorecard(s)" x-text="s"></td>
+            <td>
+              <span class="state" :class="regressionClass(s)" x-text="regression[s]?.passed===undefined ? '—' : (regression[s].passed ? 'pass' : 'fail')"></span>
+            </td>
+            <td><button @click="checkRegression(s)">check</button></td>
+          </tr>
+        </template>
+        <tr x-show="benchSuites.length===0"><td colspan="3" class="muted">No scorecards. Run: cyberai bench run --suite local --scorecard reports/scorecard_local.md</td></tr>
+      </tbody>
+    </table>
+    <div class="panel" x-show="benchMarkdown" x-cloak>
+      <div class="bar">
+        <strong x-text="`scorecard: ${benchSelected}`"></strong>
+        <button @click="benchMarkdown=''" style="margin-left:auto">✕ Close</button>
+      </div>
+      <pre x-text="benchMarkdown"></pre>
+    </div>
+  </div>
+
+  <!-- Lab -->
+  <div x-show="tab==='lab'" x-cloak>
+    <div class="bar">
+      <button @click="loadLab()">↻ Refresh</button>
+      <span class="muted" x-text="`${labMachines.length} machines`"></span>
+    </div>
+    <table>
+      <thead><tr><th>Machine</th><th>Solved</th><th>Flags</th><th>Artifacts</th></tr></thead>
+      <tbody>
+        <template x-for="m in labMachines" :key="m.name">
+          <tr class="row" @click="openMachine(m)">
+            <td x-text="m.name"></td>
+            <td><span class="state" :class="m.solved ? 'pass' : 'pending'" x-text="m.solved ? 'yes' : 'no'"></span></td>
+            <td x-text="m.flags"></td>
+            <td x-text="m.artifacts"></td>
+          </tr>
+        </template>
+        <tr x-show="labMachines.length===0"><td colspan="4" class="muted">No machines. Set lab_machines_dir in config.</td></tr>
+      </tbody>
+    </table>
+    <div class="panel" x-show="labMarkdown" x-cloak>
+      <div class="bar">
+        <strong x-text="`writeup: ${labSelected}`"></strong>
+        <button @click="labMarkdown=''" style="margin-left:auto">✕ Close</button>
+      </div>
+      <pre x-text="labMarkdown"></pre>
+    </div>
   </div>
 
   <script>
     function dashboard() {
       return {
+        tab: "sessions",
         sessions: [], selected: null, report: "", phases: [],
         streaming: false, liveMsg: "", _es: null,
+        benchSuites: [], benchSelected: "", benchMarkdown: "", regression: {},
+        labMachines: [], labSelected: "", labMarkdown: "",
+
         async load() {
           const r = await fetch("/api/sessions");
           this.sessions = (await r.json()).sessions;
@@ -95,10 +170,41 @@
           });
           es.onerror = () => { this.streaming = false; es.close(); };
         },
+
+        async loadBench() {
+          const r = await fetch("/api/bench/scorecards");
+          this.benchSuites = (await r.json()).suites;
+        },
+        async openScorecard(suite) {
+          this.benchSelected = suite; this.benchMarkdown = "loading…";
+          const r = await fetch(`/api/bench/scorecards/${suite}`);
+          const j = await r.json();
+          this.benchMarkdown = j.markdown || `(${j.error || "no scorecard"})`;
+        },
+        async checkRegression(suite) {
+          const r = await fetch(`/api/bench/regression/${suite}`);
+          this.regression = { ...this.regression, [suite]: await r.json() };
+        },
+        regressionClass(suite) {
+          const v = this.regression[suite];
+          if (!v || v.passed === undefined) return "";
+          return v.passed ? "pass" : "fail";
+        },
+
+        async loadLab() {
+          const r = await fetch("/api/lab/machines");
+          this.labMachines = (await r.json()).machines;
+        },
+        async openMachine(m) {
+          this.labSelected = m.name; this.labMarkdown = "loading…";
+          const r = await fetch(`/api/lab/machines/${m.name}`);
+          const j = await r.json();
+          this.labMarkdown = j.markdown || `(${j.error || "no writeup"})`;
+        },
+
         init() { this.load(); }
       };
     }
   </script>
-  <style>[x-cloak]{display:none}</style>
 </body>
 </html>
