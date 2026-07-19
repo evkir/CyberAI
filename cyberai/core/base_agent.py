@@ -127,7 +127,7 @@ class BaseAgent(ABC):
         self.session = session
         self.llm = llm
         # KB is taken from the session if present, else a fresh one.
-        self.kb: KnowledgeBase = getattr(session, "kb", None) or KnowledgeBase()
+        self.kb: KnowledgeBase = getattr(session, "kb", None)
         if not isinstance(self.kb, KnowledgeBase):
             # legacy ScanSession.kb may be a plain dict — wrap it
             self.kb = KnowledgeBase()
