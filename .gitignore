@@ -22,3 +22,9 @@ reports/
 STANDOFF.md
 STANDOFF-II.md
 docs/journal/
+
+# test/scan artifacts
+.coverage
+_tmp_pytest-*
+report_*.html
+reports_report_*.json
