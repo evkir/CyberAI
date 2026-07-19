@@ -71,6 +71,8 @@ class CyberAIConfig:
     lab_flag_patterns: list[str] = field(default_factory=list)
     # Flag-gated: allow the web dashboard to launch a bench run as a subprocess.
     web_enable_bench_trigger: bool = False
+    # Root dir holding practice-lab machine folders, read by the lab dashboard.
+    lab_machines_dir: Optional[str] = None
     # Hallucination score >= threshold marks the report unsupported.
     judge_threshold: float = 0.7
     # Optional more-powerful model for the judge; None = same as main LLM.
