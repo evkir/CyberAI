@@ -1,8 +1,9 @@
 import json
-from typing import Dict
+from typing import Any, Dict
 from pathlib import Path
 from datetime import datetime, timezone
-from cyberai.core.session import PentestSession
+from cyberai.core.scan_session import ScanSession as PentestSession
+from cyberai.version import __version__
 
 
 def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
@@ -10,17 +11,17 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"{output_dir}/report_{session.target}_{timestamp}.json"
-    filename = filename.replace(":", "_").replace("/", "_")
+    stem = f"report_{session.target}_{timestamp}.json".replace(":", "_").replace("/", "_")
+    filename = str(Path(output_dir) / stem)
 
     report = {
         "meta": {
             "generated": datetime.now(timezone.utc).isoformat(),
             "tool": "CyberAI",
-            "version": "0.1.0",
+            "version": __version__,
         },
         "session": {
-            "id": session.id,
+            "id": session.session_id,
             "target": session.target,
             "state": session.state.value,
             "created_at": session.created_at,
@@ -39,11 +40,8 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
             }
             for f in session.findings
         ],
-        "attack_paths": session.knowledge_base.get("exploit.attack_paths", {}).get(
-            "attack_paths", []
-        ),
-        "knowledge_base_keys": list(session.knowledge_base.keys()),
-        "agent_log": session.agent_log,
+        "attack_paths": (session.kb.get("exploit.attack_paths") or {}).get("attack_paths", []),
+        "knowledge_base_keys": list(session.kb.keys()),
     }
 
     with open(filename, "w") as f:
@@ -52,7 +50,7 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
     return filename
 
 
-def export_summary(session: PentestSession) -> Dict:
+def export_summary(session: PentestSession) -> Dict[str, Any]:
     """Return lightweight summary dict — for CLI display"""
     return {
         **session.summary(),
