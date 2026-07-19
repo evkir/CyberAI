@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse
 from cyberai.core.config import CyberAIConfig
 from cyberai.web.routes.report import router as report_router
 from cyberai.web.routes.session import router as session_router
+from cyberai.web.routes.bench import router as bench_router
 
 logger = logging.getLogger("cyberai.web")
 
@@ -30,6 +31,7 @@ def create_app(config: CyberAIConfig | None = None) -> FastAPI:
 
     app.include_router(session_router, prefix="/api")
     app.include_router(report_router, prefix="/api")
+    app.include_router(bench_router, prefix="/api")
 
     @app.get("/health")
     def health() -> dict:
