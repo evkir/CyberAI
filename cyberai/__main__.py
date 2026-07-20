@@ -8,7 +8,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from .core.config import CyberAIConfig
+from .core.config import CyberAIConfig, LLMConfig
 from .core.orchestrator import Orchestrator
 from .cli.bench import bench
 from .cli.mcp_scan import mcp_scan
@@ -51,12 +51,14 @@ def cli() -> None:
 @click.argument("target")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--provider", default=None, help="LLM provider (openai/anthropic/ollama)")
+@click.option("--model", default=None, help="LLM model (overrides provider default)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
 def scan(
     target: str,
     verbose: bool,
     provider: str | None,
+    model: str | None,
     dry_run: bool,
     scope: tuple[str, ...],
 ) -> None:
@@ -69,6 +71,12 @@ def scan(
     config.verbose = verbose
     if provider:
         config.llm.provider = provider
+    # --model wins; otherwise a new provider re-resolves its default
+    # (unless CYBERAI_MODEL was set explicitly in the environment).
+    if model:
+        config.llm.model = model
+    elif provider and not os.getenv("CYBERAI_MODEL"):
+        config.llm.model = LLMConfig.default_model_for(provider)
 
     orchestrator = Orchestrator(config=config, dry_run=dry_run)
 
