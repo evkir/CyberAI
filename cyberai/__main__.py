@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -13,6 +15,19 @@ from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
 
 console = Console()
+
+
+def _detach_stdin_from_tty() -> None:
+    """Point fd 0 at /dev/null so scan subprocesses (nmap runtime
+    interaction, whois, etc.) can never leave the controlling terminal in
+    a raw/no-echo state. The scan pipeline never reads stdin."""
+    try:
+        devnull = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(devnull, 0)
+        os.close(devnull)
+    except OSError:
+        pass
+
 
 BANNER = """
 [bold red]
@@ -46,6 +61,7 @@ def scan(
     scope: tuple[str, ...],
 ) -> None:
     """Run full pentest pipeline against TARGET."""
+    _detach_stdin_from_tty()
     console.print(BANNER)
     console.print(Panel(f"[bold]Target:[/bold] {target}", style="red"))
 
