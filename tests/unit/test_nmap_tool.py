@@ -99,3 +99,46 @@ def test_different_flags_different_cache():
 
     # different flag strings -> two real scans
     assert m.call_count == 2
+
+
+# ── timeout visibility & fast-retry resilience ────────────────────────
+
+import subprocess  # noqa: E402
+
+_XML_ONE_PORT = (
+    '<port protocol="tcp" portid="80">'
+    '<state state="open" reason="syn-ack"/>'
+    '<service name="http"/>'
+    "</port>"
+)
+
+
+def test_timeout_returns_consistent_ports_shape():
+    """A timeout must still yield a dict carrying an empty ports list so
+    downstream consumers never hit a missing key."""
+    with patch.object(
+        nmap_tool.subprocess,
+        "run",
+        side_effect=subprocess.TimeoutExpired(cmd="nmap", timeout=180),
+    ) as m:
+        res = run_nmap("scanme.test", flags="-T4")
+    assert res["ports"] == []
+    assert res.get("timed_out") is True
+    assert "timeout" in res["error"]
+    assert m.call_count == 1  # no -sV -> no fast retry
+
+
+def test_sV_timeout_triggers_fast_retry():
+    """On a -sV timeout, run_nmap retries once with fast flags and still
+    recovers open ports instead of silently losing them."""
+    good = _fake_proc(stdout=_XML_ONE_PORT, rc=0)
+    with patch.object(
+        nmap_tool.subprocess,
+        "run",
+        side_effect=[subprocess.TimeoutExpired(cmd="nmap", timeout=180), good],
+    ) as m:
+        res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    assert m.call_count == 2  # initial -sV attempt + fast retry
+    assert res["degraded"] == "sV_timeout_fast_retry"
+    assert len(res["ports"]) == 1
+    assert res["ports"][0]["port"] == 80

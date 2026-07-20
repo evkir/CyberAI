@@ -67,27 +67,19 @@ def validate_flags(flags: str) -> List[str]:
     return safe
 
 
-def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, Any]:
-    """
-    Run nmap against target, return parsed results.
-    Requires nmap installed on system.
-    """
-    safe_target = sanitize_target(target)
-    try:
-        safe_flags = validate_flags(flags)
-    except ValueError as exc:
-        return {"target": target, "error": f"unsafe nmap flags: {exc}"}
+DEFAULT_NMAP_TIMEOUT = 180
+_FAST_RETRY_FLAGS = "-T4 --top-ports 100"
 
-    cache_key = _cache_key(safe_target, flags)
-    cached = _nmap_cache.get(cache_key)
-    if cached is not None:
-        cached["cached"] = True
-        return cached
 
+def _exec_nmap(
+    safe_target: str, safe_flags: List[str], timeout: int, target: str
+) -> Dict[str, Any]:
+    """Run one nmap invocation. Error dicts always carry an empty ``ports``
+    list so downstream consumers get a consistent shape."""
     cmd = ["nmap", "-oX", "-"] + safe_flags + [safe_target]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        parsed = {
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return {
             "target": target,
             "raw": result.stdout,
             "stderr": result.stderr,
@@ -95,16 +87,57 @@ def run_nmap(target: str, flags: str = "-sV -T4 --top-ports 1000") -> Dict[str, 
             "ports": _parse_ports(result.stdout),
             "cached": False,
         }
-        if result.returncode == 0:
-            _nmap_cache.set(cache_key, parsed)
-        return parsed
     except subprocess.TimeoutExpired:
-        return {"target": target, "error": "nmap timeout after 120s"}
+        return {
+            "target": target,
+            "error": f"nmap timeout after {timeout}s",
+            "timed_out": True,
+            "ports": [],
+        }
     except FileNotFoundError:
         return {
             "target": target,
             "error": "nmap not found — install with: apt install nmap",
+            "ports": [],
         }
+
+
+def run_nmap(
+    target: str,
+    flags: str = "-sV -T4 --top-ports 1000",
+    timeout: int = DEFAULT_NMAP_TIMEOUT,
+) -> Dict[str, Any]:
+    """
+    Run nmap against target, return parsed results.
+    Requires nmap installed on system.
+
+    On a service-detection (``-sV``) timeout we retry once with fast flags
+    (no ``-sV``) so open ports are still recovered instead of silently lost.
+    """
+    safe_target = sanitize_target(target)
+    try:
+        safe_flags = validate_flags(flags)
+    except ValueError as exc:
+        return {"target": target, "error": f"unsafe nmap flags: {exc}", "ports": []}
+
+    cache_key = _cache_key(safe_target, flags)
+    cached = _nmap_cache.get(cache_key)
+    if cached is not None:
+        cached["cached"] = True
+        return cached
+
+    parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
+
+    # -sV is the slow part; on timeout retry once without it to still get ports.
+    if parsed.get("timed_out") and "-sV" in safe_flags:
+        fast_flags = validate_flags(_FAST_RETRY_FLAGS)
+        retry = _exec_nmap(safe_target, fast_flags, min(timeout, 60), target)
+        retry["degraded"] = "sV_timeout_fast_retry"
+        parsed = retry
+
+    if parsed.get("returncode") == 0:
+        _nmap_cache.set(cache_key, parsed)
+    return parsed
 
 
 def _parse_ports(xml_output: str) -> list:

@@ -64,7 +64,10 @@ class ReconAgent(BaseAgent):
         nmap_result = run_nmap(target)
         self.kb.set("recon.nmap", nmap_result, agent=self.AGENT_NAME)
         results["recon.nmap"] = nmap_result
-        self._log("nmap_scan complete", nmap_result)
+        if nmap_result.get("error"):
+            self._log(f"nmap_scan FAILED: {nmap_result['error']}", nmap_result)
+        else:
+            self._log("nmap_scan complete", nmap_result)
 
         # 2. whois
         self._check_iteration_limit()
