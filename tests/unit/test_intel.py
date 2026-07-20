@@ -87,3 +87,42 @@ def test_parse_cves_prefers_v3_over_v2():
     parsed = _parse_cves([vuln])[0]
     assert parsed["cvss"]["score"] == 9.8
     assert parsed["cvss"]["severity"] == "CRITICAL"
+
+
+# ── version-aware CVE relevance (severity FP reduction) ───────────────
+
+from cyberai.agents.intel.service_mapper import product_tokens, cve_is_relevant  # noqa: E402
+
+
+def test_product_tokens_from_sv_ports():
+    ports = [
+        {"service": "ssh", "product": "OpenSSH", "version": "6.6.1p1"},
+        {"service": "http", "product": "Apache httpd", "version": "2.4.7"},
+    ]
+    toks = product_tokens(ports)
+    assert "openssh" in toks
+    assert "apache" in toks
+    assert "httpd" in toks
+    assert "ssh" in toks
+    assert "6" not in toks and "2" not in toks
+
+
+def test_product_tokens_empty_when_no_service_info():
+    assert product_tokens([{"port": 80}]) == set()
+
+
+def test_cve_relevant_matches_detected_product():
+    toks = {"openssh", "ssh"}
+    assert cve_is_relevant("OpenSSH 7.2 allows remote attackers to ...", toks)
+
+
+def test_cve_irrelevant_cross_product_collision():
+    """A sendmail CVE must not be considered relevant to an OpenSSH host."""
+    toks = {"openssh", "ssh", "apache", "httpd"}
+    desc = "Sendmail DEBUG command allows remote command execution."
+    assert cve_is_relevant(desc, toks) is False
+
+
+def test_cve_relevant_when_no_tokens_no_regression():
+    """No product signal → cannot filter → keep prior behavior (relevant)."""
+    assert cve_is_relevant("anything at all", set()) is True
