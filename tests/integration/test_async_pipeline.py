@@ -171,6 +171,32 @@ class TestAsyncOrchestrator:
         assert result == recon_payload
         assert session.kb_get("recon") == recon_payload
 
+    def test_async_recon_writes_granular_kb_keys(self):
+        """Async recon must mirror sync ReconAgent's granular recon.* keys
+        so downstream sync IntelAgent (offloaded via to_thread) finds ports."""
+        orch = self._orchestrator()
+        recon_payload = {
+            "target": "t.local",
+            "nmap": {"ports": [22]},
+            "dns": {"records": []},
+            "subdomains": {"found": []},
+            "tls": {},
+        }
+        with patch(
+            "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
+            new_callable=AsyncMock,
+            return_value=recon_payload,
+        ):
+            from cyberai.core.scan_session import ScanSession
+
+            session = ScanSession(target="t.local")
+            asyncio.run(orch._run_recon_async(session))
+
+        assert session.kb.get("recon.nmap") == {"ports": [22]}
+        assert session.kb.get("recon.dns") == {"records": []}
+        assert session.kb.get("recon.subdomains") == {"found": []}
+        assert session.kb.get("recon.nmap", {}).get("ports") == [22]
+
     def test_sync_intel_runs_under_to_thread(self):
         """Intel/exploit/report stay sync; AsyncOrchestrator must offload them."""
         from cyberai.core.scan_session import ScanSession, ScanPhase

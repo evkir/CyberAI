@@ -366,4 +366,9 @@ class AsyncOrchestrator(Orchestrator):
         agent = AsyncReconAgent()
         result = await agent.run(session.target)
         session.kb_set("recon", result)
+        # Mirror sync ReconAgent granular KB wiring so downstream sync agents
+        # (offloaded via asyncio.to_thread) can read recon.* keys.
+        for _sub in ("nmap", "dns", "subdomains", "tls"):
+            if _sub in result:
+                session.kb.set(f"recon.{_sub}", result[_sub], agent="async_recon")
         return result
