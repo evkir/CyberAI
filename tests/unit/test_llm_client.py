@@ -135,13 +135,11 @@ def test_acall_ollama_records_usage(monkeypatch):
 
     monkeypatch.setattr(lc.httpx, "AsyncClient", _AsyncClient)
     client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b"})()
+    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b", "provider": "ollama"})()
     client.cost_tracker = CostTracker()
     client.budget_usd = 0
 
-    out = asyncio.run(
-        client._acall_ollama([{"role": "user", "content": "hi"}], None, agent_name="exploit")
-    )
+    out = asyncio.run(client.acall([{"role": "user", "content": "hi"}], None, agent_name="exploit"))
 
     assert out == "ok"
     assert client.cost_tracker.call_count == 1
