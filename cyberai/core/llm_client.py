@@ -124,13 +124,21 @@ class LLMClient:
 
     def _call_ollama(self, messages: List[Dict], system: Optional[str]) -> str:
         url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
+        full_messages: List[Dict] = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
         payload = {
             "model": self.config.model,
-            "messages": messages,
+            "messages": full_messages,
             "stream": False,
+            # Default ollama context is 2048 tokens — too small for exploit
+            # prompts (CVE JSON + attack paths + chain), which 4xx/5xx the call.
+            "options": {"num_ctx": 8192},
         }
-        response = httpx.post(url, json=payload, timeout=60)
-        response.raise_for_status()
+        response = httpx.post(url, json=payload, timeout=120)
+        if response.status_code != 200:
+            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
         return response.json()["message"]["content"]
 
     # ── native tool calling (sync) ────────────────────────────────────
