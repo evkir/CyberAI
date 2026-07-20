@@ -87,7 +87,10 @@ class IntelAgent(BaseAgent):
             )
 
         self.kb.set("intel.cves", all_cves, agent=self.AGENT_NAME)
-        self._log(f"found {len(all_cves)} CVEs for {len(queries)} services")
+        self._log(
+            f"found {len(all_cves)} CVEs across "
+            f"{min(len(queries), 5)}/{len(queries)} service queries"
+        )
 
         # Surface high/critical CVEs as findings
         for cve in all_cves:
@@ -183,6 +186,7 @@ def _normalize(cve: dict) -> dict:
     return {
         "cve_id": cve.get("id") or cve.get("cve_id", ""),
         "cvss": float(score) if score else 0.0,
+        "cvss_vector": cvss_block.get("vector", "") if cvss_block else "",
         "description_short": cve.get("description", "")[:120],
         "published_date": cve.get("published", ""),
         "poc_likely": cve.get("poc_likely", False),

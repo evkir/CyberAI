@@ -118,3 +118,23 @@ def test_v2_stores_in_kb():
         agent.run("10.0.0.1")
     assert "intel.ranked_cves" in session.kb
     assert "intel.risk_summary" in session.kb
+
+
+def test_normalize_propagates_cvss_vector():
+    """CVSS vector must survive normalization so the exploit agent renders
+    real Vector/Complexity instead of Unknown (regression: dropped vector)."""
+    from cyberai.agents.exploit.cvss_analyzer import analyze_attack_vector
+
+    cve = {"id": "CVE-2024-1", "cvss": {"score": 9.8, "vector": "AV:N/AC:L/PR:N/UI:N"}}
+    n = _normalize(cve)
+    assert n["cvss_vector"] == "AV:N/AC:L/PR:N/UI:N"
+
+    av = analyze_attack_vector(n)
+    assert av["attack_vector"] == "Network"
+    assert av["attack_complexity"] == "Low"
+
+
+def test_normalize_flat_cvss_has_empty_vector():
+    """Flat/legacy CVE (cvss as float) must not crash and yields empty vector."""
+    n = _normalize({"cve_id": "CVE-2023-9999", "cvss": 7.5})
+    assert n["cvss_vector"] == ""
