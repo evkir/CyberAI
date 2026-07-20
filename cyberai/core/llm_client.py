@@ -66,7 +66,7 @@ class LLMClient:
         elif self.config.provider == "anthropic":
             return self._call_anthropic(messages, system, agent_name, cacheable_system)
         elif self.config.provider == "ollama":
-            return self._call_ollama(messages, system)
+            return self._call_ollama(messages, system, agent_name)
         else:
             raise ValueError(f"Unknown provider: {self.config.provider}")
 
@@ -122,7 +122,9 @@ class LLMClient:
         )
         return response.content[0].text
 
-    def _call_ollama(self, messages: List[Dict], system: Optional[str]) -> str:
+    def _call_ollama(
+        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
+    ) -> str:
         url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
         full_messages: List[Dict] = []
         if system:
@@ -139,7 +141,14 @@ class LLMClient:
         response = httpx.post(url, json=payload, timeout=120)
         if response.status_code != 200:
             raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
-        return response.json()["message"]["content"]
+        data = response.json()
+        self._record_usage(
+            agent_name,
+            data.get("model", self.config.model),
+            data.get("prompt_eval_count", 0),
+            data.get("eval_count", 0),
+        )
+        return data["message"]["content"]
 
     # ── native tool calling (sync) ────────────────────────────────────
 
@@ -352,7 +361,7 @@ class LLMClient:
         elif self.config.provider == "anthropic":
             return await self._acall_anthropic(messages, system, agent_name, cacheable_system)
         elif self.config.provider == "ollama":
-            return await self._acall_ollama(messages, system)
+            return await self._acall_ollama(messages, system, agent_name)
         else:
             raise ValueError(f"Unknown provider: {self.config.provider}")
 
@@ -408,7 +417,9 @@ class LLMClient:
         )
         return response.content[0].text
 
-    async def _acall_ollama(self, messages: List[Dict], system: Optional[str]) -> str:
+    async def _acall_ollama(
+        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
+    ) -> str:
         url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
         payload = {
             "model": self.config.model,
@@ -418,7 +429,14 @@ class LLMClient:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(url, json=payload)
             response.raise_for_status()
-            return response.json()["message"]["content"]
+            data = response.json()
+        self._record_usage(
+            agent_name,
+            data.get("model", self.config.model),
+            data.get("prompt_eval_count", 0),
+            data.get("eval_count", 0),
+        )
+        return data["message"]["content"]
 
 
 def _wrap_cacheable(system_text: str) -> list[dict]:
