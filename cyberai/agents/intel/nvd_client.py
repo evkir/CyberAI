@@ -94,6 +94,18 @@ def _parse_cves(vulns: List[Dict]) -> List[Dict]:
                 }
                 break
 
+        # Fall back to CVSS v2 for legacy CVEs that have no v3 metrics in NVD
+        # (common for pre-2015 CVEs on old services). In v2 the severity lives
+        # on the metric entry, not inside cvssData.
+        if not cvss and metrics.get("cvssMetricV2"):
+            entry = metrics["cvssMetricV2"][0]
+            cvss_data = entry.get("cvssData", {})
+            cvss = {
+                "score": cvss_data.get("baseScore"),
+                "severity": entry.get("baseSeverity"),
+                "vector": cvss_data.get("vectorString"),
+            }
+
         descriptions = cve.get("descriptions", [])
         desc = next(
             (d["value"] for d in descriptions if d.get("lang") == "en"),
