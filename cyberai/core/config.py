@@ -21,6 +21,15 @@ class RoutingConfig:
     air_gapped_base_url: str = "http://localhost:11434"
 
 
+# Per-provider default model. Keeps air-gapped ollama runs from inheriting
+# a cloud default (e.g. gpt-4o) that the local runtime does not have.
+_PROVIDER_DEFAULT_MODELS = {
+    "openai": "gpt-4o",
+    "anthropic": "claude-opus-4-8",
+    "ollama": "qwen2.5:7b",
+}
+
+
 @dataclass
 class LLMConfig:
     provider: Literal["openai", "anthropic", "ollama"] = "openai"
@@ -29,6 +38,11 @@ class LLMConfig:
     base_url: Optional[str] = None
     max_tokens: int = 4096
     temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
+
+    @staticmethod
+    def default_model_for(provider: str) -> str:
+        """Resolve the sensible default model for a provider."""
+        return _PROVIDER_DEFAULT_MODELS.get(provider, "gpt-4o")
 
 
 @dataclass
@@ -96,5 +110,5 @@ class CyberAIConfig:
     def from_env(cls) -> "CyberAIConfig":
         """Build config from environment variables"""
         provider = os.getenv("CYBERAI_LLM_PROVIDER", "openai")
-        model = os.getenv("CYBERAI_MODEL", "gpt-4o")
+        model = os.getenv("CYBERAI_MODEL") or LLMConfig.default_model_for(provider)
         return cls(llm=LLMConfig(provider=provider, model=model))

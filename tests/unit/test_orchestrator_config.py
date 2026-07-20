@@ -10,7 +10,7 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from cyberai.__main__ import cli
-from cyberai.core.config import CyberAIConfig
+from cyberai.core.config import CyberAIConfig, LLMConfig
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanState
 
@@ -74,3 +74,56 @@ def test_cli_status_works():
     result = runner.invoke(cli, ["status"])
     assert result.exit_code == 0
     assert "Provider" in result.output
+
+
+# ── Per-provider default model resolution ─────────────────────────────
+
+
+def test_default_model_for_ollama():
+    assert LLMConfig.default_model_for("ollama") == "qwen2.5:7b"
+
+
+def test_default_model_for_openai():
+    assert LLMConfig.default_model_for("openai") == "gpt-4o"
+
+
+def test_default_model_for_anthropic():
+    assert LLMConfig.default_model_for("anthropic") == "claude-opus-4-8"
+
+
+def test_default_model_for_unknown_falls_back():
+    assert LLMConfig.default_model_for("nope") == "gpt-4o"
+
+
+def test_from_env_ollama_provider_defaults_model(monkeypatch):
+    """provider=ollama with no CYBERAI_MODEL must not inherit gpt-4o."""
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "ollama")
+    monkeypatch.delenv("CYBERAI_MODEL", raising=False)
+    cfg = CyberAIConfig.from_env()
+    assert cfg.llm.provider == "ollama"
+    assert cfg.llm.model == "qwen2.5:7b"
+
+
+def test_from_env_explicit_model_overrides_default(monkeypatch):
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("CYBERAI_MODEL", "llama3:8b")
+    cfg = CyberAIConfig.from_env()
+    assert cfg.llm.model == "llama3:8b"
+
+
+def test_cli_provider_ollama_switches_model(monkeypatch):
+    """--provider ollama must re-resolve model away from gpt-4o (bug #1)."""
+    monkeypatch.delenv("CYBERAI_MODEL", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--provider", "ollama"])
+    assert result.exit_code == 0, result.output
+
+
+def test_cli_model_flag_overrides(monkeypatch):
+    """--model wins even when --provider would default otherwise."""
+    monkeypatch.delenv("CYBERAI_MODEL", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["scan", "127.0.0.1", "--dry-run", "--provider", "ollama", "--model", "mistral"]
+    )
+    assert result.exit_code == 0, result.output
