@@ -149,25 +149,40 @@ def run_nmap(
     return parsed
 
 
+def _svc_attr(attrs: str, key: str) -> str:
+    """Pull a single attribute value from a raw nmap <service> tag body."""
+    import re
+
+    m = re.search(rf'\b{key}="([^"]*)"', attrs)
+    return m.group(1) if m else ""
+
+
 def _parse_ports(xml_output: str) -> list:
-    """Extract open ports from nmap XML output"""
+    """Extract open ports from nmap XML output.
+
+    Captures product/version from -sV so downstream CVE matching can be
+    version-aware instead of querying by bare service name (which pulls in
+    ancient, non-applicable CVEs and inflates severity).
+    """
     import re
 
     ports = []
     for match in re.finditer(
         r'<port protocol="(\w+)" portid="(\d+)">.*?'
         r'<state state="(\w+)".*?/>.*?'
-        r'<service name="([^"]*)"',
+        r"<service ([^>]*)",
         xml_output,
         re.DOTALL,
     ):
-        proto, port, state, service = match.groups()
+        proto, port, state, svc_attrs = match.groups()
         if state == "open":
             ports.append(
                 {
                     "port": int(port),
                     "protocol": proto,
-                    "service": service,
+                    "service": _svc_attr(svc_attrs, "name"),
+                    "product": _svc_attr(svc_attrs, "product"),
+                    "version": _svc_attr(svc_attrs, "version"),
                     "state": state,
                 }
             )

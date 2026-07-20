@@ -162,3 +162,34 @@ def test_nmap_runs_noninteractive():
         run_nmap("scanme.test", flags="-sV")
     argv = m.call_args[0][0]
     assert "--noninteractive" in argv
+
+
+# ── product/version capture (version-aware CVE matching foundation) ────
+
+_XML_SV_PORT = (
+    '<port protocol="tcp" portid="22">'
+    '<state state="open" reason="syn-ack"/>'
+    '<service name="ssh" product="OpenSSH" version="6.6.1p1 Ubuntu" '
+    'method="probed" conf="10">'
+    "<cpe>cpe:/a:openbsd:openssh:6.6.1p1</cpe>"
+    "</service>"
+    "</port>"
+)
+
+
+def test_parse_ports_captures_product_and_version():
+    ports = nmap_tool._parse_ports(_XML_SV_PORT)
+    assert len(ports) == 1
+    assert ports[0]["service"] == "ssh"
+    assert ports[0]["product"] == "OpenSSH"
+    assert ports[0]["version"] == "6.6.1p1 Ubuntu"
+
+
+def test_parse_ports_missing_product_version_defaults_empty():
+    """Self-closing <service name=.../> (no -sV data) yields empty strings,
+    never missing keys, so downstream consumers stay total."""
+    ports = nmap_tool._parse_ports(_XML_ONE_PORT)
+    assert len(ports) == 1
+    assert ports[0]["service"] == "http"
+    assert ports[0]["product"] == ""
+    assert ports[0]["version"] == ""
