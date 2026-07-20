@@ -76,11 +76,11 @@ def _exec_nmap(
 ) -> Dict[str, Any]:
     """Run one nmap invocation. Error dicts always carry an empty ``ports``
     list so downstream consumers get a consistent shape."""
-    cmd = ["nmap", "-oX", "-"] + safe_flags + [safe_target]
+    # --noninteractive: nmap's runtime keypress reader opens /dev/tty directly
+    # (independent of stdin) and can leave the terminal in no-echo/raw mode.
+    # This flag disables it outright. stdin=DEVNULL is kept as belt-and-braces.
+    cmd = ["nmap", "-oX", "-", "--noninteractive"] + safe_flags + [safe_target]
     try:
-        # stdin=DEVNULL: nmap enables runtime keypress interaction when it
-        # sees a tty on stdin, which flips the terminal to no-echo/raw and
-        # may not restore it. Detaching stdin keeps the analyst's shell sane.
         result = subprocess.run(
             cmd,
             capture_output=True,
