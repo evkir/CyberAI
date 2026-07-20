@@ -10,7 +10,12 @@ from cyberai.core.scan_session import Severity
 
 from .nvd_client import get_cve, search_cves
 from .epss_client import get_epss_scores
-from .service_mapper import ports_to_queries, score_to_severity
+from .service_mapper import (
+    ports_to_queries,
+    score_to_severity,
+    product_tokens,
+    cve_is_relevant,
+)
 from cyberai.core.types import CVEEntry, IntelResult
 
 
@@ -66,6 +71,8 @@ class IntelAgent(BaseAgent):
             return {"status": "skipped", "reason": "no ports"}
 
         queries = ports_to_queries(ports)
+        # Tokens of what is actually running, for CVE relevance filtering.
+        tokens = product_tokens(ports)
         all_cves: List[Dict] = []
 
         for query in queries[:5]:  # NVD rate limit
@@ -95,7 +102,7 @@ class IntelAgent(BaseAgent):
         # Surface high/critical CVEs as findings
         for cve in all_cves:
             score = (cve.get("cvss", {}) or {}).get("score") or 0
-            if score >= 7.0:
+            if score >= 7.0 and cve_is_relevant(cve.get("description", ""), tokens):
                 sev = getattr(Severity, score_to_severity(score), Severity.HIGH)
                 self.session.add_finding(
                     severity=sev,

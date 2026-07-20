@@ -138,3 +138,44 @@ def test_normalize_flat_cvss_has_empty_vector():
     """Flat/legacy CVE (cvss as float) must not crash and yields empty vector."""
     n = _normalize({"cve_id": "CVE-2023-9999", "cvss": 7.5})
     assert n["cvss_vector"] == ""
+
+
+def test_findings_filter_cross_product_fp():
+    """A sendmail CVE returned via keyword collision must not surface as a
+    finding on an OpenSSH host, while the genuine OpenSSH CVE still does."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [
+                {
+                    "port": 22,
+                    "service": "ssh",
+                    "product": "OpenSSH",
+                    "version": "6.6.1p1",
+                }
+            ]
+        },
+    )
+    agent = IntelAgent(CyberAIConfig(), session)
+    cves = [
+        {
+            "id": "CVE-REL",
+            "cvss": {"score": 9.8},
+            "description": "OpenSSH remote code execution flaw",
+        },
+        {
+            "id": "CVE-FP",
+            "cvss": {"score": 10.0},
+            "description": "Sendmail DEBUG command allows remote command execution",
+        },
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        agent.run("10.0.0.1")
+
+    titles = [f.title for f in session.findings]
+    assert "CVE-REL" in titles
+    assert "CVE-FP" not in titles
