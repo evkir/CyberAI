@@ -142,3 +142,13 @@ def test_sV_timeout_triggers_fast_retry():
     assert res["degraded"] == "sV_timeout_fast_retry"
     assert len(res["ports"]) == 1
     assert res["ports"][0]["port"] == 80
+
+
+def test_nmap_detaches_stdin_to_protect_terminal():
+    """nmap must run with stdin detached so its runtime keypress interaction
+    never leaves the analyst's terminal in no-echo/raw mode."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+        run_nmap("scanme.test", flags="-sV")
+    _, kwargs = m.call_args
+    assert kwargs.get("stdin") == subprocess.DEVNULL

@@ -78,7 +78,16 @@ def _exec_nmap(
     list so downstream consumers get a consistent shape."""
     cmd = ["nmap", "-oX", "-"] + safe_flags + [safe_target]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # stdin=DEVNULL: nmap enables runtime keypress interaction when it
+        # sees a tty on stdin, which flips the terminal to no-echo/raw and
+        # may not restore it. Detaching stdin keeps the analyst's shell sane.
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
         return {
             "target": target,
             "raw": result.stdout,
