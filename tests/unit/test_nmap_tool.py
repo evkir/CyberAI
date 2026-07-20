@@ -152,3 +152,13 @@ def test_nmap_detaches_stdin_to_protect_terminal():
         run_nmap("scanme.test", flags="-sV")
     _, kwargs = m.call_args
     assert kwargs.get("stdin") == subprocess.DEVNULL
+
+
+def test_nmap_runs_noninteractive():
+    """nmap must be invoked with --noninteractive so its keypress reader never
+    opens /dev/tty and corrupts the analyst's terminal echo."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+        run_nmap("scanme.test", flags="-sV")
+    argv = m.call_args[0][0]
+    assert "--noninteractive" in argv
