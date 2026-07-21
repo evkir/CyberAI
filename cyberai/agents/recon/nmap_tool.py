@@ -68,7 +68,11 @@ def validate_flags(flags: str) -> List[str]:
 
 
 DEFAULT_NMAP_TIMEOUT = 180
-_FAST_RETRY_FLAGS = "-T4 --top-ports 100"
+# Broad, version-less port discovery used to learn which ports are actually
+# open after a -sV timeout, before re-probing them individually.
+_DISCOVERY_FLAGS = "-T4 --top-ports 1000"
+# Time budget for the scoped -sV re-probe of the discovered open ports.
+_TARGETED_SV_TIMEOUT = 90
 
 
 def _exec_nmap(
@@ -111,6 +115,22 @@ def _exec_nmap(
         }
 
 
+def _open_port_nums(parsed: Dict[str, Any]) -> List[int]:
+    """Port numbers of the open ports in a parsed nmap result."""
+    return [
+        p["port"]
+        for p in parsed.get("ports", [])
+        if p.get("state") == "open" and isinstance(p.get("port"), int)
+    ]
+
+
+def _has_products(parsed: Dict[str, Any]) -> bool:
+    """True when -sV captured at least one product string. Mirrors the intel
+    layer's ``version_known`` check so the degraded marker and the severity
+    gate agree on what counts as a known version."""
+    return any((p.get("product") or "").strip() for p in parsed.get("ports", []))
+
+
 def run_nmap(
     target: str,
     flags: str = "-sV -T4 --top-ports 1000",
@@ -120,8 +140,9 @@ def run_nmap(
     Run nmap against target, return parsed results.
     Requires nmap installed on system.
 
-    On a service-detection (``-sV``) timeout we retry once with fast flags
-    (no ``-sV``) so open ports are still recovered instead of silently lost.
+    On a service-detection (``-sV``) timeout we discover open ports without
+    ``-sV`` and then re-probe just those ports with ``-sV``, recovering
+    versions on normal hosts while never silently losing open ports.
     """
     safe_target = sanitize_target(target)
     try:
@@ -137,12 +158,26 @@ def run_nmap(
 
     parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
 
-    # -sV is the slow part; on timeout retry once without it to still get ports.
+    # -sV probing is the slow part. On a -sV timeout, first discover which
+    # ports are actually open (fast, no -sV), then re-run -sV scoped to just
+    # those ports so versions are recovered on normal hosts. Only when the
+    # scoped -sV also fails to yield a product (e.g. filtering networks with
+    # no banners) is the result marked degraded, which the intel layer treats
+    # as "service versions unknown" and gates accordingly.
     if parsed.get("timed_out") and "-sV" in safe_flags:
-        fast_flags = validate_flags(_FAST_RETRY_FLAGS)
-        retry = _exec_nmap(safe_target, fast_flags, min(timeout, 60), target)
-        retry["degraded"] = "sV_timeout_fast_retry"
-        parsed = retry
+        disco_flags = validate_flags(_DISCOVERY_FLAGS)
+        disco = _exec_nmap(safe_target, disco_flags, min(timeout, 60), target)
+        best = disco
+        open_nums = _open_port_nums(disco)
+        if open_nums:
+            pspec = ",".join(str(n) for n in open_nums)
+            sv_flags = validate_flags(f"-sV -T4 -p {pspec}")
+            targeted = _exec_nmap(safe_target, sv_flags, _TARGETED_SV_TIMEOUT, target)
+            if targeted.get("ports"):
+                best = targeted
+        if not _has_products(best):
+            best["degraded"] = "sV_timeout_fast_retry"
+        parsed = best
 
     if parsed.get("returncode") == 0:
         _nmap_cache.set(cache_key, parsed)
