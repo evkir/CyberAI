@@ -195,7 +195,7 @@ class Orchestrator:
         from cyberai.core.scan_session import Severity
         from cyberai.core.security.injection_detector import detect_injection
 
-        text = _json.dumps(data, default=str)
+        text = _json.dumps(data, default=str, ensure_ascii=False)
         result = detect_injection(text)
         if not result["is_injection"]:
             return
