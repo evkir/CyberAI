@@ -73,6 +73,12 @@ class IntelAgent(BaseAgent):
         queries = ports_to_queries(ports)
         # Tokens of what is actually running, for CVE relevance filtering.
         tokens = product_tokens(ports)
+        # Real version data exists only when nmap -sV captured a product
+        # string. Service names alone (fast-retry / -sV degraded) are too
+        # coarse to confirm CVE relevance (substring collisions like the
+        # service token "http" matching "httpd" in a CVE description), so
+        # keyword-only matches must not be surfaced as confirmed findings.
+        version_known = any((p.get("product") or "").strip() for p in ports)
         all_cves: List[Dict] = []
 
         for query in queries[:5]:  # NVD rate limit
@@ -108,7 +114,20 @@ class IntelAgent(BaseAgent):
         for cve in all_cves:
             score = (cve.get("cvss", {}) or {}).get("score") or 0
             if score >= 7.0 and cve_is_relevant(cve.get("description", ""), tokens):
-                sev = getattr(Severity, score_to_severity(score), Severity.HIGH)
+                evidence = [
+                    f"CVSS: {score}",
+                    (cve.get("cvss", {}) or {}).get("vector", ""),
+                ]
+                if version_known:
+                    sev = getattr(Severity, score_to_severity(score), Severity.HIGH)
+                else:
+                    # No -sV version data: keyword-only match is unconfirmed.
+                    # Cap severity to INFO rather than overstate risk.
+                    sev = Severity.INFO
+                    evidence.append(
+                        "UNCONFIRMED: service version unknown (nmap -sV degraded); "
+                        "CVE matched by service keyword only"
+                    )
                 self.session.add_finding(
                     severity=sev,
                     title=cve["id"],
@@ -116,10 +135,7 @@ class IntelAgent(BaseAgent):
                     agent=self.AGENT_NAME,
                     target=target,
                     cve_ids=[cve["id"]],
-                    evidence=[
-                        f"CVSS: {score}",
-                        (cve.get("cvss", {}) or {}).get("vector", ""),
-                    ],
+                    evidence=evidence,
                 )
 
         # Build a validated IntelResult and store it in the KB.
@@ -156,14 +172,24 @@ class IntelAgent(BaseAgent):
         }
 
         if self.score_cves:
-            result.update(self._score(all_cves))
+            result.update(self._score(all_cves, version_known=version_known))
 
         return result
 
-    def _score(self, raw_cves: List[Dict]) -> Dict[str, Any]:
+    def _score(self, raw_cves: List[Dict], version_known: bool = True) -> Dict[str, Any]:
         """Run the risk-prioritizer (formerly IntelAgentV2)."""
         if not raw_cves:
             return {"ranked_cves": [], "risk_summary": {}}
+
+        if not version_known:
+            # Service versions unknown (nmap -sV degraded): keyword-only CVE
+            # matches are unconfirmed, so speculative attack paths are not
+            # presented. Write empty ranking for consistent downstream reads.
+            summary = {"note": "ranking suppressed: service versions unknown"}
+            self.kb.set("intel.ranked_cves", [], agent=self.AGENT_NAME)
+            self.kb.set("intel.risk_summary", summary, agent=self.AGENT_NAME)
+            self._log("ranking suppressed — service versions unknown (-sV degraded)")
+            return {"ranked_cves": [], "risk_summary": summary}
 
         normalized = [_normalize(c) for c in raw_cves]
 
