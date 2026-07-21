@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
+from .service_mapper import product_tokens
+
 _NUM_RE = re.compile(r"(\d+(?:\.\d+)*)")
 
 
@@ -86,3 +88,29 @@ def version_applies(detected_version: str, cpe_rules: List[Dict], tokens: set) -
     if not relevant:
         return None
     return any(_rule_applies(detected, r) for r in relevant)
+
+
+def classify_cve(cve: Dict, ports: List[Dict]) -> str:
+    """Classify a CVE against detected services by version applicability.
+
+    Evaluates the CVE's CPE rules against each port that carries a product,
+    using that single port's version and product tokens. Returns:
+
+        "confirmed"    - some detected service's version falls in a CPE range
+        "out_of_range" - a matching product was found but its version lies
+                         outside every CPE range (definitively inapplicable)
+        "unconfirmed"  - nothing could confirm or deny: no product-matching
+                         rule, or the matching service has no usable version
+                         (e.g. product detected but -sV captured no version)
+    """
+    rules = cve.get("cpe", [])
+    saw_out_of_range = False
+    for port in ports:
+        if not (port.get("product") or "").strip():
+            continue
+        verdict = version_applies(port.get("version", ""), rules, product_tokens([port]))
+        if verdict is True:
+            return "confirmed"
+        if verdict is False:
+            saw_out_of_range = True
+    return "out_of_range" if saw_out_of_range else "unconfirmed"

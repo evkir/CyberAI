@@ -173,3 +173,55 @@ def test_parsed_openssh_pins_reject_modern_version():
     rules = _parse_cves([vuln])[0]["cpe"]
     assert rules[0]["vendor"] == "openbsd"
     assert version_applies("9.6p1 Ubuntu", rules, {"openssh"}) is False
+
+
+# -- classify_cve: per-port verdict against detected versions --
+
+from cyberai.agents.intel.version_match import classify_cve  # noqa: E402
+
+
+def _cve(rules):
+    return {"id": "CVE-X", "cpe": rules}
+
+
+def test_classify_confirmed_when_version_in_range():
+    ports = [{"port": 80, "service": "http", "product": "nginx", "version": "1.24.0"}]
+    cve = _cve([_range("nginx", vsi="1.20.0", vee="1.26.0")])
+    assert classify_cve(cve, ports) == "confirmed"
+
+
+def test_classify_out_of_range_when_version_excluded():
+    ports = [{"port": 22, "service": "ssh", "product": "OpenSSH", "version": "9.6p1"}]
+    cve = _cve([_pin("openssh", "2.1")])
+    assert classify_cve(cve, ports) == "out_of_range"
+
+
+def test_classify_unconfirmed_when_no_cpe_rules():
+    ports = [{"port": 80, "service": "http", "product": "Apache httpd", "version": "2.4.7"}]
+    assert classify_cve(_cve([]), ports) == "unconfirmed"
+
+
+def test_classify_unconfirmed_when_product_has_empty_version():
+    """The nginx empty-version hole: product detected but -sV captured no
+    version -> cannot version-confirm -> unconfirmed (surfaces as INFO)."""
+    ports = [{"port": 443, "service": "http", "product": "nginx", "version": ""}]
+    cve = _cve([_range("nginx", vee="0.8.15")])
+    assert classify_cve(cve, ports) == "unconfirmed"
+
+
+def test_classify_skips_ports_without_product():
+    """A port with no product (degraded) is skipped; if nothing else confirms,
+    the CVE is unconfirmed rather than crashing."""
+    ports = [{"port": 80, "service": "http"}]
+    cve = _cve([_range("nginx", vee="0.8.15")])
+    assert classify_cve(cve, ports) == "unconfirmed"
+
+
+def test_classify_confirmed_takes_priority_over_out_of_range():
+    """One in-range service confirms even if another service is out of range."""
+    ports = [
+        {"port": 22, "service": "ssh", "product": "OpenSSH", "version": "9.6p1"},
+        {"port": 80, "service": "http", "product": "nginx", "version": "1.24.0"},
+    ]
+    cve = _cve([_pin("openssh", "2.1"), _range("nginx", vsi="1.20.0", vee="1.26.0")])
+    assert classify_cve(cve, ports) == "confirmed"

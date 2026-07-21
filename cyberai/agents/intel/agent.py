@@ -16,6 +16,7 @@ from .service_mapper import (
     product_tokens,
     cve_is_relevant,
 )
+from .version_match import classify_cve
 from cyberai.core.types import CVEEntry, IntelResult
 
 
@@ -92,6 +93,25 @@ class IntelAgent(BaseAgent):
         # ranked_cves/attack paths. Empty tokens -> no-op (no-regression).
         all_cves = [c for c in all_cves if cve_is_relevant(c.get("description", ""), tokens)]
 
+        # Version-range gate: when real version data exists, classify each CVE
+        # by whether its NVD CPE constraints actually cover the detected
+        # version. Drop CVEs whose ranges exclude the running version (keyword
+        # collisions with ancient CVEs, e.g. an OpenSSH 2.1 CVE surfacing for
+        # OpenSSH 9.6); flag version-unconfirmable ones so they surface as INFO
+        # rather than inflated HIGH/CRITICAL. A product with no captured version
+        # yields "unconfirmed", closing the empty-version keyword-match hole.
+        confirmed_ids: set = set()
+        if version_known:
+            kept = []
+            for c in all_cves:
+                verdict = classify_cve(c, ports)
+                if verdict == "out_of_range":
+                    continue
+                if verdict == "confirmed":
+                    confirmed_ids.add(c.get("id"))
+                kept.append(c)
+            all_cves = kept
+
         # Enrich CVEs with EPSS scores (probability of exploitation
         # in the wild in the next 30 days). Single batched call.
         cve_ids = [c["id"] for c in all_cves if c.get("id")]
@@ -118,15 +138,23 @@ class IntelAgent(BaseAgent):
                     f"CVSS: {score}",
                     (cve.get("cvss", {}) or {}).get("vector", ""),
                 ]
-                if version_known:
+                if version_known and cve.get("id") in confirmed_ids:
                     sev = getattr(Severity, score_to_severity(score), Severity.HIGH)
-                else:
+                elif not version_known:
                     # No -sV version data: keyword-only match is unconfirmed.
                     # Cap severity to INFO rather than overstate risk.
                     sev = Severity.INFO
                     evidence.append(
                         "UNCONFIRMED: service version unknown (nmap -sV degraded); "
                         "CVE matched by service keyword only"
+                    )
+                else:
+                    # Version is known but the CVE's CPE ranges do not confirm
+                    # it applies to the detected version. Surface as INFO only.
+                    sev = Severity.INFO
+                    evidence.append(
+                        "UNCONFIRMED: CVE not matched against detected version "
+                        "(no applicable CPE version range)"
                     )
                 self.session.add_finding(
                     severity=sev,
@@ -172,7 +200,15 @@ class IntelAgent(BaseAgent):
         }
 
         if self.score_cves:
-            result.update(self._score(all_cves, version_known=version_known))
+            # Only version-confirmed CVEs feed ranking / attack paths, so
+            # speculative or out-of-range matches never become ranked risks.
+            # When versions are unknown (degraded), defer to _score's own
+            # suppression path instead of pre-filtering.
+            if version_known:
+                ranked_input = [c for c in all_cves if c.get("id") in confirmed_ids]
+            else:
+                ranked_input = all_cves
+            result.update(self._score(ranked_input, version_known=version_known))
 
         return result
 

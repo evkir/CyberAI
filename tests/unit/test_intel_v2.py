@@ -15,6 +15,19 @@ from cyberai.core.config import CyberAIConfig
 from cyberai.core.scan_session import ScanSession, Severity
 
 
+def _cpe(vendor, product, vsi=None, vse=None, vei=None, vee=None, version="*"):
+    """Build a parsed CPE rule matching nvd_client's shape for test fixtures."""
+    return {
+        "vendor": vendor,
+        "product": product,
+        "version": version,
+        "version_start_including": vsi,
+        "version_start_excluding": vse,
+        "version_end_including": vei,
+        "version_end_excluding": vee,
+    }
+
+
 # ── normalize helper ─────────────────────────────────────────────────
 
 
@@ -58,6 +71,7 @@ SAMPLE_CVES = [
         "description": "Critical HTTP server RCE",
         "published": "2024-11-01T00:00:00+00:00",
         "poc_likely": True,
+        "cpe": [_cpe("apache", "http_server", vsi="2.4.0", vee="2.4.50")],
     },
     {
         "id": "CVE-2023-0002",
@@ -218,6 +232,7 @@ def test_ranked_cves_filter_cross_product_fp():
             "id": "CVE-REL",
             "cvss": {"score": 9.8},
             "description": "OpenSSH remote code execution flaw",
+            "cpe": [_cpe("openbsd", "openssh", vsi="6.0", vee="7.0")],
         },
         {
             "id": "CVE-FP",
@@ -311,6 +326,7 @@ def test_version_known_keeps_high_and_ranks():
             "id": "CVE-REL",
             "cvss": {"score": 9.8},
             "description": "Apache httpd remote code execution flaw",
+            "cpe": [_cpe("apache", "http_server", vsi="2.4.0", vee="2.4.50")],
         }
     ]
     with (
@@ -324,3 +340,39 @@ def test_version_known_keeps_high_and_ranks():
     assert all(x.severity != Severity.INFO for x in f)
     assert all(not any("UNCONFIRMED" in str(e) for e in x.evidence) for x in f)
     assert "CVE-REL" in [r["cve_id"] for r in result["ranked_cves"]]
+
+
+def test_out_of_range_cve_dropped_entirely():
+    """A CVE whose CPE range excludes the detected version is dropped from
+    findings and ranking — not even surfaced as INFO (definitively N/A)."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [
+                {
+                    "port": 22,
+                    "service": "ssh",
+                    "product": "OpenSSH",
+                    "version": "9.6p1 Ubuntu 3ubuntu13.16",
+                }
+            ]
+        },
+    )
+    agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
+    cves = [
+        {
+            "id": "CVE-2000-0525",
+            "cvss": {"score": 10.0},
+            "description": "OpenSSH before 2.1 remote overflow",
+            "cpe": [_cpe("openbsd", "openssh", version="2.1")],
+        }
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        result = agent.run("10.0.0.1")
+
+    assert "CVE-2000-0525" not in [f.title for f in session.findings]
+    assert "CVE-2000-0525" not in [r["cve_id"] for r in result["ranked_cves"]]
