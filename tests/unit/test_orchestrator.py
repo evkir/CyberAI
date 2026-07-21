@@ -93,3 +93,33 @@ def test_summary_contains_duration():
     session = orch.run("10.0.0.1")
     summary = session.summary()
     assert summary["duration_s"] is not None
+
+
+def test_check_phase_injection_ignores_nonascii_cve_text():
+    """Non-ASCII phase content must not fabricate a unicode_escape finding.
+
+    Regression: json.dumps with the default ensure_ascii=True re-encoded any
+    non-ASCII char as a literal \\uXXXX escape, which matched the detector's
+    unicode_escape pattern and raised a false MEDIUM finding on ordinary CVE
+    descriptions. Serializing with ensure_ascii=False removes the artifact.
+    """
+    from cyberai.core.scan_session import ScanPhase, ScanSession, Severity
+
+    orch = Orchestrator(dry_run=True)
+    session = ScanSession(target="t")
+    data = {"cves": [{"id": "CVE-2024-1", "desc": "overflow in café-server, RCE"}]}
+    orch._check_phase_injection(session, ScanPhase.INTEL, data)
+    assert not any(f.severity == Severity.MEDIUM for f in session.findings)
+
+
+def test_check_phase_injection_still_flags_real_smuggling():
+    """A genuine RTL-override payload in phase output must still be flagged."""
+    from cyberai.core.scan_session import ScanPhase, ScanSession, Severity
+
+    orch = Orchestrator(dry_run=True)
+    session = ScanSession(target="t")
+    data = {"banner": "OpenSSH \u202e evil \u202c payload"}
+    orch._check_phase_injection(session, ScanPhase.INTEL, data)
+    assert any(
+        f.severity == Severity.MEDIUM and "Prompt-injection" in f.title for f in session.findings
+    )
