@@ -89,6 +89,137 @@ def test_parse_cves_prefers_v3_over_v2():
     assert parsed["cvss"]["severity"] == "CRITICAL"
 
 
+# -- CPE version-constraint parsing (real NVD 2.0 shapes) --
+
+
+def test_parse_cpe_exact_version_pins():
+    """CVEs pinned to concrete versions (no range fields) expose those
+    versions so out-of-range detections can be dropped later."""
+    vuln = {
+        "cve": {
+            "id": "CVE-2000-0525",
+            "descriptions": [{"lang": "en", "value": "OpenSSH before 2.1"}],
+            "metrics": {},
+            "configurations": [
+                {
+                    "nodes": [
+                        {
+                            "operator": "OR",
+                            "negate": False,
+                            "cpeMatch": [
+                                {
+                                    "vulnerable": True,
+                                    "criteria": "cpe:2.3:a:openbsd:openssh:1.2:*:*:*:*:*:*:*",
+                                },
+                                {
+                                    "vulnerable": True,
+                                    "criteria": "cpe:2.3:a:openbsd:openssh:2.1:*:*:*:*:*:*:*",
+                                },
+                            ],
+                        }
+                    ]
+                }
+            ],
+        }
+    }
+    cpe = _parse_cves([vuln])[0]["cpe"]
+    assert len(cpe) == 2
+    assert {r["version"] for r in cpe} == {"1.2", "2.1"}
+    assert all(r["product"] == "openssh" for r in cpe)
+    assert all(r["version_end_excluding"] is None for r in cpe)
+
+
+def test_parse_cpe_version_ranges_multi_node():
+    """Range-based CVEs expose start/end bounds; only vulnerable cpeMatch
+    entries across all nodes are flattened, other-product nodes included so
+    the version matcher can filter by product token."""
+    vuln = {
+        "cve": {
+            "id": "CVE-2009-2629",
+            "descriptions": [{"lang": "en", "value": "nginx buffer underflow"}],
+            "metrics": {},
+            "configurations": [
+                {
+                    "nodes": [
+                        {
+                            "operator": "OR",
+                            "negate": False,
+                            "cpeMatch": [
+                                {
+                                    "vulnerable": True,
+                                    "criteria": "cpe:2.3:a:f5:nginx:*:*:*:*:*:*:*:*",
+                                    "versionStartIncluding": "0.7.0",
+                                    "versionEndExcluding": "0.7.62",
+                                },
+                            ],
+                        }
+                    ]
+                },
+                {
+                    "nodes": [
+                        {
+                            "operator": "OR",
+                            "negate": False,
+                            "cpeMatch": [
+                                {
+                                    "vulnerable": True,
+                                    "criteria": "cpe:2.3:o:debian:debian_linux:5.0:*:*:*:*:*:*:*",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            ],
+        }
+    }
+    cpe = _parse_cves([vuln])[0]["cpe"]
+    assert len(cpe) == 2
+    nginx = next(r for r in cpe if r["product"] == "nginx")
+    assert nginx["version"] == "*"
+    assert nginx["version_start_including"] == "0.7.0"
+    assert nginx["version_end_excluding"] == "0.7.62"
+    assert any(r["product"] == "debian_linux" for r in cpe)
+
+
+def test_parse_cpe_skips_non_vulnerable_matches():
+    """cpeMatch entries flagged vulnerable=False are ignored."""
+    vuln = {
+        "cve": {
+            "id": "CVE-2024-9999",
+            "descriptions": [{"lang": "en", "value": "x"}],
+            "metrics": {},
+            "configurations": [
+                {
+                    "nodes": [
+                        {
+                            "cpeMatch": [
+                                {
+                                    "vulnerable": False,
+                                    "criteria": "cpe:2.3:o:linux:linux_kernel:*:*:*:*:*:*:*:*",
+                                },
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+    }
+    assert _parse_cves([vuln])[0]["cpe"] == []
+
+
+def test_parse_cpe_absent_yields_empty_list():
+    """Placeholder CVEs with no configurations key are version-unconfirmable
+    and must yield an empty cpe list (not raise)."""
+    vuln = {
+        "cve": {
+            "id": "CVE-1999-0661",
+            "descriptions": [{"lang": "en", "value": "generic overflow"}],
+            "metrics": {},
+        }
+    }
+    assert _parse_cves([vuln])[0]["cpe"] == []
+
+
 # ── version-aware CVE relevance (severity FP reduction) ───────────────
 
 from cyberai.agents.intel.service_mapper import product_tokens, cve_is_relevant  # noqa: E402
