@@ -112,6 +112,13 @@ _XML_ONE_PORT = (
     "</port>"
 )
 
+_XML_ONE_PORT_SV = (
+    '<port protocol="tcp" portid="80">'
+    '<state state="open" reason="syn-ack"/>'
+    '<service name="http" product="Apache httpd" version="2.4.52"/>'
+    "</port>"
+)
+
 
 def test_timeout_returns_consistent_ports_shape():
     """A timeout must still yield a dict carrying an empty ports list so
@@ -128,20 +135,61 @@ def test_timeout_returns_consistent_ports_shape():
     assert m.call_count == 1  # no -sV -> no fast retry
 
 
-def test_sV_timeout_triggers_fast_retry():
-    """On a -sV timeout, run_nmap retries once with fast flags and still
-    recovers open ports instead of silently losing them."""
-    good = _fake_proc(stdout=_XML_ONE_PORT, rc=0)
+def test_sV_timeout_targeted_retry_recovers_versions():
+    """On a -sV timeout, run_nmap discovers open ports (no -sV), then re-runs
+    -sV scoped to just those ports and recovers product/version. No degraded
+    marker because versions are known."""
+    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+    disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
+    targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)  # port 80 with product
     with patch.object(
         nmap_tool.subprocess,
         "run",
-        side_effect=[subprocess.TimeoutExpired(cmd="nmap", timeout=180), good],
+        side_effect=[timeout, disco, targeted],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
-    assert m.call_count == 2  # initial -sV attempt + fast retry
+    assert m.call_count == 3  # initial -sV + discovery + scoped -sV
+    assert "degraded" not in res  # versions recovered
+    assert res["ports"][0]["product"] == "Apache httpd"
+    # scoped -sV must target only the discovered port, not the full top-1000.
+    scoped_argv = m.call_args_list[2][0][0]
+    assert "-p" in scoped_argv
+    assert "80" in scoped_argv
+    assert "--top-ports" not in scoped_argv
+
+
+def test_sV_timeout_scoped_retry_fails_marks_degraded():
+    """If the scoped -sV also fails (filtering net, no banners) the version-less
+    discovery result is returned marked degraded — ports kept, versions not."""
+    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+    disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
+    scoped_timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=90)
+    with patch.object(
+        nmap_tool.subprocess,
+        "run",
+        side_effect=[timeout, disco, scoped_timeout],
+    ) as m:
+        res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    assert m.call_count == 3
     assert res["degraded"] == "sV_timeout_fast_retry"
-    assert len(res["ports"]) == 1
-    assert res["ports"][0]["port"] == 80
+    assert res["ports"][0]["port"] == 80  # open ports still recovered
+    assert not res["ports"][0]["product"]  # but no version
+
+
+def test_sV_timeout_no_open_ports_skips_scoped_scan():
+    """When discovery finds no open ports, run_nmap does not attempt a scoped
+    -sV and returns the degraded discovery result."""
+    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+    empty = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)  # no open ports
+    with patch.object(
+        nmap_tool.subprocess,
+        "run",
+        side_effect=[timeout, empty],
+    ) as m:
+        res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    assert m.call_count == 2  # no third scoped scan
+    assert res["degraded"] == "sV_timeout_fast_retry"
+    assert res["ports"] == []
 
 
 def test_nmap_detaches_stdin_to_protect_terminal():
