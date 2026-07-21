@@ -158,10 +158,16 @@ class TestAsyncOrchestrator:
         orch.phases = []  # not used here — we test _run_recon_async directly
 
         recon_payload = {"target": "t.local", "nmap": {"ports": [22]}, "dns": {}}
-        with patch(
-            "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
-            new_callable=AsyncMock,
-            return_value=recon_payload,
+        with (
+            patch(
+                "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
+                new_callable=AsyncMock,
+                return_value=recon_payload,
+            ),
+            patch(
+                "cyberai.agents.recon.llm_detector.detect_llm_endpoints",
+                return_value={"is_llm_target": False},
+            ),
         ):
             from cyberai.core.scan_session import ScanSession
 
@@ -182,10 +188,16 @@ class TestAsyncOrchestrator:
             "subdomains": {"found": []},
             "tls": {},
         }
-        with patch(
-            "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
-            new_callable=AsyncMock,
-            return_value=recon_payload,
+        with (
+            patch(
+                "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
+                new_callable=AsyncMock,
+                return_value=recon_payload,
+            ),
+            patch(
+                "cyberai.agents.recon.llm_detector.detect_llm_endpoints",
+                return_value={"is_llm_target": False},
+            ),
         ):
             from cyberai.core.scan_session import ScanSession
 
@@ -196,6 +208,52 @@ class TestAsyncOrchestrator:
         assert session.kb.get("recon.dns") == {"records": []}
         assert session.kb.get("recon.subdomains") == {"found": []}
         assert session.kb.get("recon.nmap", {}).get("ports") == [22]
+
+    def test_async_recon_populates_result_and_llm_for_planner_graph(self):
+        """Async recon must set recon.result and recon.llm_endpoints so the
+        planner KB graph builds port/service/subdomain/LLM nodes like sync."""
+        orch = self._orchestrator()
+        recon_payload = {
+            "target": "t.local",
+            "nmap": {"ports": [{"port": 22, "protocol": "tcp", "service": "ssh", "state": "open"}]},
+            "dns": {"records": []},
+            "subdomains": {"found": [{"fqdn": "dev.t.local"}]},
+            "tls": {},
+        }
+        llm_payload = {
+            "is_llm_target": True,
+            "llm_endpoints": [{"url": "http://t.local/v1/chat/completions"}],
+        }
+        with (
+            patch(
+                "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
+                new_callable=AsyncMock,
+                return_value=recon_payload,
+            ),
+            patch(
+                "cyberai.agents.recon.llm_detector.detect_llm_endpoints",
+                return_value=llm_payload,
+            ),
+        ):
+            from cyberai.core.scan_session import ScanSession
+
+            session = ScanSession(target="t.local")
+            asyncio.run(orch._run_recon_async(session))
+
+        result = session.kb.get("recon.result")
+        assert result["target"] == "t.local"
+        assert result["ports"] == [
+            {"port": 22, "protocol": "tcp", "service": "ssh", "version": None}
+        ]
+        assert result["subdomains"] == ["dev.t.local"]
+        assert session.kb.get("recon.llm_endpoints") == llm_payload
+
+        # The planner graph now sees port + LLM nodes on the async path.
+        from cyberai.core.kb_graph import build_kb_graph
+
+        graph = build_kb_graph(session.kb, "t.local")
+        ntypes = {d["ntype"] for _, d in graph.nodes(data=True)}
+        assert "port" in ntypes and "llm_endpoint" in ntypes
 
     def test_sync_intel_runs_under_to_thread(self):
         """Intel/exploit/report stay sync; AsyncOrchestrator must offload them."""

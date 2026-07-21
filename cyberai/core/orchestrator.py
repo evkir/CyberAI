@@ -362,6 +362,8 @@ class AsyncOrchestrator(Orchestrator):
 
     async def _run_recon_async(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.async_agent import AsyncReconAgent
+        from cyberai.agents.recon.llm_detector import detect_llm_endpoints
+        from cyberai.core.types import OpenPort, ReconResult
 
         agent = AsyncReconAgent()
         result = await agent.run(session.target)
@@ -371,4 +373,26 @@ class AsyncOrchestrator(Orchestrator):
         for _sub in ("nmap", "dns", "subdomains", "tls"):
             if _sub in result:
                 session.kb.set(f"recon.{_sub}", result[_sub], agent="async_recon")
+
+        # LLM/RAG endpoint discovery — the async recon agent omits it, so run
+        # it here (offloaded) to match the sync path; the planner KB graph
+        # reads recon.llm_endpoints to build LLM_ENDPOINT nodes.
+        llm_result = await asyncio.to_thread(detect_llm_endpoints, session.target)
+        session.kb.set("recon.llm_endpoints", llm_result, agent="async_recon")
+
+        # Validated ReconResult so the planner KB graph gets port/service/
+        # subdomain nodes (build_kb_graph reads recon.result), matching sync.
+        nmap = result.get("nmap") if isinstance(result.get("nmap"), dict) else {}
+        raw_ports = nmap.get("ports", []) if isinstance(nmap, dict) else []
+        subs = result.get("subdomains") if isinstance(result.get("subdomains"), dict) else {}
+        subdomains = [
+            r["fqdn"] for r in (subs.get("found") or []) if isinstance(r, dict) and r.get("fqdn")
+        ]
+        recon_result = ReconResult(
+            target=session.target,
+            ports=[OpenPort(**p) for p in raw_ports if isinstance(p, dict)],
+            dns=result.get("dns") if isinstance(result.get("dns"), dict) else {},
+            subdomains=subdomains,
+        )
+        session.kb.set("recon.result", recon_result.model_dump(), agent="async_recon")
         return result
