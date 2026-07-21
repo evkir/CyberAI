@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from cyberai.agents.intel.agent import IntelAgent, IntelAgentV2, _normalize
 from cyberai.core.config import CyberAIConfig
-from cyberai.core.scan_session import ScanSession
+from cyberai.core.scan_session import ScanSession, Severity
 
 
 # ── normalize helper ─────────────────────────────────────────────────
@@ -71,7 +71,19 @@ SAMPLE_CVES = [
 def _agent_with_recon(cves):
     """Build a real IntelAgent with recon data in the KB and mocked NVD."""
     session = ScanSession(target="10.0.0.1")
-    session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [
+                {
+                    "port": 80,
+                    "service": "http",
+                    "product": "Apache httpd",
+                    "version": "2.4.1",
+                }
+            ]
+        },
+    )
     agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
     return agent, session
 
@@ -224,3 +236,91 @@ def test_ranked_cves_filter_cross_product_fp():
     assert "CVE-FP" not in ranked_ids
     kb_ids = [r["cve_id"] for r in session.kb.get("intel.ranked_cves")]
     assert "CVE-FP" not in kb_ids
+
+
+def test_degraded_no_version_caps_severity_to_info():
+    """nmap -sV degraded (service present, no product/version): a keyword-only
+    CVE match must be capped to INFO and flagged UNCONFIRMED, not surfaced as
+    HIGH — honest severity when relevance cannot be confirmed."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
+    agent = IntelAgent(CyberAIConfig(), session)
+    cves = [
+        {
+            "id": "CVE-1999-0236",
+            "cvss": {"score": 9.8},
+            "description": "ScriptAlias in Apache httpd allows remote read",
+        }
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        agent.run("10.0.0.1")
+
+    f = [x for x in session.findings if x.title == "CVE-1999-0236"]
+    assert f, "expected the keyword CVE to still surface (as INFO)"
+    assert all(x.severity == Severity.INFO for x in f)
+    assert all(any("UNCONFIRMED" in str(e) for e in x.evidence) for x in f)
+
+
+def test_degraded_no_version_suppresses_ranked_cves():
+    """Degraded scan must not present speculative attack paths: ranked_cves
+    empty and KB written empty for consistent downstream reads."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
+    agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
+    cves = [
+        {
+            "id": "CVE-1999-0236",
+            "cvss": {"score": 9.8},
+            "description": "ScriptAlias in Apache httpd allows remote read",
+        }
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        result = agent.run("10.0.0.1")
+
+    assert result["ranked_cves"] == []
+    assert session.kb.get("intel.ranked_cves") == []
+    assert "suppressed" in result["risk_summary"].get("note", "")
+
+
+def test_version_known_keeps_high_and_ranks():
+    """When -sV captured a product, a relevant CVE keeps full severity and is
+    ranked (no-regression against the degraded gate)."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [
+                {
+                    "port": 80,
+                    "service": "http",
+                    "product": "Apache httpd",
+                    "version": "2.4.1",
+                }
+            ]
+        },
+    )
+    agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
+    cves = [
+        {
+            "id": "CVE-REL",
+            "cvss": {"score": 9.8},
+            "description": "Apache httpd remote code execution flaw",
+        }
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        result = agent.run("10.0.0.1")
+
+    f = [x for x in session.findings if x.title == "CVE-REL"]
+    assert f
+    assert all(x.severity != Severity.INFO for x in f)
+    assert all(not any("UNCONFIRMED" in str(e) for e in x.evidence) for x in f)
+    assert "CVE-REL" in [r["cve_id"] for r in result["ranked_cves"]]
