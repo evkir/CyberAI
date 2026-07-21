@@ -81,6 +81,11 @@ class IntelAgent(BaseAgent):
             all_cves.extend(result.get("cves", []))
             time.sleep(0.6)
 
+        # Relevance filter (single source of truth): drop cross-product
+        # keyword collisions here so they leak into neither findings nor
+        # ranked_cves/attack paths. Empty tokens -> no-op (no-regression).
+        all_cves = [c for c in all_cves if cve_is_relevant(c.get("description", ""), tokens)]
+
         # Enrich CVEs with EPSS scores (probability of exploitation
         # in the wild in the next 30 days). Single batched call.
         cve_ids = [c["id"] for c in all_cves if c.get("id")]
