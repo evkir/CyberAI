@@ -55,14 +55,14 @@ SAMPLE_CVES = [
     {
         "id": "CVE-2024-0001",
         "cvss": {"score": 9.8},
-        "description": "Critical RCE",
+        "description": "Critical HTTP server RCE",
         "published": "2024-11-01T00:00:00+00:00",
         "poc_likely": True,
     },
     {
         "id": "CVE-2023-0002",
         "cvss": {"score": 5.0},
-        "description": "Medium issue",
+        "description": "Medium HTTP config issue",
         "published": "2023-06-01T00:00:00+00:00",
     },
 ]
@@ -179,3 +179,48 @@ def test_findings_filter_cross_product_fp():
     titles = [f.title for f in session.findings]
     assert "CVE-REL" in titles
     assert "CVE-FP" not in titles
+
+
+def test_ranked_cves_filter_cross_product_fp():
+    """A sendmail CVE returned via keyword collision must not reach
+    ranked_cves/attack paths on an OpenSSH host, while the genuine
+    OpenSSH CVE still ranks (regression: FP leaked past findings guard
+    into risk_prioritizer scoring)."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [
+                {
+                    "port": 22,
+                    "service": "ssh",
+                    "product": "OpenSSH",
+                    "version": "6.6.1p1",
+                }
+            ]
+        },
+    )
+    agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
+    cves = [
+        {
+            "id": "CVE-REL",
+            "cvss": {"score": 9.8},
+            "description": "OpenSSH remote code execution flaw",
+        },
+        {
+            "id": "CVE-FP",
+            "cvss": {"score": 10.0},
+            "description": "Sendmail DEBUG command allows remote command execution",
+        },
+    ]
+    with (
+        patch("cyberai.agents.intel.agent.search_cves", return_value={"cves": cves}),
+        patch("cyberai.agents.intel.agent.get_epss_scores", return_value={}),
+    ):
+        result = agent.run("10.0.0.1")
+
+    ranked_ids = [r["cve_id"] for r in result["ranked_cves"]]
+    assert "CVE-REL" in ranked_ids
+    assert "CVE-FP" not in ranked_ids
+    kb_ids = [r["cve_id"] for r in session.kb.get("intel.ranked_cves")]
+    assert "CVE-FP" not in kb_ids
