@@ -10,6 +10,8 @@ from cyberai.core.types import OpenPort, ReconResult
 
 from .dns_tool import detect_subdomains, run_dns, run_whois
 from .llm_detector import detect_llm_endpoints
+from .behavioral import BehavioralFingerprint
+from .behavioral_probe import build_probe_context
 from .nmap_tool import run_nmap
 
 
@@ -68,6 +70,22 @@ class ReconAgent(BaseAgent):
             self._log(f"nmap_scan FAILED: {nmap_result['error']}", nmap_result)
         else:
             self._log("nmap_scan complete", nmap_result)
+
+        # 1b. Behavioral fingerprint (flag-gated) — honeypot/WAF/tarpit trust.
+        if getattr(self.config, "use_behavioral_fingerprint", False):
+            self._check_iteration_limit()
+            ports_bf = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
+            ctx = build_probe_context(target, ports_bf)
+            bf = BehavioralFingerprint()
+            bf_result = bf.run(
+                target,
+                probe_fn=ctx.probe_fn,
+                headers=ctx.headers,
+                banners=ctx.banners,
+            )
+            bf.record(bf_result, self.session, agent=self.AGENT_NAME)
+            results["recon.trust"] = bf_result.to_dict()
+            self._log("behavioral_fingerprint complete", bf_result.to_dict())
 
         # 2. whois
         self._check_iteration_limit()
