@@ -98,6 +98,7 @@ def _parse_cpe_configs(configs: List[Dict]) -> List[Dict]:
                 fields = match.get("criteria", "").split(":")
                 rules.append(
                     {
+                        "vendor": fields[3] if len(fields) > 3 else "",
                         "product": fields[4] if len(fields) > 4 else "",
                         "version": fields[5] if len(fields) > 5 else "*",
                         "version_start_including": match.get("versionStartIncluding"),
