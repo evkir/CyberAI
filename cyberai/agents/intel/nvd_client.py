@@ -75,6 +75,41 @@ def get_cve(cve_id: str) -> Dict[str, Any]:
         return {"cve_id": cve_id, "error": str(e)}
 
 
+def _parse_cpe_configs(configs: List[Dict]) -> List[Dict]:
+    """Flatten NVD ``configurations`` into a list of applicable-version rules.
+
+    Each vulnerable ``cpeMatch`` becomes a dict carrying the CPE product plus
+    whatever version constraint NVD supplies — either a concrete pinned
+    version (from the CPE 2.3 ``criteria`` string, e.g. ``openssh:2.1``) or a
+    range via ``versionStart*/versionEnd*``. Downstream this lets the intel
+    layer drop CVEs whose ranges do not cover the detected service version,
+    instead of matching purely on product keyword. Placeholder CVEs with no
+    configurations yield an empty list (version-unconfirmable).
+
+    CPE 2.3 layout: ``cpe:2.3:part:vendor:product:version:...`` — product is
+    field 4, version is field 5.
+    """
+    rules: List[Dict] = []
+    for cfg in configs or []:
+        for node in cfg.get("nodes", []):
+            for match in node.get("cpeMatch", []):
+                if not match.get("vulnerable", False):
+                    continue
+                fields = match.get("criteria", "").split(":")
+                rules.append(
+                    {
+                        "vendor": fields[3] if len(fields) > 3 else "",
+                        "product": fields[4] if len(fields) > 4 else "",
+                        "version": fields[5] if len(fields) > 5 else "*",
+                        "version_start_including": match.get("versionStartIncluding"),
+                        "version_start_excluding": match.get("versionStartExcluding"),
+                        "version_end_including": match.get("versionEndIncluding"),
+                        "version_end_excluding": match.get("versionEndExcluding"),
+                    }
+                )
+    return rules
+
+
 def _parse_cves(vulns: List[Dict]) -> List[Dict]:
     """Extract key fields from NVD vulnerability objects"""
     results = []
@@ -119,6 +154,7 @@ def _parse_cves(vulns: List[Dict]) -> List[Dict]:
                 "cvss": cvss,
                 "published": cve.get("published", ""),
                 "references": [r["url"] for r in cve.get("references", [])[:3]],
+                "cpe": _parse_cpe_configs(cve.get("configurations", [])),
             }
         )
     return results
