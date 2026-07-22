@@ -376,3 +376,24 @@ def test_out_of_range_cve_dropped_entirely():
 
     assert "CVE-2000-0525" not in [f.title for f in session.findings]
     assert "CVE-2000-0525" not in [r["cve_id"] for r in result["ranked_cves"]]
+
+
+def test_v2_mass_open_skips_cve_lookup_with_info_finding():
+    """A mass-open recon result (proxy/tunnel/tarpit) must skip the CVE spray
+    and surface a single honest INFO finding instead."""
+    session = ScanSession(target="10.0.0.1")
+    session.kb.set(
+        "recon.nmap",
+        {
+            "ports": [{"port": 80, "service": "http", "state": "open"}],
+            "mass_open": True,
+            "open_count": 781,
+        },
+    )
+    agent = IntelAgent(CyberAIConfig(), session)
+    with patch("cyberai.agents.intel.agent.search_cves") as mock_search:
+        result = agent.run("10.0.0.1")
+    mock_search.assert_not_called()
+    assert result["status"] == "skipped" and result["reason"] == "mass_open"
+    assert result["open_ports"] == 781
+    assert any(f.severity == Severity.INFO and "proxy/tunnel" in f.title for f in session.findings)

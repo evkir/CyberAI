@@ -241,3 +241,30 @@ def test_parse_ports_missing_product_version_defaults_empty():
     assert ports[0]["service"] == "http"
     assert ports[0]["product"] == ""
     assert ports[0]["version"] == ""
+
+
+# ── mass-open (fake-ip proxy / tarpit) guard ──────────────────────────
+
+
+def test_mass_open_flags_untrusted_scan():
+    """A scan with implausibly many open ports (fake-ip proxy / tarpit) is
+    flagged mass_open so intel can skip a meaningless CVE spray."""
+    many = "".join(
+        f'<port protocol="tcp" portid="{i}">'
+        '<state state="open" reason="syn-ack"/>'
+        f'<service name="svc{i}"/></port>'
+        for i in range(1, 151)
+    )
+    fake = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", return_value=fake):
+        res = run_nmap("scanme.test", flags="-sV")
+    assert res.get("mass_open") is True
+    assert res["open_count"] == 150
+
+
+def test_normal_scan_not_flagged_mass_open():
+    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", return_value=fake):
+        res = run_nmap("scanme.test", flags="-sV")
+    assert res.get("mass_open") is None
+    assert res["ports"] and res["ports"][0]["port"] == 80
