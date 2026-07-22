@@ -6,6 +6,11 @@ that :meth:`BehavioralFingerprint.run` consumes. The two network primitives
 are injected as callables so the adapter is fully testable offline; each one
 degrades to an empty result on any error. No new dependencies are introduced
 (httpx already backs the recon package), preserving the air-gapped invariant.
+
+Probing is bounded so a hostile or noisy channel cannot stall recon: banner
+grabs are capped in count and by a total time budget, and a mass-open target
+(a proxy/tunnel fake-ip reporting hundreds of bogus open ports) is probed only
+on its http port and first port instead of the full spray.
 """
 
 from __future__ import annotations
