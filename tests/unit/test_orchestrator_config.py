@@ -10,7 +10,13 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from cyberai.__main__ import cli
-from cyberai.core.config import CyberAIConfig, LLMConfig, _env_bool
+from cyberai.core.config import (
+    CyberAIConfig,
+    LLMConfig,
+    _env_bool,
+    _env_float,
+    _env_int,
+)
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanState
 
@@ -203,3 +209,88 @@ def test_from_env_all_bool_flags_enabled(monkeypatch):
     assert cfg.web_enable_bench_trigger is True
     assert cfg.air_gapped is True
     assert cfg.routing.enable_model_routing is True
+
+
+# -- Numeric / path env passthrough (from_env) --
+
+_NUMERIC_ENV_VARS = [
+    "CYBERAI_VERBOSE",
+    "CYBERAI_TIMEOUT",
+    "CYBERAI_MAX_AGENT_ITERATIONS",
+    "CYBERAI_MAX_COST_USD",
+    "CYBERAI_JUDGE_THRESHOLD",
+    "CYBERAI_JUDGE_MODEL",
+    "CYBERAI_EXPLOIT_MEMORY_PATH",
+    "CYBERAI_LAB_MACHINES_DIR",
+    "CYBERAI_OUTPUT_DIR",
+]
+
+
+def _clear_numeric_env(monkeypatch):
+    for var in _NUMERIC_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_env_float_valid(monkeypatch):
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "2.5")
+    assert _env_float("CYBERAI_TEST_NUM", 0.0) == 2.5
+
+
+def test_env_float_invalid_and_empty_use_default(monkeypatch):
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "abc")
+    assert _env_float("CYBERAI_TEST_NUM", 1.0) == 1.0
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "  ")
+    assert _env_float("CYBERAI_TEST_NUM", 1.0) == 1.0
+    monkeypatch.delenv("CYBERAI_TEST_NUM", raising=False)
+    assert _env_float("CYBERAI_TEST_NUM", 1.0) == 1.0
+
+
+def test_env_int_valid(monkeypatch):
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "42")
+    assert _env_int("CYBERAI_TEST_NUM", 0) == 42
+
+
+def test_env_int_invalid_and_empty_use_default(monkeypatch):
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "3.5")
+    assert _env_int("CYBERAI_TEST_NUM", 7) == 7
+    monkeypatch.setenv("CYBERAI_TEST_NUM", "")
+    assert _env_int("CYBERAI_TEST_NUM", 7) == 7
+    monkeypatch.delenv("CYBERAI_TEST_NUM", raising=False)
+    assert _env_int("CYBERAI_TEST_NUM", 7) == 7
+
+
+def test_from_env_numeric_defaults(monkeypatch):
+    _clear_numeric_env(monkeypatch)
+    cfg = CyberAIConfig.from_env()
+    assert cfg.verbose is False
+    assert cfg.timeout == 60
+    assert cfg.max_agent_iterations == 10
+    assert cfg.max_cost_usd == 0.0
+    assert cfg.judge_threshold == 0.7
+    assert cfg.judge_model is None
+    assert cfg.exploit_memory_path is None
+    assert cfg.lab_machines_dir is None
+    assert str(cfg.output_dir) == "reports"
+
+
+def test_from_env_numeric_overrides(monkeypatch):
+    _clear_numeric_env(monkeypatch)
+    monkeypatch.setenv("CYBERAI_VERBOSE", "1")
+    monkeypatch.setenv("CYBERAI_TIMEOUT", "120")
+    monkeypatch.setenv("CYBERAI_MAX_AGENT_ITERATIONS", "20")
+    monkeypatch.setenv("CYBERAI_MAX_COST_USD", "5.0")
+    monkeypatch.setenv("CYBERAI_JUDGE_THRESHOLD", "0.9")
+    monkeypatch.setenv("CYBERAI_JUDGE_MODEL", "claude-opus-4-8")
+    monkeypatch.setenv("CYBERAI_EXPLOIT_MEMORY_PATH", "/tmp/mem.db")
+    monkeypatch.setenv("CYBERAI_LAB_MACHINES_DIR", "/home/x/oscp/machines")
+    monkeypatch.setenv("CYBERAI_OUTPUT_DIR", "/tmp/out")
+    cfg = CyberAIConfig.from_env()
+    assert cfg.verbose is True
+    assert cfg.timeout == 120
+    assert cfg.max_agent_iterations == 20
+    assert cfg.max_cost_usd == 5.0
+    assert cfg.judge_threshold == 0.9
+    assert cfg.judge_model == "claude-opus-4-8"
+    assert cfg.exploit_memory_path == "/tmp/mem.db"
+    assert cfg.lab_machines_dir == "/home/x/oscp/machines"
+    assert str(cfg.output_dir) == "/tmp/out"

@@ -20,6 +20,28 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_float(name: str, default: float) -> float:
+    """Read a float setting from the environment; unset/invalid keeps default."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an int setting from the environment; unset/invalid keeps default."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 @dataclass
 class RoutingConfig:
     """Per-phase model routing. Off by default (no-regression)."""
@@ -126,9 +148,20 @@ class CyberAIConfig:
         routing = RoutingConfig(
             enable_model_routing=_env_bool("CYBERAI_ENABLE_MODEL_ROUTING", False),
         )
+        out = os.getenv("CYBERAI_OUTPUT_DIR")
+        output_dir = Path(out) if out else Path("reports/")
         return cls(
             llm=LLMConfig(provider=provider, model=model),
             routing=routing,
+            output_dir=output_dir,
+            verbose=_env_bool("CYBERAI_VERBOSE", False),
+            timeout=_env_int("CYBERAI_TIMEOUT", 60),
+            max_agent_iterations=_env_int("CYBERAI_MAX_AGENT_ITERATIONS", 10),
+            max_cost_usd=_env_float("CYBERAI_MAX_COST_USD", 0.0),
+            judge_threshold=_env_float("CYBERAI_JUDGE_THRESHOLD", 0.7),
+            judge_model=os.getenv("CYBERAI_JUDGE_MODEL") or None,
+            exploit_memory_path=os.getenv("CYBERAI_EXPLOIT_MEMORY_PATH") or None,
+            lab_machines_dir=os.getenv("CYBERAI_LAB_MACHINES_DIR") or None,
             use_nuclei=_env_bool("CYBERAI_USE_NUCLEI", False),
             use_judge=_env_bool("CYBERAI_USE_JUDGE", False),
             enable_replan=_env_bool("CYBERAI_ENABLE_REPLAN", False),
