@@ -90,6 +90,7 @@ class ProbeContext:
     probe_fn: Callable[[int], ProbeResult]
     headers: Dict[str, str] = field(default_factory=dict)
     banners: List[str] = field(default_factory=list)
+    note: str = ""
 
 
 def build_probe_context(
@@ -101,6 +102,7 @@ def build_probe_context(
     max_probes: int = _MAX_BANNER_PROBES,
     budget: float = _TOTAL_BUDGET,
     now_fn: Callable[[], float] = time.monotonic,
+    mass_open: bool = False,
 ) -> ProbeContext:
     """Build a :class:`ProbeContext` for ``target`` from its open ``ports``.
 
@@ -117,12 +119,25 @@ def build_probe_context(
     if http_port is not None:
         headers = http_get(_http_url(target, http_port))
 
+    # On a mass-open target (proxy/tunnel fake-ip reporting hundreds of bogus
+    # open ports) skip the spray: probe only the http port and the first port
+    # so we still get a signal without hundreds of meaningless grabs.
+    probe_ports = ports
+    note = ""
+    if mass_open:
+        note = "probes capped: mass-open target (proxy/tunnel)"
+        probe_ports = []
+        if http_port is not None:
+            probe_ports.append({"port": http_port})
+        if ports:
+            probe_ports.append(ports[0])
+
     # Honeypot banners: one grab per open port, bounded by a probe cap and a
     # total time budget so a mass-open or slow target cannot stall the phase.
     banners: List[str] = []
     probes_done = 0
     budget_start = now_fn()
-    for p in ports:
+    for p in probe_ports:
         if probes_done >= max_probes:
             break
         if now_fn() - budget_start > budget:
@@ -145,4 +160,4 @@ def build_probe_context(
         banner = banner_grab(target, probe_port)
         return ProbeResult(latency=time.monotonic() - start, banner=banner, length=len(banner))
 
-    return ProbeContext(probe_fn=probe_fn, headers=headers, banners=banners)
+    return ProbeContext(probe_fn=probe_fn, headers=headers, banners=banners, note=note)

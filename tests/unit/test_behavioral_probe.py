@@ -199,3 +199,37 @@ def test_build_context_stops_on_time_budget():
 def test_probe_bound_defaults_are_sane():
     assert _MAX_BANNER_PROBES > 0
     assert _TOTAL_BUDGET > 0
+
+
+# -- mass-open guard: no probe spray on fake-ip targets --
+
+
+def test_build_context_mass_open_skips_spray():
+    """mass_open probes only the http port and the first port, plus a note."""
+    ports = [{"port": 22, "service": "ssh"}, {"port": 80, "service": "http"}]
+    ports += [{"port": 1000 + i, "service": "unknown"} for i in range(300)]
+    banner_grab = MagicMock(return_value="b")
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=banner_grab, mass_open=True
+    )
+    assert banner_grab.call_count == 2
+    assert "mass-open" in ctx.note
+
+
+def test_build_context_mass_open_no_http_port():
+    """With no http port, mass_open probes only the first port."""
+    ports = [{"port": 22, "service": "ssh"}] + [{"port": 1000 + i} for i in range(50)]
+    banner_grab = MagicMock(return_value="b")
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=banner_grab, mass_open=True
+    )
+    assert banner_grab.call_count == 1
+    assert ctx.note
+
+
+def test_build_context_no_mass_open_has_empty_note():
+    ports = [{"port": 80, "service": "http"}]
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=MagicMock(return_value="b")
+    )
+    assert ctx.note == ""
