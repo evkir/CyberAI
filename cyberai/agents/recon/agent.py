@@ -75,7 +75,12 @@ class ReconAgent(BaseAgent):
         if getattr(self.config, "use_behavioral_fingerprint", False):
             self._check_iteration_limit()
             ports_bf = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
-            ctx = build_probe_context(target, ports_bf)
+            mass_open = (
+                bool(nmap_result.get("mass_open")) if isinstance(nmap_result, dict) else False
+            )
+            ctx = build_probe_context(target, ports_bf, mass_open=mass_open)
+            if ctx.note:
+                self._log(ctx.note, {"target": target})
             bf = BehavioralFingerprint()
             bf_result = bf.run(
                 target,

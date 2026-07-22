@@ -132,14 +132,14 @@ def _run_recon(config):
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch(
             "cyberai.agents.recon.agent.build_probe_context",
-            side_effect=lambda tgt, ports: _fake_ctx(),
+            side_effect=lambda tgt, ports, mass_open=False: _fake_ctx(),
         ) as mock_ctx,
     ):
         agent.run("t.local")
     return session, mock_ctx
 
 
-def _fake_ctx():
+def _fake_ctx(note=""):
     from cyberai.agents.recon.behavioral import ProbeResult
     from cyberai.agents.recon.behavioral_probe import ProbeContext
 
@@ -147,6 +147,7 @@ def _fake_ctx():
         probe_fn=lambda i: ProbeResult(latency=0.01),
         headers={"Server": "cloudflare", "CF-RAY": "x"},
         banners=["SSH-2.0-OpenSSH_9.6p1 Ubuntu"],
+        note=note,
     )
 
 
@@ -163,6 +164,41 @@ def test_recon_skips_behavioral_when_flag_disabled():
     session, mock_ctx = _run_recon(CyberAIConfig())
     mock_ctx.assert_not_called()
     assert session.kb.get("recon.trust") is None
+
+
+def test_recon_passes_mass_open_into_probe_context():
+    """A mass-open nmap result reaches build_probe_context; its note is logged."""
+    from cyberai.agents.recon.agent import ReconAgent
+
+    session = ScanSession(target="t.local")
+    agent = ReconAgent(
+        CyberAIConfig(use_behavioral_fingerprint=True), session, MagicMock(), MagicMock()
+    )
+    mass_nmap = {
+        "target": "t.local",
+        "ports": [{"port": 80, "service": "http", "state": "open"}],
+        "mass_open": True,
+        "open_count": 700,
+        "returncode": 0,
+    }
+    captured = {}
+
+    def fake_build(tgt, ports, mass_open=False):
+        captured["mass_open"] = mass_open
+        return _fake_ctx(note="probes capped: mass-open target (proxy/tunnel)")
+
+    with (
+        patch("cyberai.agents.recon.agent.run_nmap", return_value=mass_nmap),
+        patch("cyberai.agents.recon.agent.run_whois", return_value={}),
+        patch("cyberai.agents.recon.agent.run_dns", return_value={}),
+        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
+        patch("cyberai.agents.recon.agent.build_probe_context", side_effect=fake_build),
+    ):
+        agent.run("t.local")
+
+    assert captured["mass_open"] is True
+    assert session.kb.get("recon.trust") is not None
 
 
 # -- probe bounds: cap + time budget --
