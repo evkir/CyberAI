@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from cyberai.__main__ import cli
+from cyberai.__main__ import _apply_feature_overrides, cli
 from cyberai.core.config import (
     CyberAIConfig,
     LLMConfig,
@@ -294,3 +294,60 @@ def test_from_env_numeric_overrides(monkeypatch):
     assert cfg.exploit_memory_path == "/tmp/mem.db"
     assert cfg.lab_machines_dir == "/home/x/oscp/machines"
     assert str(cfg.output_dir) == "/tmp/out"
+
+
+# -- CLI feature-flag overrides (_apply_feature_overrides / scan) --
+
+
+def test_apply_overrides_none_leaves_untouched():
+    cfg = CyberAIConfig()
+    cfg.use_behavioral_fingerprint = True
+    cfg.use_nuclei = True
+    _apply_feature_overrides(cfg)
+    assert cfg.use_behavioral_fingerprint is True
+    assert cfg.use_nuclei is True
+
+
+def test_apply_overrides_forces_true():
+    cfg = CyberAIConfig()
+    _apply_feature_overrides(
+        cfg, behavioral=True, nuclei=True, judge=True, replan=True, air_gapped=True
+    )
+    assert cfg.use_behavioral_fingerprint is True
+    assert cfg.use_nuclei is True
+    assert cfg.use_judge is True
+    assert cfg.enable_replan is True
+    assert cfg.air_gapped is True
+
+
+def test_apply_overrides_forces_false_over_enabled():
+    cfg = CyberAIConfig()
+    cfg.use_behavioral_fingerprint = True
+    cfg.air_gapped = True
+    _apply_feature_overrides(cfg, behavioral=False, air_gapped=False)
+    assert cfg.use_behavioral_fingerprint is False
+    assert cfg.air_gapped is False
+
+
+def test_cli_scan_behavioral_flag_exits_zero():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--behavioral"])
+    assert result.exit_code == 0, result.output
+
+
+def test_cli_scan_no_behavioral_flag_exits_zero():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--no-behavioral"])
+    assert result.exit_code == 0, result.output
+
+
+def test_cli_scan_air_gapped_flag_exits_zero():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--air-gapped"])
+    assert result.exit_code == 0, result.output
+
+
+def test_cli_scan_verbose_flag_exits_zero():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "-v"])
+    assert result.exit_code == 0, result.output

@@ -29,6 +29,34 @@ def _detach_stdin_from_tty() -> None:
         pass
 
 
+def _apply_feature_overrides(
+    config: CyberAIConfig,
+    *,
+    behavioral: bool | None = None,
+    nuclei: bool | None = None,
+    judge: bool | None = None,
+    replan: bool | None = None,
+    air_gapped: bool | None = None,
+) -> CyberAIConfig:
+    """Apply CLI feature-flag overrides onto a config built from the env.
+
+    Each flag is tri-state: None leaves the env/default value untouched,
+    True/False forces it. The CLI can thus both enable and disable a flag
+    regardless of what the environment set.
+    """
+    if behavioral is not None:
+        config.use_behavioral_fingerprint = behavioral
+    if nuclei is not None:
+        config.use_nuclei = nuclei
+    if judge is not None:
+        config.use_judge = judge
+    if replan is not None:
+        config.enable_replan = replan
+    if air_gapped is not None:
+        config.air_gapped = air_gapped
+    return config
+
+
 BANNER = """
 [bold red]
  ██████╗██╗   ██╗██████╗ ███████╗██████╗  █████╗ ██╗
@@ -54,6 +82,25 @@ def cli() -> None:
 @click.option("--model", default=None, help="LLM model (overrides provider default)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
+@click.option(
+    "--behavioral/--no-behavioral",
+    default=None,
+    help="Force behavioral fingerprint (honeypot/WAF/tarpit) on or off",
+)
+@click.option(
+    "--nuclei/--no-nuclei", default=None, help="Force the nuclei exploit engine on or off"
+)
+@click.option(
+    "--judge/--no-judge", default=None, help="Force the LLM-as-Judge report check on or off"
+)
+@click.option(
+    "--replan/--no-replan", default=None, help="Force critic-driven phase replan on or off"
+)
+@click.option(
+    "--air-gapped/--no-air-gapped",
+    default=None,
+    help="Force local-only (no-egress) LLM path on or off",
+)
 def scan(
     target: str,
     verbose: bool,
@@ -61,6 +108,11 @@ def scan(
     model: str | None,
     dry_run: bool,
     scope: tuple[str, ...],
+    behavioral: bool | None,
+    nuclei: bool | None,
+    judge: bool | None,
+    replan: bool | None,
+    air_gapped: bool | None,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -68,7 +120,9 @@ def scan(
     console.print(Panel(f"[bold]Target:[/bold] {target}", style="red"))
 
     config = CyberAIConfig.from_env()
-    config.verbose = verbose
+    # -v forces verbose on; without it, CYBERAI_VERBOSE from the env survives.
+    if verbose:
+        config.verbose = True
     if provider:
         config.llm.provider = provider
     # --model wins; otherwise a new provider re-resolves its default
@@ -77,6 +131,15 @@ def scan(
         config.llm.model = model
     elif provider and not os.getenv("CYBERAI_MODEL"):
         config.llm.model = LLMConfig.default_model_for(provider)
+
+    _apply_feature_overrides(
+        config,
+        behavioral=behavioral,
+        nuclei=nuclei,
+        judge=judge,
+        replan=replan,
+        air_gapped=air_gapped,
+    )
 
     orchestrator = Orchestrator(config=config, dry_run=dry_run)
 
