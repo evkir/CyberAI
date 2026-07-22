@@ -28,6 +28,11 @@ _CONNECT_TIMEOUT = 3.0
 _HTTP_TIMEOUT = 5.0
 _BANNER_BYTES = 256
 
+# Bounds so a mass-open or slow-dripping (tarpit/honeypot) target cannot
+# stall recon: cap the number of banner grabs and the total wall-clock time.
+_MAX_BANNER_PROBES = 10
+_TOTAL_BUDGET = 20.0
+
 # url -> response headers; (host, port) -> banner text.
 HttpGet = Callable[[str], Dict[str, str]]
 BannerGrab = Callable[[str, int], str]
@@ -93,6 +98,9 @@ def build_probe_context(
     *,
     http_get: Optional[HttpGet] = None,
     banner_grab: Optional[BannerGrab] = None,
+    max_probes: int = _MAX_BANNER_PROBES,
+    budget: float = _TOTAL_BUDGET,
+    now_fn: Callable[[], float] = time.monotonic,
 ) -> ProbeContext:
     """Build a :class:`ProbeContext` for ``target`` from its open ``ports``.
 
@@ -109,13 +117,21 @@ def build_probe_context(
     if http_port is not None:
         headers = http_get(_http_url(target, http_port))
 
-    # Honeypot banners: one grab per open port.
+    # Honeypot banners: one grab per open port, bounded by a probe cap and a
+    # total time budget so a mass-open or slow target cannot stall the phase.
     banners: List[str] = []
+    probes_done = 0
+    budget_start = now_fn()
     for p in ports:
+        if probes_done >= max_probes:
+            break
+        if now_fn() - budget_start > budget:
+            break
         num = _port_num(p)
         if num is None:
             continue
         banner = banner_grab(target, num)
+        probes_done += 1
         if banner:
             banners.append(banner)
 
