@@ -5,6 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from cyberai.agents.recon.behavioral_probe import (
+    _MAX_BANNER_PROBES,
+    _TOTAL_BUDGET,
     ProbeContext,
     _default_banner_grab,
     _default_http_get,
@@ -130,14 +132,14 @@ def _run_recon(config):
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch(
             "cyberai.agents.recon.agent.build_probe_context",
-            side_effect=lambda tgt, ports: _fake_ctx(),
+            side_effect=lambda tgt, ports, mass_open=False: _fake_ctx(),
         ) as mock_ctx,
     ):
         agent.run("t.local")
     return session, mock_ctx
 
 
-def _fake_ctx():
+def _fake_ctx(note=""):
     from cyberai.agents.recon.behavioral import ProbeResult
     from cyberai.agents.recon.behavioral_probe import ProbeContext
 
@@ -145,6 +147,7 @@ def _fake_ctx():
         probe_fn=lambda i: ProbeResult(latency=0.01),
         headers={"Server": "cloudflare", "CF-RAY": "x"},
         banners=["SSH-2.0-OpenSSH_9.6p1 Ubuntu"],
+        note=note,
     )
 
 
@@ -161,3 +164,108 @@ def test_recon_skips_behavioral_when_flag_disabled():
     session, mock_ctx = _run_recon(CyberAIConfig())
     mock_ctx.assert_not_called()
     assert session.kb.get("recon.trust") is None
+
+
+def test_recon_passes_mass_open_into_probe_context():
+    """A mass-open nmap result reaches build_probe_context; its note is logged."""
+    from cyberai.agents.recon.agent import ReconAgent
+
+    session = ScanSession(target="t.local")
+    agent = ReconAgent(
+        CyberAIConfig(use_behavioral_fingerprint=True), session, MagicMock(), MagicMock()
+    )
+    mass_nmap = {
+        "target": "t.local",
+        "ports": [{"port": 80, "service": "http", "state": "open"}],
+        "mass_open": True,
+        "open_count": 700,
+        "returncode": 0,
+    }
+    captured = {}
+
+    def fake_build(tgt, ports, mass_open=False):
+        captured["mass_open"] = mass_open
+        return _fake_ctx(note="probes capped: mass-open target (proxy/tunnel)")
+
+    with (
+        patch("cyberai.agents.recon.agent.run_nmap", return_value=mass_nmap),
+        patch("cyberai.agents.recon.agent.run_whois", return_value={}),
+        patch("cyberai.agents.recon.agent.run_dns", return_value={}),
+        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
+        patch("cyberai.agents.recon.agent.build_probe_context", side_effect=fake_build),
+    ):
+        agent.run("t.local")
+
+    assert captured["mass_open"] is True
+    assert session.kb.get("recon.trust") is not None
+
+
+# -- probe bounds: cap + time budget --
+
+
+def test_build_context_caps_banner_probes():
+    """No more than max_probes banner grabs, even with many open ports."""
+    ports = [{"port": 1000 + i, "service": "unknown"} for i in range(25)]
+    banner_grab = MagicMock(return_value="b")
+    build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=banner_grab, max_probes=3
+    )
+    assert banner_grab.call_count == 3
+
+
+def test_build_context_stops_on_time_budget():
+    """A clock that jumps past budget halts the banner loop early."""
+    ports = [{"port": 1000 + i, "service": "unknown"} for i in range(25)]
+    banner_grab = MagicMock(return_value="b")
+    # now_fn: start=0, iter1=0, iter2=0, iter3=999 -> break after 2 grabs.
+    clock = iter([0.0, 0.0, 0.0, 999.0])
+    build_probe_context(
+        "h",
+        ports,
+        http_get=MagicMock(return_value={}),
+        banner_grab=banner_grab,
+        max_probes=100,
+        budget=10.0,
+        now_fn=lambda: next(clock),
+    )
+    assert banner_grab.call_count == 2
+
+
+def test_probe_bound_defaults_are_sane():
+    assert _MAX_BANNER_PROBES > 0
+    assert _TOTAL_BUDGET > 0
+
+
+# -- mass-open guard: no probe spray on fake-ip targets --
+
+
+def test_build_context_mass_open_skips_spray():
+    """mass_open probes only the http port and the first port, plus a note."""
+    ports = [{"port": 22, "service": "ssh"}, {"port": 80, "service": "http"}]
+    ports += [{"port": 1000 + i, "service": "unknown"} for i in range(300)]
+    banner_grab = MagicMock(return_value="b")
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=banner_grab, mass_open=True
+    )
+    assert banner_grab.call_count == 2
+    assert "mass-open" in ctx.note
+
+
+def test_build_context_mass_open_no_http_port():
+    """With no http port, mass_open probes only the first port."""
+    ports = [{"port": 22, "service": "ssh"}] + [{"port": 1000 + i} for i in range(50)]
+    banner_grab = MagicMock(return_value="b")
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=banner_grab, mass_open=True
+    )
+    assert banner_grab.call_count == 1
+    assert ctx.note
+
+
+def test_build_context_no_mass_open_has_empty_note():
+    ports = [{"port": 80, "service": "http"}]
+    ctx = build_probe_context(
+        "h", ports, http_get=MagicMock(return_value={}), banner_grab=MagicMock(return_value="b")
+    )
+    assert ctx.note == ""
