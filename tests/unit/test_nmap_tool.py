@@ -307,3 +307,45 @@ def test_mark_mass_open_below_threshold_returns_false():
     assert nmap_tool._mark_mass_open(parsed) is False
     assert "mass_open" not in parsed
     assert "open_count" not in parsed
+
+
+# ── discovery-first guarantees ────────────────────────────────────────
+
+
+def test_mass_open_skips_sV_entirely():
+    """On a mass-open discovery result (fake-ip / tunnel / tarpit) run_nmap must
+    NOT run -sV at all: exactly one version-less scan, no version spray. A
+    single-element side_effect makes any second nmap call raise loudly."""
+    many = "".join(
+        f'<port protocol="tcp" portid="{i}">'
+        '<state state="open" reason="syn-ack"/>'
+        f'<service name="svc{i}"/></port>'
+        for i in range(1, 151)
+    )
+    disco = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco]) as m:
+        res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    assert res["mass_open"] is True
+    assert res["open_count"] == 150
+    assert m.call_count == 1  # discovery only — no scoped -sV
+    assert "-sV" not in m.call_args_list[0][0][0]  # discovery carries no -sV
+
+
+def test_discovery_pass_is_version_less_and_keeps_scope():
+    """The discovery pass strips -sV but preserves the requested port scope."""
+    disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)
+    targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco, targeted]) as m:
+        run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    disco_argv = m.call_args_list[0][0][0]
+    assert "-sV" not in disco_argv
+    assert "--top-ports" in disco_argv  # scope preserved
+
+
+def test_non_sV_scan_single_pass_no_discovery():
+    """A caller passing explicit non-sV flags gets one scan, no discovery-first."""
+    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[fake]) as m:
+        res = run_nmap("scanme.test", flags="-T4 --top-ports 100")
+    assert m.call_count == 1
+    assert res["ports"][0]["port"] == 80
