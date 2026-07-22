@@ -136,6 +136,27 @@ def _has_products(parsed: Dict[str, Any]) -> bool:
     return any((p.get("product") or "").strip() for p in parsed.get("ports", []))
 
 
+def _strip_sv(flags: List[str]) -> List[str]:
+    """Return the validated flag list without the ``-sV`` token, for a fast
+    version-less discovery pass. Port scope and timing flags are preserved."""
+    return [t for t in flags if t != "-sV"]
+
+
+def _mark_mass_open(parsed: Dict[str, Any]) -> bool:
+    """Flag implausible mass-open results (fake-ip proxy / tunnel / tarpit).
+
+    Real hosts do not hold hundreds of the top-1000 ports open, so such a
+    result is treated as untrustworthy: the intel layer skips a meaningless
+    CVE spray over noise ports rather than gambling query budget on garbage
+    service names. Returns True when the scan was flagged."""
+    open_count = len(_open_port_nums(parsed))
+    if open_count > _MASS_OPEN_THRESHOLD:
+        parsed["mass_open"] = True
+        parsed["open_count"] = open_count
+        return True
+    return False
+
+
 def run_nmap(
     target: str,
     flags: str = "-sV -T4 --top-ports 1000",
@@ -187,10 +208,7 @@ def run_nmap(
     # Flag implausible mass-open results (fake-ip proxy / tunnel / tarpit) so
     # the intel layer skips a meaningless CVE spray over noise ports instead
     # of gambling a small query budget on garbage service names.
-    open_count = len(_open_port_nums(parsed))
-    if open_count > _MASS_OPEN_THRESHOLD:
-        parsed["mass_open"] = True
-        parsed["open_count"] = open_count
+    _mark_mass_open(parsed)
 
     if parsed.get("returncode") == 0:
         _nmap_cache.set(cache_key, parsed)

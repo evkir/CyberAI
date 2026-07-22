@@ -268,3 +268,44 @@ def test_normal_scan_not_flagged_mass_open():
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is None
     assert res["ports"] and res["ports"][0]["port"] == 80
+
+
+# ── discovery / mass-open helpers ─────────────────────────────────────
+
+
+def test_strip_sv_removes_only_sV():
+    assert nmap_tool._strip_sv(["-sV", "-T4", "--top-ports", "1000"]) == [
+        "-T4",
+        "--top-ports",
+        "1000",
+    ]
+
+
+def test_strip_sv_preserves_port_scope():
+    assert nmap_tool._strip_sv(["-sV", "-p", "80,443", "-Pn"]) == [
+        "-p",
+        "80,443",
+        "-Pn",
+    ]
+
+
+def test_strip_sv_noop_without_sV():
+    assert nmap_tool._strip_sv(["-T4", "--top-ports", "100"]) == [
+        "-T4",
+        "--top-ports",
+        "100",
+    ]
+
+
+def test_mark_mass_open_flags_and_returns_true():
+    parsed = {"ports": [{"port": i, "state": "open"} for i in range(1, 151)]}
+    assert nmap_tool._mark_mass_open(parsed) is True
+    assert parsed["mass_open"] is True
+    assert parsed["open_count"] == 150
+
+
+def test_mark_mass_open_below_threshold_returns_false():
+    parsed = {"ports": [{"port": 80, "state": "open"}]}
+    assert nmap_tool._mark_mass_open(parsed) is False
+    assert "mass_open" not in parsed
+    assert "open_count" not in parsed
