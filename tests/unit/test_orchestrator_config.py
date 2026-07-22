@@ -10,7 +10,7 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from cyberai.__main__ import cli
-from cyberai.core.config import CyberAIConfig, LLMConfig
+from cyberai.core.config import CyberAIConfig, LLMConfig, _env_bool
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanState
 
@@ -127,3 +127,79 @@ def test_cli_model_flag_overrides(monkeypatch):
         cli, ["scan", "127.0.0.1", "--dry-run", "--provider", "ollama", "--model", "mistral"]
     )
     assert result.exit_code == 0, result.output
+
+
+# -- Feature-flag env passthrough (from_env) --
+
+_FLAG_ENV_VARS = [
+    "CYBERAI_USE_NUCLEI",
+    "CYBERAI_USE_JUDGE",
+    "CYBERAI_ENABLE_REPLAN",
+    "CYBERAI_USE_EXPLOIT_MEMORY",
+    "CYBERAI_USE_BEHAVIORAL",
+    "CYBERAI_USE_LAB_DOGFOOD",
+    "CYBERAI_WEB_ENABLE_BENCH_TRIGGER",
+    "CYBERAI_AIR_GAPPED",
+    "CYBERAI_ENABLE_MODEL_ROUTING",
+]
+
+
+def _clear_flag_env(monkeypatch):
+    for var in _FLAG_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_env_bool_truthy_values(monkeypatch):
+    for val in ("1", "true", "TRUE", "yes", "on", " On "):
+        monkeypatch.setenv("CYBERAI_TEST_FLAG", val)
+        assert _env_bool("CYBERAI_TEST_FLAG", False) is True
+
+
+def test_env_bool_falsy_values(monkeypatch):
+    for val in ("0", "false", "no", "off", "nope", ""):
+        monkeypatch.setenv("CYBERAI_TEST_FLAG", val)
+        assert _env_bool("CYBERAI_TEST_FLAG", True) is False
+
+
+def test_env_bool_unset_uses_default(monkeypatch):
+    monkeypatch.delenv("CYBERAI_TEST_FLAG", raising=False)
+    assert _env_bool("CYBERAI_TEST_FLAG", True) is True
+    assert _env_bool("CYBERAI_TEST_FLAG", False) is False
+
+
+def test_from_env_feature_flags_default_false(monkeypatch):
+    _clear_flag_env(monkeypatch)
+    cfg = CyberAIConfig.from_env()
+    assert cfg.use_nuclei is False
+    assert cfg.use_judge is False
+    assert cfg.enable_replan is False
+    assert cfg.use_exploit_memory is False
+    assert cfg.use_behavioral_fingerprint is False
+    assert cfg.use_lab_dogfood is False
+    assert cfg.web_enable_bench_trigger is False
+    assert cfg.air_gapped is False
+    assert cfg.routing.enable_model_routing is False
+
+
+def test_from_env_use_behavioral_flag(monkeypatch):
+    _clear_flag_env(monkeypatch)
+    monkeypatch.setenv("CYBERAI_USE_BEHAVIORAL", "1")
+    cfg = CyberAIConfig.from_env()
+    assert cfg.use_behavioral_fingerprint is True
+    assert cfg.use_nuclei is False
+
+
+def test_from_env_all_bool_flags_enabled(monkeypatch):
+    _clear_flag_env(monkeypatch)
+    for var in _FLAG_ENV_VARS:
+        monkeypatch.setenv(var, "true")
+    cfg = CyberAIConfig.from_env()
+    assert cfg.use_nuclei is True
+    assert cfg.use_judge is True
+    assert cfg.enable_replan is True
+    assert cfg.use_exploit_memory is True
+    assert cfg.use_behavioral_fingerprint is True
+    assert cfg.use_lab_dogfood is True
+    assert cfg.web_enable_bench_trigger is True
+    assert cfg.air_gapped is True
+    assert cfg.routing.enable_model_routing is True

@@ -8,6 +8,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean feature flag from the environment.
+
+    Truthy values: 1, true, yes, on (case-insensitive). Any other set value
+    is false; an unset variable keeps the caller's default.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass
 class RoutingConfig:
     """Per-phase model routing. Off by default (no-regression)."""
@@ -108,7 +120,21 @@ class CyberAIConfig:
 
     @classmethod
     def from_env(cls) -> "CyberAIConfig":
-        """Build config from environment variables"""
+        """Build config from environment variables."""
         provider = os.getenv("CYBERAI_LLM_PROVIDER", "openai")
         model = os.getenv("CYBERAI_MODEL") or LLMConfig.default_model_for(provider)
-        return cls(llm=LLMConfig(provider=provider, model=model))
+        routing = RoutingConfig(
+            enable_model_routing=_env_bool("CYBERAI_ENABLE_MODEL_ROUTING", False),
+        )
+        return cls(
+            llm=LLMConfig(provider=provider, model=model),
+            routing=routing,
+            use_nuclei=_env_bool("CYBERAI_USE_NUCLEI", False),
+            use_judge=_env_bool("CYBERAI_USE_JUDGE", False),
+            enable_replan=_env_bool("CYBERAI_ENABLE_REPLAN", False),
+            use_exploit_memory=_env_bool("CYBERAI_USE_EXPLOIT_MEMORY", False),
+            use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
+            use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
+            web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
+            air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),
+        )
