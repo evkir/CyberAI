@@ -181,8 +181,32 @@ output_dir: reports/
 max_cost_usd: 0.0         # 0 = disabled; set to enforce a budget
 ```
 
-Optional feature flags (default off, no-regression):
-`use_native_tools`, `use_nuclei`, `use_llm_summary`, `use_judge`.
+### Environment variables
+
+Every setting can be driven from the environment (or a `.env` file - see
+[.env.example](.env.example)). Feature flags are off by default
+(no-regression); enable any with `1`/`true`/`yes`/`on`.
+
+| Variable | Effect |
+|---|---|
+| `CYBERAI_LLM_PROVIDER` / `CYBERAI_MODEL` | LLM provider and model |
+| `CYBERAI_USE_BEHAVIORAL` | Honeypot/WAF/tarpit fingerprinting in recon |
+| `CYBERAI_USE_NUCLEI` | Nuclei template exploit engine |
+| `CYBERAI_USE_JUDGE` | LLM-as-Judge report validation |
+| `CYBERAI_ENABLE_REPLAN` | Critic-driven phase replan |
+| `CYBERAI_USE_EXPLOIT_MEMORY` | Recall similar past exploit chains |
+| `CYBERAI_AIR_GAPPED` | Force local-only (no-egress) LLM path |
+| `CYBERAI_ENABLE_MODEL_ROUTING` | Per-phase model selection |
+| `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
+| `CYBERAI_OUTPUT_DIR` | Report output directory |
+
+The `scan` command overrides the main flags per run, in either direction:
+
+```bash
+cyberai scan example.com --behavioral --nuclei
+cyberai scan example.com --no-air-gapped
+```
+
 
 ---
 
