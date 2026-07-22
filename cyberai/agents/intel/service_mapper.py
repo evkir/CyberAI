@@ -22,19 +22,32 @@ SERVICE_KEYWORDS = {
 
 
 def ports_to_queries(ports: List[Dict]) -> List[str]:
+    """Convert nmap port results into CVE search queries.
+
+    Returns a deterministic, priority-ordered list: keyword-mapped product
+    queries (e.g. "openssh", "apache httpd") come first so a limited query
+    budget is spent on recognizable services before raw, unmapped service
+    names. Order follows port iteration (ascending port number from nmap);
+    duplicates are dropped while preserving first-seen position. A previous
+    set()-based build returned queries in nondeterministic order, so a
+    truncated budget could miss real services (e.g. openssh) on hosts with
+    many ports.
     """
-    Convert nmap port results into CVE search queries.
-    Returns deduplicated list of search keywords.
-    """
-    queries = set()
+    mapped: List[str] = []
+    raw: List[str] = []
+    seen: set = set()
     for port in ports:
-        service = port.get("service", "").lower()
+        service = (port.get("service") or "").lower()
         if service in SERVICE_KEYWORDS:
             for kw in SERVICE_KEYWORDS[service]:
-                queries.add(kw)
+                if kw not in seen:
+                    seen.add(kw)
+                    mapped.append(kw)
         elif service:
-            queries.add(service)
-    return list(queries)
+            if service not in seen:
+                seen.add(service)
+                raw.append(service)
+    return mapped + raw
 
 
 def score_to_severity(score: float) -> str:

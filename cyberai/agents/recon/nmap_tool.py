@@ -73,6 +73,11 @@ DEFAULT_NMAP_TIMEOUT = 180
 _DISCOVERY_FLAGS = "-T4 --top-ports 1000"
 # Time budget for the scoped -sV re-probe of the discovered open ports.
 _TARGETED_SV_TIMEOUT = 90
+# Above this many open ports a scan is treated as untrustworthy: real
+# hosts do not hold hundreds of the top-1000 ports open, so such a result
+# is the signature of a fake-ip proxy, tunnel, or tarpit answering every
+# probe rather than a genuine attack surface.
+_MASS_OPEN_THRESHOLD = 100
 
 
 def _exec_nmap(
@@ -178,6 +183,14 @@ def run_nmap(
         if not _has_products(best):
             best["degraded"] = "sV_timeout_fast_retry"
         parsed = best
+
+    # Flag implausible mass-open results (fake-ip proxy / tunnel / tarpit) so
+    # the intel layer skips a meaningless CVE spray over noise ports instead
+    # of gambling a small query budget on garbage service names.
+    open_count = len(_open_port_nums(parsed))
+    if open_count > _MASS_OPEN_THRESHOLD:
+        parsed["mass_open"] = True
+        parsed["open_count"] = open_count
 
     if parsed.get("returncode") == 0:
         _nmap_cache.set(cache_key, parsed)

@@ -257,3 +257,17 @@ def test_cve_irrelevant_cross_product_collision():
 def test_cve_relevant_when_no_tokens_no_regression():
     """No product signal → cannot filter → keep prior behavior (relevant)."""
     assert cve_is_relevant("anything at all", set()) is True
+
+
+def test_ports_to_queries_deterministic_priority():
+    """Mapped product queries come first and order is stable, so a truncated
+    query budget covers real services (openssh) over raw noise services."""
+    ports = [
+        {"port": 7, "service": "echo", "state": "open"},
+        {"port": 22, "service": "ssh", "state": "open"},
+        {"port": 9999, "service": "noise", "state": "open"},
+    ]
+    q = ports_to_queries(ports)
+    assert q.index("openssh") < q.index("echo")
+    assert q.index("openssh") < q.index("noise")
+    assert ports_to_queries(ports) == q  # deterministic across calls

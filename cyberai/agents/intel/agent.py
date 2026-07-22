@@ -71,6 +71,30 @@ class IntelAgent(BaseAgent):
             self._log("no ports found in KB — skipping CVE lookup")
             return {"status": "skipped", "reason": "no ports"}
 
+        # Fake-ip proxy / tunnel / tarpit: recon flagged an implausible number
+        # of open ports, so the service data is noise. Surface one honest INFO
+        # and skip the CVE lookup rather than spraying garbage queries.
+        if nmap_data.get("mass_open"):
+            open_count = nmap_data.get("open_count", len(ports))
+            self.session.add_finding(
+                severity=Severity.INFO,
+                title="Port data unreliable — target behind proxy/tunnel",
+                description=(
+                    f"nmap reported {open_count} open ports, implausible for a "
+                    "real host and characteristic of a fake-ip proxy, tunnel, or "
+                    "tarpit answering every probe. Service and version data is "
+                    "noise, so CVE lookup was skipped to avoid misleading findings."
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[
+                    f"open_ports={open_count}",
+                    "mass-open proxy/tunnel/tarpit signature",
+                ],
+            )
+            self._log("mass_open detected — skipping CVE lookup", {"open_ports": open_count})
+            return {"status": "skipped", "reason": "mass_open", "open_ports": open_count}
+
         queries = ports_to_queries(ports)
         # Tokens of what is actually running, for CVE relevance filtering.
         tokens = product_tokens(ports)
