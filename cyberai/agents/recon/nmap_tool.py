@@ -68,9 +68,6 @@ def validate_flags(flags: str) -> List[str]:
 
 
 DEFAULT_NMAP_TIMEOUT = 180
-# Broad, version-less port discovery used to learn which ports are actually
-# open after a -sV timeout, before re-probing them individually.
-_DISCOVERY_FLAGS = "-T4 --top-ports 1000"
 # Time budget for the scoped -sV re-probe of the discovered open ports.
 _TARGETED_SV_TIMEOUT = 90
 # Above this many open ports a scan is treated as untrustworthy: real
@@ -136,6 +133,27 @@ def _has_products(parsed: Dict[str, Any]) -> bool:
     return any((p.get("product") or "").strip() for p in parsed.get("ports", []))
 
 
+def _strip_sv(flags: List[str]) -> List[str]:
+    """Return the validated flag list without the ``-sV`` token, for a fast
+    version-less discovery pass. Port scope and timing flags are preserved."""
+    return [t for t in flags if t != "-sV"]
+
+
+def _mark_mass_open(parsed: Dict[str, Any]) -> bool:
+    """Flag implausible mass-open results (fake-ip proxy / tunnel / tarpit).
+
+    Real hosts do not hold hundreds of the top-1000 ports open, so such a
+    result is treated as untrustworthy: the intel layer skips a meaningless
+    CVE spray over noise ports rather than gambling query budget on garbage
+    service names. Returns True when the scan was flagged."""
+    open_count = len(_open_port_nums(parsed))
+    if open_count > _MASS_OPEN_THRESHOLD:
+        parsed["mass_open"] = True
+        parsed["open_count"] = open_count
+        return True
+    return False
+
+
 def run_nmap(
     target: str,
     flags: str = "-sV -T4 --top-ports 1000",
@@ -145,9 +163,11 @@ def run_nmap(
     Run nmap against target, return parsed results.
     Requires nmap installed on system.
 
-    On a service-detection (``-sV``) timeout we discover open ports without
-    ``-sV`` and then re-probe just those ports with ``-sV``, recovering
-    versions on normal hosts while never silently losing open ports.
+    When ``-sV`` is requested a fast version-less discovery pass runs first; an
+    implausible mass-open result (fake-ip proxy / tunnel / tarpit) is flagged
+    before any ``-sV`` so no version spray hits phantom ports, and a scoped
+    ``-sV`` re-probe recovers versions on the ports that are genuinely open.
+    Explicit non-``-sV`` scans run unchanged as a single pass.
     """
     safe_target = sanitize_target(target)
     try:
@@ -161,36 +181,34 @@ def run_nmap(
         cached["cached"] = True
         return cached
 
-    parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
-
-    # -sV probing is the slow part. On a -sV timeout, first discover which
-    # ports are actually open (fast, no -sV), then re-run -sV scoped to just
-    # those ports so versions are recovered on normal hosts. Only when the
-    # scoped -sV also fails to yield a product (e.g. filtering networks with
-    # no banners) is the result marked degraded, which the intel layer treats
-    # as "service versions unknown" and gates accordingly.
-    if parsed.get("timed_out") and "-sV" in safe_flags:
-        disco_flags = validate_flags(_DISCOVERY_FLAGS)
-        disco = _exec_nmap(safe_target, disco_flags, min(timeout, 60), target)
-        best = disco
-        open_nums = _open_port_nums(disco)
-        if open_nums:
-            pspec = ",".join(str(n) for n in open_nums)
-            sv_flags = validate_flags(f"-sV -T4 -p {pspec}")
-            targeted = _exec_nmap(safe_target, sv_flags, _TARGETED_SV_TIMEOUT, target)
-            if targeted.get("ports"):
-                best = targeted
-        if not _has_products(best):
-            best["degraded"] = "sV_timeout_fast_retry"
-        parsed = best
-
-    # Flag implausible mass-open results (fake-ip proxy / tunnel / tarpit) so
-    # the intel layer skips a meaningless CVE spray over noise ports instead
-    # of gambling a small query budget on garbage service names.
-    open_count = len(_open_port_nums(parsed))
-    if open_count > _MASS_OPEN_THRESHOLD:
-        parsed["mass_open"] = True
-        parsed["open_count"] = open_count
+    # Discovery-first. -sV service probing is the slow, fragile part: against a
+    # fake-ip proxy, tunnel, or tarpit it sprays version probes across hundreds
+    # of phantom "open" ports, burning minutes and destabilising the local
+    # resolver. So when -sV is requested we run a fast version-less discovery
+    # pass, flag an implausible mass-open result BEFORE any -sV, and re-probe
+    # -sV scoped only to the ports that are genuinely open on a trustworthy
+    # result. When the scoped -sV yields no product (filtering net, no banners)
+    # the discovery result is returned marked degraded, which the intel layer
+    # treats as "service versions unknown" and gates accordingly. A caller
+    # passing explicit non-sV flags runs unchanged as a single scan.
+    if "-sV" in safe_flags:
+        disco = _exec_nmap(safe_target, _strip_sv(safe_flags), min(timeout, 60), target)
+        if _mark_mass_open(disco):
+            parsed = disco  # tunnel / fake-ip / tarpit — skip -sV, no spray
+        else:
+            open_nums = _open_port_nums(disco)
+            if open_nums:
+                pspec = ",".join(str(n) for n in open_nums)
+                sv_flags = validate_flags(f"-sV -T4 -p {pspec}")
+                scoped = _exec_nmap(safe_target, sv_flags, _TARGETED_SV_TIMEOUT, target)
+                parsed = scoped if scoped.get("ports") else disco
+            else:
+                parsed = disco
+            if not _has_products(parsed):
+                parsed["degraded"] = "sV_timeout_fast_retry"
+    else:
+        parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
+        _mark_mass_open(parsed)
 
     if parsed.get("returncode") == 0:
         _nmap_cache.set(cache_key, parsed)

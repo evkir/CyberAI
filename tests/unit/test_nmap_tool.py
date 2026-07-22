@@ -135,59 +135,57 @@ def test_timeout_returns_consistent_ports_shape():
     assert m.call_count == 1  # no -sV -> no fast retry
 
 
-def test_sV_timeout_targeted_retry_recovers_versions():
-    """On a -sV timeout, run_nmap discovers open ports (no -sV), then re-runs
-    -sV scoped to just those ports and recovers product/version. No degraded
-    marker because versions are known."""
-    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+def test_sV_discovery_then_scoped_recovers_versions():
+    """discovery-first: a fast version-less pass finds the open ports, then a
+    scoped -sV re-probe recovers product/version. No degraded marker."""
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)  # port 80 with product
     with patch.object(
         nmap_tool.subprocess,
         "run",
-        side_effect=[timeout, disco, targeted],
+        side_effect=[disco, targeted],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
-    assert m.call_count == 3  # initial -sV + discovery + scoped -sV
+    assert m.call_count == 2  # discovery + scoped -sV
     assert "degraded" not in res  # versions recovered
     assert res["ports"][0]["product"] == "Apache httpd"
     # scoped -sV must target only the discovered port, not the full top-1000.
-    scoped_argv = m.call_args_list[2][0][0]
+    scoped_argv = m.call_args_list[1][0][0]
+    assert "-sV" in scoped_argv
     assert "-p" in scoped_argv
     assert "80" in scoped_argv
     assert "--top-ports" not in scoped_argv
 
 
-def test_sV_timeout_scoped_retry_fails_marks_degraded():
-    """If the scoped -sV also fails (filtering net, no banners) the version-less
-    discovery result is returned marked degraded — ports kept, versions not."""
-    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+def test_sV_scoped_reprobe_fails_marks_degraded():
+    """If the scoped -sV re-probe fails (filtering net, no banners) the
+    version-less discovery result is returned marked degraded — ports kept,
+    versions not."""
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     scoped_timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=90)
     with patch.object(
         nmap_tool.subprocess,
         "run",
-        side_effect=[timeout, disco, scoped_timeout],
+        side_effect=[disco, scoped_timeout],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
-    assert m.call_count == 3
+    assert m.call_count == 2
     assert res["degraded"] == "sV_timeout_fast_retry"
     assert res["ports"][0]["port"] == 80  # open ports still recovered
     assert not res["ports"][0]["product"]  # but no version
 
 
-def test_sV_timeout_no_open_ports_skips_scoped_scan():
+def test_sV_no_open_ports_skips_scoped_scan():
     """When discovery finds no open ports, run_nmap does not attempt a scoped
-    -sV and returns the degraded discovery result."""
-    timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=180)
+    -sV and returns the version-less discovery result marked degraded."""
     empty = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)  # no open ports
     with patch.object(
         nmap_tool.subprocess,
         "run",
-        side_effect=[timeout, empty],
+        side_effect=[empty],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
-    assert m.call_count == 2  # no third scoped scan
+    assert m.call_count == 1  # discovery only, no scoped scan
     assert res["degraded"] == "sV_timeout_fast_retry"
     assert res["ports"] == []
 
@@ -268,3 +266,86 @@ def test_normal_scan_not_flagged_mass_open():
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is None
     assert res["ports"] and res["ports"][0]["port"] == 80
+
+
+# ── discovery / mass-open helpers ─────────────────────────────────────
+
+
+def test_strip_sv_removes_only_sV():
+    assert nmap_tool._strip_sv(["-sV", "-T4", "--top-ports", "1000"]) == [
+        "-T4",
+        "--top-ports",
+        "1000",
+    ]
+
+
+def test_strip_sv_preserves_port_scope():
+    assert nmap_tool._strip_sv(["-sV", "-p", "80,443", "-Pn"]) == [
+        "-p",
+        "80,443",
+        "-Pn",
+    ]
+
+
+def test_strip_sv_noop_without_sV():
+    assert nmap_tool._strip_sv(["-T4", "--top-ports", "100"]) == [
+        "-T4",
+        "--top-ports",
+        "100",
+    ]
+
+
+def test_mark_mass_open_flags_and_returns_true():
+    parsed = {"ports": [{"port": i, "state": "open"} for i in range(1, 151)]}
+    assert nmap_tool._mark_mass_open(parsed) is True
+    assert parsed["mass_open"] is True
+    assert parsed["open_count"] == 150
+
+
+def test_mark_mass_open_below_threshold_returns_false():
+    parsed = {"ports": [{"port": 80, "state": "open"}]}
+    assert nmap_tool._mark_mass_open(parsed) is False
+    assert "mass_open" not in parsed
+    assert "open_count" not in parsed
+
+
+# ── discovery-first guarantees ────────────────────────────────────────
+
+
+def test_mass_open_skips_sV_entirely():
+    """On a mass-open discovery result (fake-ip / tunnel / tarpit) run_nmap must
+    NOT run -sV at all: exactly one version-less scan, no version spray. A
+    single-element side_effect makes any second nmap call raise loudly."""
+    many = "".join(
+        f'<port protocol="tcp" portid="{i}">'
+        '<state state="open" reason="syn-ack"/>'
+        f'<service name="svc{i}"/></port>'
+        for i in range(1, 151)
+    )
+    disco = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco]) as m:
+        res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    assert res["mass_open"] is True
+    assert res["open_count"] == 150
+    assert m.call_count == 1  # discovery only — no scoped -sV
+    assert "-sV" not in m.call_args_list[0][0][0]  # discovery carries no -sV
+
+
+def test_discovery_pass_is_version_less_and_keeps_scope():
+    """The discovery pass strips -sV but preserves the requested port scope."""
+    disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)
+    targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco, targeted]) as m:
+        run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
+    disco_argv = m.call_args_list[0][0][0]
+    assert "-sV" not in disco_argv
+    assert "--top-ports" in disco_argv  # scope preserved
+
+
+def test_non_sV_scan_single_pass_no_discovery():
+    """A caller passing explicit non-sV flags gets one scan, no discovery-first."""
+    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
+    with patch.object(nmap_tool.subprocess, "run", side_effect=[fake]) as m:
+        res = run_nmap("scanme.test", flags="-T4 --top-ports 100")
+    assert m.call_count == 1
+    assert res["ports"][0]["port"] == 80
