@@ -11,7 +11,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   live-recon:
@@ -48,3 +48,19 @@ jobs:
             recon-output.txt
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish live-run badge
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then MSG="passing"; COLOR="brightgreen"; else MSG="failing"; COLOR="red"; fi
+          DATE=$(date -u +%Y-%m-%d)
+          mkdir -p badge-out && cd badge-out
+          printf '{"schemaVersion":1,"label":"live recon","message":"%s \u00b7 %s","color":"%s"}\n' "$MSG" "$DATE" "$COLOR" > latest.json
+          git init -q
+          git checkout -qb badges
+          git add latest.json
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -qm "chore(badge): live-recon $MSG $DATE [skip ci]"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:badges
