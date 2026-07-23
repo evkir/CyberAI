@@ -16,6 +16,10 @@
 
 > Built by someone who red-teams AI, not just with it.
 
+![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
+
+*Real run: the local benchmark suite against three vulnerable targets in Docker — pass@1 3/3. Reproduce with `cyberai bench run --suite local --engine real`.*
+
 </div>
 
 ---
