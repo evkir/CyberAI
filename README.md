@@ -113,6 +113,21 @@ flowchart LR
 
 ---
 
+## What's shipped / what's next
+
+CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
+
+| Version | Focus | Highlights |
+|---|---|---|
+| **v1.0** | Core platform | typed 4-phase pipeline, OOB exploitation, Web3 (Slither/Immunefi), MCP server, LLM-as-judge, scope import, async, cost tracking |
+| **v1.1** | Proof & benchmarks | reproducible bench harness + local vuln suite, honest scorecard, per-phase model router, air-gapped path (egress guard) |
+| **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
+| **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
+
+**Next:** deeper autonomy — planner/critic loop over an in-memory KB graph, exploit-memory recall, a unified OOB-confirmation layer, and behavioral target fingerprinting (honeypot/WAF/tarpit).
+
+---
+
 ## Security design
 
 - **Agent trust boundaries** — each agent runs with minimal permissions.
