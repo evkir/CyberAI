@@ -79,13 +79,21 @@ ever reaches the model.
 
 ## Architecture
 
+![CyberAI architecture](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/architecture.png)
+
+<details><summary>Diagram source (Mermaid, rendered on GitHub)</summary>
+
 ```mermaid
 flowchart LR
-    T([target]) --> O[Orchestrator<br/>typed · dry-run · budget]
+    T([target]) --> O[Orchestrator<br/>typed · dry-run · budget · scope-gated]
     O --> R[Recon] --> I[Intel] --> E[Exploit] --> RP[Report] --> V([validated report])
     E <-->|inject ↔ correlate| PG[(phantom-grid<br/>OOB callbacks)]
-    O --> W3[Web3 track<br/>Slither · Immunefi]
+    O --> W3[Web3 track<br/>Slither · aderyn · halmos · Immunefi]
+    O --> MCP[MCP / LLM offensive<br/>tool-poisoning · over-priv · injection-fuzz]
+    MCP <-->|OOB proof| PG
 ```
+
+</details>
 
 > **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
@@ -102,6 +110,21 @@ flowchart LR
 | **Exploit** | intel kb | attack paths, OOB findings | nuclei, searchsploit, OOB/SSRF/XXE workflows |
 | **Report** | session kb | structured Markdown / H1 export | LLM summary + LLM-as-judge validation |
 | **Web3** | .sol path / address | severity-tiered findings | Slither, Etherscan, Immunefi classifier |
+
+---
+
+## What's shipped / what's next
+
+CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
+
+| Version | Focus | Highlights |
+|---|---|---|
+| **v1.0** | Core platform | typed 4-phase pipeline, OOB exploitation, Web3 (Slither/Immunefi), MCP server, LLM-as-judge, scope import, async, cost tracking |
+| **v1.1** | Proof & benchmarks | reproducible bench harness + local vuln suite, honest scorecard, per-phase model router, air-gapped path (egress guard) |
+| **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
+| **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
+
+**Next:** deeper autonomy — planner/critic loop over an in-memory KB graph, exploit-memory recall, a unified OOB-confirmation layer, and behavioral target fingerprinting (honeypot/WAF/tarpit).
 
 ---
 
@@ -230,9 +253,14 @@ cyberai scan example.com --no-air-gapped
 
 CyberAI measures its own engine against a small, self-contained suite of
 deliberately-vulnerable targets it authors and serves — no third-party
-benchmark required to reproduce the numbers.                                              cyberai bench list
+benchmark required to reproduce the numbers.
 
-cyberai bench run --suite local --engine real --scorecard reports/scorecard.md                                                                                                      Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
+```bash
+cyberai bench list
+cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+```
+
+Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
 **binary** (solved only on an unambiguous success signal from a responding
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
