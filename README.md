@@ -1,6 +1,7 @@
 <div align="center">
 
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
+![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-v1.3.0-brightgreen)

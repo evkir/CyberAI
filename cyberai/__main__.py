@@ -10,6 +10,7 @@ from rich.panel import Panel
 
 from .core.config import CyberAIConfig, LLMConfig
 from .core.orchestrator import Orchestrator
+from .core.scan_session import ScanPhase
 from .cli.bench import bench
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
@@ -83,6 +84,15 @@ def cli() -> None:
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
 @click.option(
+    "--recon-only", is_flag=True, help="Run only the recon phase (safe for external targets)"
+)
+@click.option(
+    "--max-rps",
+    type=int,
+    default=None,
+    help="Cap nmap scan rate (packets/sec) for external targets",
+)
+@click.option(
     "--behavioral/--no-behavioral",
     default=None,
     help="Force behavioral fingerprint (honeypot/WAF/tarpit) on or off",
@@ -108,6 +118,8 @@ def scan(
     model: str | None,
     dry_run: bool,
     scope: tuple[str, ...],
+    recon_only: bool,
+    max_rps: int | None,
     behavioral: bool | None,
     nuclei: bool | None,
     judge: bool | None,
@@ -141,7 +153,11 @@ def scan(
         air_gapped=air_gapped,
     )
 
-    orchestrator = Orchestrator(config=config, dry_run=dry_run)
+    if max_rps:
+        config.max_rps = max_rps
+
+    phases = [ScanPhase.RECON] if recon_only else None
+    orchestrator = Orchestrator(config=config, phases=phases, dry_run=dry_run)
 
     console.print("[yellow]→[/yellow] Starting pipeline...")
     session = orchestrator.run(target, authorized_scope=list(scope))
