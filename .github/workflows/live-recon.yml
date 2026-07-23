@@ -1,0 +1,50 @@
+name: Live Recon (scanme.nmap.org)
+
+# Legal: scanme.nmap.org is explicitly authorized by its operator (the Nmap
+# project) for scan testing. This job runs RECON ONLY (ports / service banners),
+# rate-limited, and never performs exploitation. No secrets are used — the recon
+# phase needs no LLM/API key.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # nightly, 03:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  live-recon:
+    name: Recon-only scan of scanme.nmap.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install nmap
+        run: sudo apt-get update && sudo apt-get install -y nmap
+
+      - name: Install CyberAI
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Recon-only scan (rate-limited, no exploitation)
+        run: |
+          cyberai scan scanme.nmap.org --recon-only --max-rps 50 | tee recon-output.txt
+
+      - name: Upload recon report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recon-report
+          path: |
+            reports/
+            recon-output.txt
+          if-no-files-found: warn
+          retention-days: 30
