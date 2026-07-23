@@ -12,7 +12,11 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
+from pathlib import Path
+
+import httpx
 
 from cyberai.bench.targets import VulnTarget
 
@@ -20,6 +24,10 @@ logger = logging.getLogger("cyberai.bench.docker")
 
 _BASE_IMAGE = "python:3.12-slim"
 DEFAULT_TIMEOUT = 120
+# Directory holding our vulnerable apps; mounted read-only into the container.
+_APPS_DIR = Path(__file__).resolve().parent / "apps"
+# How long to wait for the app inside the container to accept connections.
+READY_TIMEOUT = 20
 
 
 @dataclass(frozen=True)
@@ -62,9 +70,14 @@ class DockerBuilder:
                     name,
                     "-p",
                     f"{target.port}:{target.port}",
+                    "-v",
+                    f"{_APPS_DIR}:/apps:ro",
+                    "-w",
+                    "/apps",
                     self.base_image,
-                    "sleep",
-                    "infinity",
+                    "python",
+                    f"/apps/{target.app}.py",
+                    str(target.port),
                 ]
             )
         except (subprocess.SubprocessError, OSError) as exc:
@@ -73,11 +86,34 @@ class DockerBuilder:
         if proc.returncode != 0:
             logger.warning("docker start nonzero for %s: %s", target.id, proc.stderr.strip())
             return None
-        return RunningTarget(
+        running = RunningTarget(
             target_id=target.id,
             container_id=proc.stdout.strip(),
             base_url=f"http://localhost:{target.port}",
         )
+        if not self._wait_ready(target.port):
+            logger.warning("target %s never accepted connections; stopping", target.id)
+            self.stop(running)
+            return None
+        return running
+
+    @staticmethod
+    def _wait_ready(port: int, timeout: int = READY_TIMEOUT) -> bool:
+        """Poll with real HTTP until the app answers.
+
+        A TCP connect is not enough: Docker's port publisher accepts host
+        connections before anything listens inside the container, so connect()
+        succeeds while requests still fail. Any HTTP status proves the app is up.
+        """
+        deadline = time.monotonic() + timeout
+        url = f"http://127.0.0.1:{port}/"
+        while time.monotonic() < deadline:
+            try:
+                httpx.get(url, timeout=1.0)
+                return True
+            except httpx.HTTPError:
+                time.sleep(0.3)
+        return False
 
     def stop(self, running: RunningTarget) -> bool:
         """Stop a container. False on failure or when Docker is absent."""
