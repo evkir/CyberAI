@@ -3,7 +3,9 @@
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.3.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1029%20passing-brightgreen)
+![Mypy](https://img.shields.io/badge/mypy-strict%20clean-success)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
 
@@ -37,6 +39,20 @@ Two things set it apart from "LLM wrapper over nmap":
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
 maps detectors to Immunefi severity tiers for smart-contract audits.
+
+**In one sentence:** an offensive AI-supply-chain red-team platform — it attacks
+MCP servers and LLM/RAG endpoints, proves blind vulnerabilities out-of-band,
+audits Web3 contracts on-chain, and publishes reproducible benchmarks, with a
+fully air-gapped path on local models (Ollama/vLLM).
+
+Real orchestrator output (trust-aware pipeline in action):
+
+```text
+⚠ injection signals in recon output (risk=25)
+[ExploitAgent] Generating OOB payloads...
+[ExploitAgent] Polling phantom-grid...
+[exploit] OOB callbacks: 1
+```
 
 
 ## Quick Start
