@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import logging
 import shutil
-import socket
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+import httpx
 
 from cyberai.bench.targets import VulnTarget
 
@@ -98,14 +99,20 @@ class DockerBuilder:
 
     @staticmethod
     def _wait_ready(port: int, timeout: int = READY_TIMEOUT) -> bool:
-        """Poll the published port until the app inside the container listens."""
+        """Poll with real HTTP until the app answers.
+
+        A TCP connect is not enough: Docker's port publisher accepts host
+        connections before anything listens inside the container, so connect()
+        succeeds while requests still fail. Any HTTP status proves the app is up.
+        """
         deadline = time.monotonic() + timeout
+        url = f"http://127.0.0.1:{port}/"
         while time.monotonic() < deadline:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(1.0)
-                if sock.connect_ex(("127.0.0.1", port)) == 0:
-                    return True
-            time.sleep(0.3)
+            try:
+                httpx.get(url, timeout=1.0)
+                return True
+            except httpx.HTTPError:
+                time.sleep(0.3)
         return False
 
     def stop(self, running: RunningTarget) -> bool:
