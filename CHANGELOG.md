@@ -2,6 +2,41 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.3.1] - 2026-07-23
+### Visibility sprint
+
+A maintenance release that makes the project visible and verifiable from
+the outside. No new agent capability; every change makes an existing one
+provable.
+
+### Fixed
+- **Scope guard on the exploit agent** — `authorized_scope` was enforced by
+  the orchestrator only, so calling the agent directly bypassed it. The
+  base agent now gates OOB payload delivery and the nuclei runner itself.
+- **Local benchmark suite actually runs** — the bundled vulnerable targets
+  had no entrypoint and the container ran an idle process, so the suite
+  reported 0/3 regardless of engine behaviour. Targets rewritten on the
+  stdlib HTTP server, the builder mounts them read-only and waits for a
+  real HTTP readiness signal. The suite now reports pass@1 3/3.
+
+### Added
+- **Live recon CI** — nightly rate-limited recon-only run against
+  scanme.nmap.org with the report uploaded as an artifact and the result
+  published as a README badge.
+- **`--recon-only` and `--max-rps`** — recon-only pipelines and an
+  nmap rate cap for legally-invited external targets.
+- **Sample scorecard** — `examples/local-bench/scorecard.md`, reproducible
+  with a single command.
+- **Recorded demo** — an asciinema-recorded run of the local suite rendered
+  as a GIF in the README, with `docs/demo/record.sh` to reproduce it.
+- **Launch post draft** — `blog/launch-post-draft.md`, unpublished.
+
+### Docs
+- README: architecture diagram, honest roadmap, differentiator paragraph,
+  and the local suite's real per-class numbers with an explicit statement
+  that the suite is self-authored and not comparable to external
+  benchmarks. No external-benchmark score is claimed.
+
 ## [1.3.0] - 2026-07-13
 ### Week 3: Web3 Discovery Agent
 
