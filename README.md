@@ -238,9 +238,14 @@ cyberai scan example.com --no-air-gapped
 
 CyberAI measures its own engine against a small, self-contained suite of
 deliberately-vulnerable targets it authors and serves — no third-party
-benchmark required to reproduce the numbers.                                              cyberai bench list
+benchmark required to reproduce the numbers.
 
-cyberai bench run --suite local --engine real --scorecard reports/scorecard.md                                                                                                      Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
+```bash
+cyberai bench list
+cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+```
+
+Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
 **binary** (solved only on an unambiguous success signal from a responding
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
