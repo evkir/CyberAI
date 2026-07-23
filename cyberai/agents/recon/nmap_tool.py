@@ -27,11 +27,12 @@ ALLOWED_FLAGS = {
     "-O",
     "-p",
     "--top-ports",
+    "--max-rate",
     "-oX",
 }
 
 # Flags that consume the next token as a value (port spec, count, etc.).
-_VALUE_FLAGS = {"-p", "--top-ports", "-oX"}
+_VALUE_FLAGS = {"-p", "--top-ports", "--max-rate", "-oX"}
 
 # Dedicated 1-hour cache for nmap results, keyed by target+flags.
 # Avoids re-scanning the same target repeatedly within a session.

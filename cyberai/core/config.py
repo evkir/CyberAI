@@ -129,6 +129,8 @@ class CyberAIConfig:
     routing: "RoutingConfig" = field(default_factory=lambda: RoutingConfig())
     # Flag-gated: force all LLM calls onto a local endpoint, assert no egress.
     air_gapped: bool = False
+    # Cap nmap scan rate (packets/sec) on external/legal targets; None = uncapped.
+    max_rps: Optional[int] = None
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":

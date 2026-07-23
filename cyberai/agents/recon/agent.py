@@ -63,7 +63,11 @@ class ReconAgent(BaseAgent):
 
         # 1. nmap
         self._check_iteration_limit()
-        nmap_result = run_nmap(target)
+        nmap_flags = "-sV -T4 --top-ports 1000"
+        max_rps = getattr(self.config, "max_rps", None)
+        if max_rps:
+            nmap_flags += f" --max-rate {max_rps}"
+        nmap_result = run_nmap(target, flags=nmap_flags)
         self.kb.set("recon.nmap", nmap_result, agent=self.AGENT_NAME)
         results["recon.nmap"] = nmap_result
         if nmap_result.get("error"):
