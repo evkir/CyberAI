@@ -79,6 +79,10 @@ ever reaches the model.
 
 ## Architecture
 
+![CyberAI architecture](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/architecture.png)
+
+<details><summary>Diagram source (Mermaid, rendered on GitHub)</summary>
+
 ```mermaid
 flowchart LR
     T([target]) --> O[Orchestrator<br/>typed · dry-run · budget · scope-gated]
@@ -88,6 +92,8 @@ flowchart LR
     O --> MCP[MCP / LLM offensive<br/>tool-poisoning · over-priv · injection-fuzz]
     MCP <-->|OOB proof| PG
 ```
+
+</details>
 
 > **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
