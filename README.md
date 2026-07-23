@@ -3,7 +3,9 @@
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.3.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1029%20passing-brightgreen)
+![Mypy](https://img.shields.io/badge/mypy-strict%20clean-success)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
 
