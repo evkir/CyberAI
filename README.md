@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-v1.3.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-1029%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1038%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%20clean-success)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -269,6 +269,20 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 **binary** (solved only on an unambiguous success signal from a responding
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
+
+Latest run of the local suite (CyberAI 1.3.0, `--engine real`):
+
+| vuln class | solved | total | rate |
+| --- | --- | --- | --- |
+| sqli | 1 | 1 | 100% |
+| command_injection | 1 | 1 | 100% |
+| path_traversal | 1 | 1 | 100% |
+| **pass@1** | **3** | **3** | **100%** |
+
+Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
+guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. No external-benchmark score
+is claimed anywhere in this repository. The full scorecard, including the run manifest, is committed at
+[examples/local-bench/scorecard.md](examples/local-bench/scorecard.md).
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard
 never overstates capability; `--engine real` runs live per-class probes. External
