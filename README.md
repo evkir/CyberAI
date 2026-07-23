@@ -81,10 +81,12 @@ ever reaches the model.
 
 ```mermaid
 flowchart LR
-    T([target]) --> O[Orchestrator<br/>typed · dry-run · budget]
+    T([target]) --> O[Orchestrator<br/>typed · dry-run · budget · scope-gated]
     O --> R[Recon] --> I[Intel] --> E[Exploit] --> RP[Report] --> V([validated report])
     E <-->|inject ↔ correlate| PG[(phantom-grid<br/>OOB callbacks)]
-    O --> W3[Web3 track<br/>Slither · Immunefi]
+    O --> W3[Web3 track<br/>Slither · aderyn · halmos · Immunefi]
+    O --> MCP[MCP / LLM offensive<br/>tool-poisoning · over-priv · injection-fuzz]
+    MCP <-->|OOB proof| PG
 ```
 
 > **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
