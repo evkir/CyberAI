@@ -9,6 +9,7 @@ from cyberai.bench.evaluator import (
     evaluate,
     probe_cmdi,
     probe_sqli,
+    probe_traversal,
     sqli_solved_from_evidence,
     traversal_solved_from_evidence,
 )
@@ -95,3 +96,29 @@ def test_probe_cmdi_mocked_http_error():
     client.__enter__.return_value.get.side_effect = httpx.ConnectError("down")
     with patch("cyberai.bench.evaluator.httpx.Client", return_value=client):
         assert probe_cmdi("http://localhost:8802") is False
+
+
+def test_probe_traversal_mocked_success():
+    resp = MagicMock(text="FLAG{path-traversal-file-read}")
+    client = MagicMock()
+    client.__enter__.return_value.get.return_value = resp
+    with patch("cyberai.bench.evaluator.httpx.Client", return_value=client):
+        assert probe_traversal("http://localhost:8803") is True
+
+
+def test_probe_traversal_rejects_reflected_filename():
+    """Echoing the requested path back must never count as a file read."""
+    resp = MagicMock(text="404 not found: ../../../../etc/bench_flag")
+    client = MagicMock()
+    client.__enter__.return_value.get.return_value = resp
+    with patch("cyberai.bench.evaluator.httpx.Client", return_value=client):
+        assert probe_traversal("http://localhost:8803") is False
+
+
+def test_probe_traversal_mocked_http_error():
+    import httpx
+
+    client = MagicMock()
+    client.__enter__.return_value.get.side_effect = httpx.ConnectError("down")
+    with patch("cyberai.bench.evaluator.httpx.Client", return_value=client):
+        assert probe_traversal("http://localhost:8803") is False
