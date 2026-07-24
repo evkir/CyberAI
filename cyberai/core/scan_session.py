@@ -31,6 +31,7 @@ class ScanState(str, Enum):
     RUNNING = "running"
     RECON = "recon"
     INTEL = "intel"
+    PLAN = "plan"
     EXPLOIT = "exploit"
     REPORT = "report"
     COMPLETED = "completed"
@@ -41,6 +42,7 @@ class ScanState(str, Enum):
 class ScanPhase(str, Enum):
     RECON = "recon"
     INTEL = "intel"
+    PLAN = "plan"
     EXPLOIT = "exploit"
     REPORT = "report"
 

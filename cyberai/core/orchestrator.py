@@ -46,7 +46,7 @@ class Orchestrator:
         dry_run: bool = False,
     ) -> None:
         self.config = config or CyberAIConfig()
-        self.phases = phases or self.DEFAULT_PHASES
+        self.phases = self._with_plan_phase(phases or self.DEFAULT_PHASES)
         self.dry_run = dry_run
 
         # Shared LLM client — built lazily so dry-run never needs an API key.
@@ -95,6 +95,16 @@ class Orchestrator:
         return self._router.client_for(phase)
 
     # ── public API ────────────────────────────────────────────────────
+
+    def _with_plan_phase(self, phases: List[ScanPhase]) -> List[ScanPhase]:
+        """Insert the flag-gated PLAN phase directly before EXPLOIT."""
+        out = list(phases)
+        if not getattr(self.config, "enable_planner", False):
+            return out
+        if ScanPhase.PLAN in out or ScanPhase.EXPLOIT not in out:
+            return out
+        out.insert(out.index(ScanPhase.EXPLOIT), ScanPhase.PLAN)
+        return out
 
     def run(
         self,
@@ -221,6 +231,7 @@ class Orchestrator:
         dispatch = {
             ScanPhase.RECON: self._run_recon,
             ScanPhase.INTEL: self._run_intel,
+            ScanPhase.PLAN: self._run_plan,
             ScanPhase.EXPLOIT: self._run_exploit,
             ScanPhase.REPORT: self._run_report,
         }
@@ -235,6 +246,15 @@ class Orchestrator:
         agent = ReconAgent(self.config, session, self._client_for(ScanPhase.RECON), self.audit)
         result = agent.run(session.target)
         session.kb_set("recon", result)
+        return result
+
+    def _run_plan(self, session: ScanSession) -> Dict:
+        from cyberai.agents.planner.agent import PlannerAgent
+
+        agent = PlannerAgent(self.config, session, None, self.audit)
+        result = agent.run(session.target)
+        count = result.get("subtasks", 0)
+        console.print(f"[dim]plan: {count} subtask(s)[/dim]")
         return result
 
     def _run_intel(self, session: ScanSession) -> Dict:
@@ -352,6 +372,7 @@ class AsyncOrchestrator(Orchestrator):
         # Sync agents — offload to a thread so the event loop stays free.
         sync_dispatch = {
             ScanPhase.INTEL: self._run_intel,
+            ScanPhase.PLAN: self._run_plan,
             ScanPhase.EXPLOIT: self._run_exploit,
             ScanPhase.REPORT: self._run_report,
         }

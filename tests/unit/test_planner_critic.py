@@ -265,3 +265,38 @@ def test_maybe_replan_guard_already_retried():
     s.record_phase(ScanPhase.RECON, success=False, started="t1", error="timeout")
     orch._maybe_replan(s, ScanPhase.RECON)  # attempts == 2 -> returns without _run_phase
     assert s.kb.get("critic.recon") is None
+
+
+# ── PLAN phase wiring ─────────────────────────────────────────────────
+
+
+def _cfg(enabled: bool) -> CyberAIConfig:
+    cfg = CyberAIConfig()
+    cfg.enable_planner = enabled
+    return cfg
+
+
+def test_plan_phase_absent_by_default():
+    assert Orchestrator(_cfg(False)).phases == Orchestrator.DEFAULT_PHASES
+
+
+def test_plan_phase_inserted_before_exploit():
+    phases = Orchestrator(_cfg(True)).phases
+    assert phases.index(ScanPhase.PLAN) == phases.index(ScanPhase.EXPLOIT) - 1
+
+
+def test_plan_phase_skipped_without_exploit():
+    orch = Orchestrator(_cfg(True), phases=[ScanPhase.RECON, ScanPhase.REPORT])
+    assert ScanPhase.PLAN not in orch.phases
+
+
+def test_plan_phase_not_duplicated():
+    orch = Orchestrator(_cfg(True), phases=[ScanPhase.PLAN, ScanPhase.EXPLOIT])
+    assert orch.phases.count(ScanPhase.PLAN) == 1
+
+
+def test_plan_phase_runs_in_pipeline():
+    orch = Orchestrator(_cfg(True), phases=[ScanPhase.PLAN])
+    s = orch.run("acme.tld")
+    assert s.state == ScanState.COMPLETED
+    assert s.kb.get("plan")["target"] == "acme.tld"
