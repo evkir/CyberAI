@@ -30,6 +30,22 @@ def _detach_stdin_from_tty() -> None:
         pass
 
 
+def _plan_summary(plan: object) -> str | None:
+    """One-line breakdown of the planner TODO, or None when no plan ran."""
+    todo = plan.get("todo") if isinstance(plan, dict) else None
+    if not isinstance(todo, list):
+        return None
+    counts: dict[str, int] = {}
+    for task in todo:
+        if isinstance(task, dict):
+            action = str(task.get("action", "unknown"))
+            counts[action] = counts.get(action, 0) + 1
+    if not counts:
+        return None
+    breakdown = ", ".join(f"{n} {a}" for a, n in sorted(counts.items()))
+    return f"Plan: {sum(counts.values())} subtask(s) - {breakdown}"
+
+
 def _apply_feature_overrides(
     config: CyberAIConfig,
     *,
@@ -37,6 +53,7 @@ def _apply_feature_overrides(
     nuclei: bool | None = None,
     judge: bool | None = None,
     replan: bool | None = None,
+    planner: bool | None = None,
     air_gapped: bool | None = None,
 ) -> CyberAIConfig:
     """Apply CLI feature-flag overrides onto a config built from the env.
@@ -53,6 +70,8 @@ def _apply_feature_overrides(
         config.use_judge = judge
     if replan is not None:
         config.enable_replan = replan
+    if planner is not None:
+        config.enable_planner = planner
     if air_gapped is not None:
         config.air_gapped = air_gapped
     return config
@@ -107,6 +126,11 @@ def cli() -> None:
     "--replan/--no-replan", default=None, help="Force critic-driven phase replan on or off"
 )
 @click.option(
+    "--planner/--no-planner",
+    default=None,
+    help="Force the graph planner phase before exploit on or off",
+)
+@click.option(
     "--air-gapped/--no-air-gapped",
     default=None,
     help="Force local-only (no-egress) LLM path on or off",
@@ -124,6 +148,7 @@ def scan(
     nuclei: bool | None,
     judge: bool | None,
     replan: bool | None,
+    planner: bool | None,
     air_gapped: bool | None,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
@@ -150,6 +175,7 @@ def scan(
         nuclei=nuclei,
         judge=judge,
         replan=replan,
+        planner=planner,
         air_gapped=air_gapped,
     )
 
@@ -166,6 +192,9 @@ def scan(
 
     saved = save_session(session, config.output_dir)
     console.print(f"\n[green]✓[/green] Done. Findings: {len(session.findings)}")
+    plan_line = _plan_summary(session.kb.get("plan"))
+    if plan_line:
+        console.print(f"[dim]{plan_line}[/dim]")
     console.print(
         f"[dim]Session saved: {saved} (replay with: cyberai replay {session.session_id})[/dim]"
     )
