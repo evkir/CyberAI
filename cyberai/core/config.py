@@ -108,6 +108,8 @@ class CyberAIConfig:
     use_judge: bool = False
     # Flag-gated: on a phase failure, ask the critic whether to re-run it once.
     enable_replan: bool = False
+    # Flag-gated: run the PlannerAgent between intel and exploit.
+    enable_planner: bool = False
     # Flag-gated: recall similar past exploit chains from local memory.
     use_exploit_memory: bool = False
     # Flag-gated: profile response timing/patterns to detect honeypot/WAF/tarpit.
@@ -167,6 +169,7 @@ class CyberAIConfig:
             use_nuclei=_env_bool("CYBERAI_USE_NUCLEI", False),
             use_judge=_env_bool("CYBERAI_USE_JUDGE", False),
             enable_replan=_env_bool("CYBERAI_ENABLE_REPLAN", False),
+            enable_planner=_env_bool("CYBERAI_ENABLE_PLANNER", False),
             use_exploit_memory=_env_bool("CYBERAI_USE_EXPLOIT_MEMORY", False),
             use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
