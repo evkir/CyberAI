@@ -93,3 +93,29 @@ def test_summary_carries_domain_buckets():
 
 def test_summary_of_empty_session_has_no_domains():
     assert export_summary(_session())["findings_by_domain"] == {}
+
+
+def test_optional_finding_fields_are_rendered():
+    """Confidence, CVE and data blocks only appear when the finding sets them."""
+    session = ScanSession(target="acme.tld")
+    finding = session.add_finding(
+        severity=Severity.CRITICAL,
+        title="Blind SSRF confirmed",
+        description="callback received",
+        agent="exploit",
+        cve="CVE-2021-44228",
+        data={"token": "abc123"},
+    )
+    finding.confidence = 0.5
+
+    md = render_markdown(session)
+    assert "**Confidence:** 50%" in md
+    assert "**CVE:** `CVE-2021-44228`" in md
+    assert "abc123" in md
+
+
+def test_optional_finding_fields_absent_when_unset():
+    md = render_markdown(_session("recon"))
+    assert "**Confidence:**" not in md
+    assert "**CVE:**" not in md
+    assert "**Data:**" not in md
