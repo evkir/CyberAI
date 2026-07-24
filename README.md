@@ -4,8 +4,8 @@
 ![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-v1.3.1-brightgreen)
-![Tests](https://img.shields.io/badge/tests-1038%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.4.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1080%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%20clean-success)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -128,8 +128,9 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 | **v1.1** | Proof & benchmarks | reproducible bench harness + local vuln suite, honest scorecard, per-phase model router, air-gapped path (egress guard) |
 | **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
 | **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
+| **v1.4** | Autonomy & unified reporting | graph planner driving exploit order, exploit-memory recall, unified OOB confirmation, behavioral fingerprinting, findings grouped by attack surface |
 
-**Next:** deeper autonomy — planner/critic loop over an in-memory KB graph, exploit-memory recall, a unified OOB-confirmation layer, and behavioral target fingerprinting (honeypot/WAF/tarpit).
+**Next:** wider public proof — benchmark re-runs published as a tracked delta, sample reports for each attack surface, and reproducible live runs.
 
 ---
 
