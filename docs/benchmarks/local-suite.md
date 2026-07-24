@@ -12,7 +12,7 @@ suite exists so every number we publish is:
 - **Reproducible** — targets ship in this repo (`cyberai/bench/apps/`), built
   into throwaway containers by `cyberai/bench/docker_builder.py`.
 - **Binary** — a target counts as solved only when an unambiguous success
-  signal is present (a flag, an injected command marker, out-of-web-root file
+  signal is present (a flag, output only a shell could produce, out-of-web-root file
   contents). No heuristic "looks exploited".
 - **Traceable** — each run emits a Markdown scorecard with engine version,
   provider, model, and timestamp.
@@ -26,8 +26,8 @@ of the product.
 | id | class | CWE | success signal |
 | --- | --- | --- | --- |
 | `local-sqli-login` | SQL injection | CWE-89 | auth-bypass flag returned by `/login` |
-| `local-cmdi-ping` | command injection | CWE-78 | injected command marker in output |
-| `local-path-traversal` | path traversal | CWE-22 | out-of-web-root file contents read |
+| `local-cmdi-ping` | command injection | CWE-78 | shell-evaluated arithmetic in output |
+| `local-path-traversal` | path traversal | CWE-22 | flag from an out-of-web-root file |
 
 ## Running it
 
@@ -40,10 +40,32 @@ cyberai bench run --suite local --scorecard docs/benchmarks/scorecards/local.md
 
 | metric | value |
 | --- | --- |
-| pass@1 | **0/3 (0.0%)** |
-| engine | placeholder runner (live engine not yet wired) |
+| pass@1 | **3/3 (100.0%)** |
+| engine | live probes against containerised targets (`--engine real`) |
+| measured | 2026-07-24, CyberAI 1.4.0 |
 
-The headline is intentionally **0/3**: the live engine runner is wired in a
-later milestone. Until then the harness reports every task as unsolved rather
-than fabricating success — the number only goes up when the engine actually
-earns it. This page will be updated with each measured run.
+## What this number is, and what it is not
+
+We author the targets, the probes, and the success signals. That makes the
+result reproducible, and it also means the number is a **self-test, not a
+comparison**. Stated plainly so nobody has to infer it from the source:
+
+- **Self-authored suite.** 3/3 says our three targets are exploitable and our
+  three probes detect it. It says nothing about how CyberAI compares to any
+  other tool. Cross-tool claims need a third-party suite, and we do not make
+  them here.
+- **`--engine real` measures the probes, not the agent.** The probes are fixed
+  exploit checks; the orchestrator, the agents, and the LLM take no part in
+  this run. Read it as a harness-and-target check. Agent-driven measurement is
+  a separate engine mode.
+- **A solve must be earned.** Each probe looks for a signal that is absent from
+  its own request — arithmetic only a shell can evaluate, a flag stored only
+  inside an out-of-web-root file. A target that echoes request input back
+  cannot register as exploited. `tests/unit/test_bench_negative_control.py`
+  runs every probe against hardened targets and requires all of them to fail.
+- **Small denominator.** Three tasks means one task moves the rate by 33
+  points. The suite grows as classes are added, and the honest reading of any
+  single figure has to account for that.
+
+The number moves only when the engine earns it. This page is updated from a
+measured run, never by hand.
