@@ -2,6 +2,30 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.4.0] - 2026-07-24
+
+### Autonomy and unified reporting
+
+The planner stops being an isolated component and starts steering the
+pipeline, and the report finally shows all three attack surfaces the
+platform covers rather than only the network one.
+
+### Added
+- **Planner phase in the pipeline** — `ScanPhase.PLAN` runs between intel
+  and exploit behind `enable_planner` / `CYBERAI_ENABLE_PLANNER`, building
+  an ordered subtask plan from the in-memory knowledge-base graph. The
+  exploit agent consumes that plan and follows its CVE ordering, so
+  graph-derived prioritisation drives the attack path instead of being
+  recomputed. Off by default; a run without the flag is unchanged.
+- **`--planner/--no-planner`** — tri-state CLI override matching the other
+  feature flags, plus a post-scan summary of the plan by subtask type.
+- **Findings grouped by attack surface** — reports classify every finding
+  as Network, MCP or Web3 from its originating agent. Markdown renders one
+  section per surface with a domain breakdown, and the JSON export carries
+  the agent and domain on each finding plus a domain index. Grouping only
+  activates when a scan actually spans more than one surface, so
+  single-surface reports are unchanged.
+
 ## [1.3.1] - 2026-07-23
 ### Visibility sprint
 
