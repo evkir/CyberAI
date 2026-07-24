@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from cyberai.core.scan_session import ScanSession as PentestSession
 from cyberai.version import __version__
 
+from .domains import domain_for, group_by_domain
+
 
 def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
     """Export full session as structured JSON report"""
@@ -36,10 +38,16 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
                 "target": f.target,
                 "cve_ids": f.cve_ids,
                 "evidence": f.evidence,
+                "agent": f.agent,
+                "domain": domain_for(f),
                 "timestamp": f.timestamp,
             }
             for f in session.findings
         ],
+        "findings_by_domain": {
+            domain: [f.id for f in items]
+            for domain, items in group_by_domain(session.findings).items()
+        },
         "attack_paths": (session.kb.get("exploit.attack_paths") or {}).get("attack_paths", []),
         "knowledge_base_keys": list(session.kb.keys()),
     }
@@ -59,5 +67,9 @@ def export_summary(session: PentestSession) -> Dict[str, Any]:
                 {"id": f.id, "title": f.title} for f in session.findings if f.severity.value == sev
             ]
             for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+        },
+        "findings_by_domain": {
+            domain: [{"id": f.id, "title": f.title} for f in items]
+            for domain, items in group_by_domain(session.findings).items()
         },
     }
