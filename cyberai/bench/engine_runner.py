@@ -11,11 +11,16 @@ Honesty contract (the whole point of W1):
   - When Docker is absent, or the vulnerable app is not actually serving on its
     port, every probe fails closed and the task is reported unsolved with a
     concrete `error` — never an overstated solve.
+  - A probe may only look for a signal that is absent from its own request, so
+    a target reflecting input back cannot be mistaken for an exploited one.
+    `tests/unit/test_bench_negative_control.py` holds that line.
+  - Probes are fixed exploit checks, not the agent pipeline: this runner
+    measures whether the targets are exploitable and the harness is sound.
+    Agent-driven measurement is a separate engine mode.
 
-Today the docker builder runs a bare base image (no per-app service yet), so a
-real run reports unsolved with "target not serving". Once each app ships a
-Dockerfile that actually serves, the SAME probes flip to solved with no change
-here. Scope: `local` suite only — it owns get_target(); CTF has no live target.
+The docker builder mounts `cyberai/bench/apps` read-only into a stock Python
+image and runs the app directly, so no per-app Dockerfile is involved. Scope:
+`local` suite only — it owns get_target(); CTF has no live target.
 """
 
 from __future__ import annotations

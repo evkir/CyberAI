@@ -16,8 +16,10 @@ except ImportError:  # standalone run inside the bench container
 PORT = 8803
 WEB_ROOT = "/srv/www"
 SECRET_PATH = "/etc/bench_flag"
-# The evaluator looks for this token in the retrieved contents.
-SECRET_BODY = f"bench secret served from {SECRET_PATH}\n"
+# The evaluator looks for this flag in the retrieved contents. It deliberately
+# does NOT contain the request path: a body echoing its own path would be
+# indistinguishable from a hardened target reflecting the filename back.
+SECRET_BODY = "FLAG{path-traversal-file-read}\n"
 
 
 def _seed() -> None:
