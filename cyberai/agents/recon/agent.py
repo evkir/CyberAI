@@ -10,6 +10,7 @@ from cyberai.core.types import OpenPort, ReconResult
 
 from .dns_tool import detect_subdomains, run_dns, run_whois
 from .llm_detector import detect_llm_endpoints
+from .web_surface import discover_surface
 from .behavioral import BehavioralFingerprint
 from .behavioral_probe import build_probe_context
 from .nmap_tool import run_nmap
@@ -137,6 +138,28 @@ class ReconAgent(BaseAgent):
                 target=target,
                 evidence=[e["url"] for e in eps],
             )
+
+        # 6. HTTP attack surface — the injectable points exploitation needs.
+        if getattr(self.config, "use_web_recon", False):
+            self._check_iteration_limit()
+            surface = discover_surface(target)
+            self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
+            results["recon.web_surface"] = surface
+            self._log("web_surface complete", surface)
+
+            eps = surface.get("endpoints", [])
+            if eps:
+                self.session.add_finding(
+                    severity=Severity.INFO,
+                    title=f"HTTP attack surface on {target}",
+                    description=(
+                        f"Discovered {len(eps)} endpoint(s) carrying injectable "
+                        "parameters across the web target."
+                    ),
+                    agent=self.AGENT_NAME,
+                    target=target,
+                    evidence=[f"{e['method']} {e['url']} ({', '.join(e['params'])})" for e in eps],
+                )
 
         # Surface open ports as an informational finding
         ports = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []

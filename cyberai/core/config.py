@@ -114,6 +114,8 @@ class CyberAIConfig:
     use_exploit_memory: bool = False
     # Flag-gated: profile response timing/patterns to detect honeypot/WAF/tarpit.
     use_behavioral_fingerprint: bool = False
+    # Flag-gated: crawl a web target for injectable endpoints and parameters.
+    use_web_recon: bool = False
     exploit_memory_path: Optional[str] = None
     # Flag-gated: parse local practice-lab machine artifacts and detect flags.
     use_lab_dogfood: bool = False
@@ -172,6 +174,7 @@ class CyberAIConfig:
             enable_planner=_env_bool("CYBERAI_ENABLE_PLANNER", False),
             use_exploit_memory=_env_bool("CYBERAI_USE_EXPLOIT_MEMORY", False),
             use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
+            use_web_recon=_env_bool("CYBERAI_USE_WEB_RECON", False),
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
             web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
             air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),
