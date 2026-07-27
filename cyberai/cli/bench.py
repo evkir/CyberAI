@@ -132,6 +132,25 @@ def _select_runner(engine: str, adapter):
     return factory(adapter)
 
 
+def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
+    """Narrow a suite to the requested ids, or fail loudly.
+
+    An unknown id is an error rather than an empty run: a typo that silently
+    scores zero tasks looks exactly like a suite nobody can solve.
+    """
+    if not wanted:
+        return tasks
+    known = {t.id for t in tasks}
+    missing = [w for w in wanted if w not in known]
+    if missing:
+        sample = ", ".join(sorted(known)[:5]) if known else "none (the suite is empty)"
+        raise click.BadParameter(
+            f"unknown task id(s): {', '.join(missing)}. Known ids include: {sample}",
+            param_hint="--task",
+        )
+    return [t for t in tasks if t.id in set(wanted)]
+
+
 @bench.command("run")
 @click.option(
     "--suite",
@@ -148,6 +167,12 @@ def _select_runner(engine: str, adapter):
     help="Write a reproducible Markdown scorecard to this path.",
 )
 @click.option(
+    "--task",
+    "task_ids",
+    multiple=True,
+    help="Run only these task ids. Repeatable. The score then covers the selection only.",
+)
+@click.option(
     "--engine",
     "engine",
     default="placeholder",
@@ -159,11 +184,24 @@ def _select_runner(engine: str, adapter):
         "(real and agent: local suite only)."
     ),
 )
-def run(suite: str, scorecard_path: str | None, engine: str) -> None:
+def run(
+    suite: str,
+    scorecard_path: str | None,
+    engine: str,
+    task_ids: tuple[str, ...] = (),
+) -> None:
     """Run a suite and print a pass@1 scorecard."""
     adapter = _SUITES[suite]()
     runner = _select_runner(engine, adapter)
-    report = run_suite(adapter, runner)
+    all_tasks = adapter.load_tasks()
+    selected = _select_tasks(all_tasks, task_ids)
+    filtered = len(selected) != len(all_tasks)
+    if filtered:
+        console.print(
+            f"[yellow]filtered: {len(selected)} of {len(all_tasks)} tasks \u2014 the score "
+            "below covers the selection, not the suite[/yellow]"
+        )
+    report = run_suite(adapter, runner, tasks=selected)
 
     table = Table(title=f"bench: {suite}")
     table.add_column("task id", style="cyan")
@@ -189,9 +227,14 @@ def run(suite: str, scorecard_path: str | None, engine: str) -> None:
                 console.print(f"[yellow]disagreement on {r.task_id}: {note}[/yellow]")
 
     if scorecard_path:
-        md = generate_scorecard(
-            report, RunMeta(note="cyberai bench run", extra={"engine": engine, "suite": suite})
-        )
+        extra = {"engine": engine, "suite": suite}
+        if filtered:
+            # A scorecard outlives the terminal it was printed in; the narrowed
+            # denominator has to travel with it.
+            extra["filtered"] = f"{len(selected)} of {len(all_tasks)} tasks: " + ", ".join(
+                t.id for t in selected
+            )
+        md = generate_scorecard(report, RunMeta(note="cyberai bench run", extra=extra))
         out = Path(scorecard_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(md)

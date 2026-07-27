@@ -168,3 +168,49 @@ def test_list_says_why_an_external_suite_is_empty(monkeypatch, tmp_path):
     assert "unavailable" in result.output
     # A missing optional dependency must not read as a suite of zero tasks.
     assert "local-sqli-login" in result.output
+
+
+def test_task_filter_narrows_the_run_and_says_so():
+    result = CliRunner().invoke(bench, ["run", "--task", "local-sqli-login"])
+
+    assert result.exit_code == 0
+    assert "filtered: 1 of 3" in result.output
+    assert "0/1" in result.output, "the denominator is the selection"
+    assert "local-cmdi-ping" not in result.output
+
+
+def test_task_filter_accepts_several_ids():
+    result = CliRunner().invoke(
+        bench, ["run", "--task", "local-sqli-login", "--task", "local-cmdi-ping"]
+    )
+
+    assert result.exit_code == 0
+    assert "filtered: 2 of 3" in result.output
+
+
+def test_an_unfiltered_run_says_nothing_about_filtering():
+    result = CliRunner().invoke(bench, ["run"])
+
+    assert result.exit_code == 0
+    assert "filtered" not in result.output
+
+
+def test_a_typo_in_a_task_id_is_an_error_not_an_empty_run():
+    result = CliRunner().invoke(bench, ["run", "--task", "local-sqli-logn"])
+
+    assert result.exit_code != 0
+    assert "unknown task id" in result.output
+    # Scoring zero of zero tasks looks identical to a suite nobody can solve.
+    assert "pass@1" not in result.output
+
+
+def test_a_filtered_scorecard_carries_the_narrowed_denominator(tmp_path):
+    out = tmp_path / "sc.md"
+    result = CliRunner().invoke(
+        bench, ["run", "--task", "local-sqli-login", "--scorecard", str(out)]
+    )
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "filtered" in text
+    assert "1 of 3 tasks: local-sqli-login" in text
