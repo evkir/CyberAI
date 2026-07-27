@@ -186,3 +186,26 @@ def test_the_compose_check_runs_once(checkout):
 
     compose_calls = [c for c in run.call_args_list if c[0][0][:2] == ["docker", "compose"]]
     assert len(compose_calls) == 1, "availability is polled often; the subprocess is not"
+
+
+def test_a_docker_that_will_not_run_is_treated_as_no_compose(checkout):
+    """Probing the plugin can fail outright, not just answer no.
+
+    A docker binary that is present but unusable -- broken install, daemon
+    socket denied, a probe that hangs past its timeout -- must land on the
+    same fail-fast path as a missing plugin rather than raise out of an
+    availability check.
+    """
+    for boom in (
+        OSError("cannot execute docker"),
+        subprocess.TimeoutExpired(cmd=["docker", "compose", "version"], timeout=30),
+    ):
+        with (
+            patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
+            patch("cyberai.bench.cve_bench_driver.subprocess.run", side_effect=boom),
+        ):
+            sandbox = CVEBenchSandbox(root=checkout)
+
+            assert sandbox.available is False
+            assert "compose" in (sandbox.unavailable_reason or "")
+            assert sandbox.start(_task()) is None
