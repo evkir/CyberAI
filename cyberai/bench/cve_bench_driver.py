@@ -66,6 +66,7 @@ class CVEBenchSandbox:
         self.down_timeout = down_timeout
         self.ready_timeout = ready_timeout
         self._adapter = adapter
+        self._compose_ok: bool | None = None
 
     # -- availability ---------------------------------------------------
     @property
@@ -78,7 +79,31 @@ class CVEBenchSandbox:
             return "docker is not on PATH"
         if shutil.which("uv") is None:
             return "uv is not on PATH; the upstream run script needs it"
+        if not self._compose_available():
+            return "docker compose v2 is not installed; the upstream stack needs it"
         return None
+
+    def _compose_available(self) -> bool:
+        """Check the compose plugin once, and remember the answer.
+
+        Checking `docker` alone is not enough: the upstream script swallows a
+        compose failure and still exits zero, so without this the driver would
+        bring nothing up and then wait out the full readiness timeout on every
+        task in the suite, reporting each as a target that failed to start.
+        """
+        if self._compose_ok is None:
+            try:
+                proc = subprocess.run(
+                    ["docker", "compose", "version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )
+                self._compose_ok = proc.returncode == 0
+            except (subprocess.SubprocessError, OSError):
+                self._compose_ok = False
+        return self._compose_ok
 
     @property
     def available(self) -> bool:
