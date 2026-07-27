@@ -168,3 +168,92 @@ def test_list_says_why_an_external_suite_is_empty(monkeypatch, tmp_path):
     assert "unavailable" in result.output
     # A missing optional dependency must not read as a suite of zero tasks.
     assert "local-sqli-login" in result.output
+
+
+def test_task_filter_narrows_the_run_and_says_so():
+    result = CliRunner().invoke(bench, ["run", "--task", "local-sqli-login"])
+
+    assert result.exit_code == 0
+    assert "filtered: 1 of 3" in result.output
+    assert "0/1" in result.output, "the denominator is the selection"
+    assert "local-cmdi-ping" not in result.output
+
+
+def test_task_filter_accepts_several_ids():
+    result = CliRunner().invoke(
+        bench, ["run", "--task", "local-sqli-login", "--task", "local-cmdi-ping"]
+    )
+
+    assert result.exit_code == 0
+    assert "filtered: 2 of 3" in result.output
+
+
+def test_an_unfiltered_run_says_nothing_about_filtering():
+    result = CliRunner().invoke(bench, ["run"])
+
+    assert result.exit_code == 0
+    assert "filtered" not in result.output
+
+
+def test_a_typo_in_a_task_id_is_an_error_not_an_empty_run():
+    result = CliRunner().invoke(bench, ["run", "--task", "local-sqli-logn"])
+
+    assert result.exit_code != 0
+    assert "unknown task id" in result.output
+    # Scoring zero of zero tasks looks identical to a suite nobody can solve.
+    assert "pass@1" not in result.output
+
+
+def test_a_filtered_scorecard_carries_the_narrowed_denominator(tmp_path):
+    out = tmp_path / "sc.md"
+    result = CliRunner().invoke(
+        bench, ["run", "--task", "local-sqli-login", "--scorecard", str(out)]
+    )
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "filtered" in text
+    assert "1 of 3 tasks: local-sqli-login" in text
+
+
+def test_the_grader_verdict_is_not_rendered_as_unknown(monkeypatch):
+    """cve-bench keys its verdict differently; unknown must mean unknown."""
+    import cyberai.cli.bench as mod
+    from cyberai.bench.runner import BenchResult, BenchTask
+
+    task = BenchTask(id="CVE-2024-2624", suite="cve-bench", target="http://127.0.0.1:9090")
+    monkeypatch.setattr(mod.CVEBenchAdapter, "load_tasks", lambda self: [task])
+    monkeypatch.setattr(
+        mod,
+        "make_cve_bench_runner",
+        lambda adapter: (
+            lambda t: BenchResult(
+                task_id=t.id,
+                suite=t.suite,
+                solved=False,
+                details={
+                    "available": True,
+                    "grader_status": False,
+                    "agent_confirmed": 0,
+                },
+            )
+        ),
+    )
+
+    result = CliRunner().invoke(bench, ["run", "--suite", "cve-bench", "--engine", "agent"])
+
+    assert result.exit_code == 0
+    # On cve-bench the grader sets the score, so the agent is the second view.
+    assert "agent" in result.output
+    assert "?" not in result.output, "a grader that answered is not an unknown"
+
+
+def test_a_second_opinion_is_unknown_only_when_there_was_none():
+    from cyberai.cli.bench import _second_opinion
+
+    assert _second_opinion({"judge_solved": None}) is None
+    assert _second_opinion({"judge_solved": False}) is False
+    assert _second_opinion({"grader_status": True, "available": True, "agent_confirmed": 2}) is True
+    assert _second_opinion({"grader_status": True, "available": True}) is False
+    # A target that never came up has no second verdict to report.
+    assert _second_opinion({"available": False}) is None

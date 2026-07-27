@@ -72,3 +72,30 @@ def test_pass_at_1_empty_suite_is_zero():
 def test_adapter_is_abstract():
     with pytest.raises(TypeError):
         BenchAdapter()
+
+
+def test_a_preselected_subset_is_the_whole_report():
+    """A filtered run must not be reported against the suite's size."""
+    adapter = _FakeAdapter([_task("a"), _task("b"), _task("c")])
+
+    def runner(task):
+        return BenchResult(task_id=task.id, suite=task.suite, solved=True)
+
+    report = run_suite(adapter, runner, tasks=[_task("b")])
+
+    assert report.total == 1
+    assert report.solved == 1
+    assert report.pass_at_1 == 1.0
+    assert [r.task_id for r in report.results] == ["b"]
+
+
+def test_an_empty_selection_scores_nothing_rather_than_everything():
+    adapter = _FakeAdapter([_task("a"), _task("b")])
+
+    def runner(task):
+        raise AssertionError("no task was selected, so none may run")
+
+    report = run_suite(adapter, runner, tasks=[])
+
+    assert report.total == 0
+    assert report.pass_at_1 == 0.0

@@ -132,6 +132,41 @@ def _select_runner(engine: str, adapter):
     return factory(adapter)
 
 
+def _second_opinion(details: dict) -> bool | None:
+    """The verdict that did *not* set the score, or None if there was none.
+
+    Which side that is depends on the suite: on the local suite the agent
+    scores and the probe checks it, on cve-bench the upstream grader scores
+    and our agent is the one being checked. Reading only one key rendered a
+    grader that answered as a grader that could not be reached, which is the
+    exact distinction the runner goes out of its way to preserve.
+    """
+    if "judge_solved" in details:
+        return details["judge_solved"]
+    if "grader_status" in details and details.get("available"):
+        return bool(details.get("agent_confirmed", 0))
+    return None
+
+
+def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
+    """Narrow a suite to the requested ids, or fail loudly.
+
+    An unknown id is an error rather than an empty run: a typo that silently
+    scores zero tasks looks exactly like a suite nobody can solve.
+    """
+    if not wanted:
+        return tasks
+    known = {t.id for t in tasks}
+    missing = [w for w in wanted if w not in known]
+    if missing:
+        sample = ", ".join(sorted(known)[:5]) if known else "none (the suite is empty)"
+        raise click.BadParameter(
+            f"unknown task id(s): {', '.join(missing)}. Known ids include: {sample}",
+            param_hint="--task",
+        )
+    return [t for t in tasks if t.id in set(wanted)]
+
+
 @bench.command("run")
 @click.option(
     "--suite",
@@ -148,6 +183,12 @@ def _select_runner(engine: str, adapter):
     help="Write a reproducible Markdown scorecard to this path.",
 )
 @click.option(
+    "--task",
+    "task_ids",
+    multiple=True,
+    help="Run only these task ids. Repeatable. The score then covers the selection only.",
+)
+@click.option(
     "--engine",
     "engine",
     default="placeholder",
@@ -159,25 +200,39 @@ def _select_runner(engine: str, adapter):
         "(real and agent: local suite only)."
     ),
 )
-def run(suite: str, scorecard_path: str | None, engine: str) -> None:
+def run(
+    suite: str,
+    scorecard_path: str | None,
+    engine: str,
+    task_ids: tuple[str, ...] = (),
+) -> None:
     """Run a suite and print a pass@1 scorecard."""
     adapter = _SUITES[suite]()
     runner = _select_runner(engine, adapter)
-    report = run_suite(adapter, runner)
+    all_tasks = adapter.load_tasks()
+    selected = _select_tasks(all_tasks, task_ids)
+    filtered = len(selected) != len(all_tasks)
+    if filtered:
+        console.print(
+            f"[yellow]filtered: {len(selected)} of {len(all_tasks)} tasks \u2014 the score "
+            "below covers the selection, not the suite[/yellow]"
+        )
+    report = run_suite(adapter, runner, tasks=selected)
 
     table = Table(title=f"bench: {suite}")
     table.add_column("task id", style="cyan")
     table.add_column("solved")
     table.add_column("time (s)", justify="right")
     if engine == "agent":
-        # The agent verdict is the score; the probe sits beside it so a gap
-        # between the two is visible in the run, not only in the JSON.
-        table.add_column("probe")
+        # Whichever verdict did not set the score sits beside it, so a gap
+        # between the two is visible in the run and not only in the JSON.
+        second = "agent" if suite == "cve-bench" else "probe"
+        table.add_column(second)
     for r in report.results:
         mark = "[green]✓[/green]" if r.solved else "[red]✗[/red]"
         row = [r.task_id, mark, f"{r.duration_s:.2f}"]
         if engine == "agent":
-            row.append(_JUDGE_MARK[r.details.get("judge_solved")])
+            row.append(_JUDGE_MARK[_second_opinion(r.details)])
         table.add_row(*row)
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
@@ -189,9 +244,14 @@ def run(suite: str, scorecard_path: str | None, engine: str) -> None:
                 console.print(f"[yellow]disagreement on {r.task_id}: {note}[/yellow]")
 
     if scorecard_path:
-        md = generate_scorecard(
-            report, RunMeta(note="cyberai bench run", extra={"engine": engine, "suite": suite})
-        )
+        extra = {"engine": engine, "suite": suite}
+        if filtered:
+            # A scorecard outlives the terminal it was printed in; the narrowed
+            # denominator has to travel with it.
+            extra["filtered"] = f"{len(selected)} of {len(all_tasks)} tasks: " + ", ".join(
+                t.id for t in selected
+            )
+        md = generate_scorecard(report, RunMeta(note="cyberai bench run", extra=extra))
         out = Path(scorecard_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(md)

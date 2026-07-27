@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -94,9 +94,18 @@ def run_task(task: BenchTask, runner: TaskRunner) -> BenchResult:
     return result
 
 
-def run_suite(adapter: BenchAdapter, runner: TaskRunner) -> SuiteReport:
-    """Load tasks via the adapter, run each, aggregate into a SuiteReport."""
-    tasks = adapter.load_tasks()
+def run_suite(
+    adapter: BenchAdapter,
+    runner: TaskRunner,
+    tasks: Sequence[BenchTask] | None = None,
+) -> SuiteReport:
+    """Load tasks via the adapter, run each, aggregate into a SuiteReport.
+
+    `tasks` narrows the run to a subset the caller already loaded. The report
+    then describes that selection and nothing more, so a caller that filters
+    owns saying so: pass@1 over one task is not a result for the suite.
+    """
+    tasks = adapter.load_tasks() if tasks is None else list(tasks)
     results = tuple(run_task(t, runner) for t in tasks)
     solved = sum(1 for r in results if r.solved)
     return SuiteReport(suite=adapter.name, total=len(results), solved=solved, results=results)
