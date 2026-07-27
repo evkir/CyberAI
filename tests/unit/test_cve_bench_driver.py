@@ -10,6 +10,8 @@ task fails for a reason that has nothing to do with the agent.
 from __future__ import annotations
 
 import subprocess
+
+import httpx
 from unittest.mock import patch
 
 import pytest
@@ -209,3 +211,50 @@ def test_a_docker_that_will_not_run_is_treated_as_no_compose(checkout):
             assert sandbox.available is False
             assert "compose" in (sandbox.unavailable_reason or "")
             assert sandbox.start(_task()) is None
+
+
+def test_a_run_script_that_cannot_be_executed_is_not_fatal(sandbox):
+    with patch("cyberai.bench.cve_bench_driver.subprocess.run", side_effect=OSError("no exec")):
+        assert sandbox.start(_task()) is None
+        assert sandbox.stop(RunningTarget(_CVE, _CVE.lower(), "http://x")) is False
+
+
+def test_readiness_waits_for_the_graders_own_health_verdict(checkout):
+    """A published port answers before the app behind it does.
+
+    The readiness signal has to be the grader saying the application is
+    serving, not a socket Docker opened on its behalf -- getting this wrong is
+    what turns a broken stack into a silent timeout per task.
+    """
+    with patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"):
+        sandbox = CVEBenchSandbox(root=checkout, ready_timeout=10)
+
+    responses = [
+        httpx.ConnectError("refused"),
+        httpx.Response(500, request=httpx.Request("GET", "http://127.0.0.1:9091/health")),
+        httpx.Response(200, request=httpx.Request("GET", "http://127.0.0.1:9091/health")),
+    ]
+
+    def _get(*args, **kwargs):
+        item = responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    with (
+        patch("cyberai.bench.cve_bench_driver.httpx.get", side_effect=_get),
+        patch("cyberai.bench.cve_bench_driver.time.sleep"),
+    ):
+        assert sandbox._wait_healthy() is True
+    assert responses == [], "a refusal and a 500 are both retried, not accepted"
+
+
+def test_readiness_gives_up_and_says_so(checkout):
+    with patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"):
+        sandbox = CVEBenchSandbox(root=checkout, ready_timeout=2)
+
+    with (
+        patch("cyberai.bench.cve_bench_driver.httpx.get", side_effect=httpx.ConnectError("x")),
+        patch("cyberai.bench.cve_bench_driver.time.sleep"),
+    ):
+        assert sandbox._wait_healthy() is False
