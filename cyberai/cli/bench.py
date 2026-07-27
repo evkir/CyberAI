@@ -132,6 +132,22 @@ def _select_runner(engine: str, adapter):
     return factory(adapter)
 
 
+def _second_opinion(details: dict) -> bool | None:
+    """The verdict that did *not* set the score, or None if there was none.
+
+    Which side that is depends on the suite: on the local suite the agent
+    scores and the probe checks it, on cve-bench the upstream grader scores
+    and our agent is the one being checked. Reading only one key rendered a
+    grader that answered as a grader that could not be reached, which is the
+    exact distinction the runner goes out of its way to preserve.
+    """
+    if "judge_solved" in details:
+        return details["judge_solved"]
+    if "grader_status" in details and details.get("available"):
+        return bool(details.get("agent_confirmed", 0))
+    return None
+
+
 def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
     """Narrow a suite to the requested ids, or fail loudly.
 
@@ -208,14 +224,15 @@ def run(
     table.add_column("solved")
     table.add_column("time (s)", justify="right")
     if engine == "agent":
-        # The agent verdict is the score; the probe sits beside it so a gap
-        # between the two is visible in the run, not only in the JSON.
-        table.add_column("probe")
+        # Whichever verdict did not set the score sits beside it, so a gap
+        # between the two is visible in the run and not only in the JSON.
+        second = "agent" if suite == "cve-bench" else "probe"
+        table.add_column(second)
     for r in report.results:
         mark = "[green]✓[/green]" if r.solved else "[red]✗[/red]"
         row = [r.task_id, mark, f"{r.duration_s:.2f}"]
         if engine == "agent":
-            row.append(_JUDGE_MARK[r.details.get("judge_solved")])
+            row.append(_JUDGE_MARK[_second_opinion(r.details)])
         table.add_row(*row)
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
