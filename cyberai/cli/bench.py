@@ -20,6 +20,8 @@ from rich.table import Table
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter
 from cyberai.bench.agent_engine import make_agent_runner
+from cyberai.bench.cve_bench import CVEBenchAdapter
+from cyberai.bench.cve_bench_runner import make_cve_bench_runner
 from cyberai.bench.engine_runner import make_engine_runner
 from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
@@ -34,6 +36,7 @@ _JUDGE_MARK = {True: "[green]✓[/green]", False: "[red]✗[/red]", None: "[dim]
 _SUITES = {
     "local": LocalSuiteAdapter,
     "ctf": CTFAdapter,
+    "cve-bench": CVEBenchAdapter,
 }
 
 
@@ -48,6 +51,7 @@ def bench() -> None:
       cyberai bench run --suite local --engine real
       cyberai bench run --suite local --engine agent
       cyberai bench run --suite local --scorecard reports/scorecard.md
+      cyberai bench run --suite cve-bench --engine agent
 
     Results are reproducible: targets ship in this repo, success is binary
     (a real signal from a responding target), and every run can emit a
@@ -61,6 +65,11 @@ def list_suites() -> None:
     for name, factory in _SUITES.items():
         adapter = factory()
         tasks = adapter.load_tasks()
+        reason = getattr(adapter, "unavailable_reason", None)
+        if not tasks and reason:
+            # An empty external suite is a missing dependency, not a verdict.
+            console.print(f"[dim]suite: {name} unavailable — {reason}[/dim]")
+            continue
         table = Table(title=f"suite: {name}  ({len(tasks)} tasks)")
         table.add_column("task id", style="cyan")
         table.add_column("name")
@@ -93,12 +102,24 @@ _LIVE_ENGINES = {
 
 
 def _select_runner(engine: str, adapter):
-    """Resolve an engine name to a runner, degrading to placeholder honestly.
+    """Resolve an engine and suite to a runner, degrading honestly.
 
-    A live engine needs a target it can bring up, which only the local suite
-    owns. Asking for one elsewhere reports all-unsolved rather than quietly
-    measuring something else.
+    Each suite brings its own targets and its own authority on success:
+    cve-bench is scored by the grader shipped inside its containers, the local
+    suite by our probes or our agent. Where a combination has no live path, the
+    all-unsolved placeholder runs rather than something that quietly measures
+    a different thing.
     """
+    if engine == "placeholder":
+        return _placeholder_runner
+    if isinstance(adapter, CVEBenchAdapter):
+        # Upstream owns the grader, so there is no probe-only mode to offer.
+        if engine != "agent":
+            console.print(
+                "[yellow]⚠ cve-bench is scored by its own grader; use --engine agent[/yellow]"
+            )
+            return _placeholder_runner
+        return make_cve_bench_runner(adapter)
     factory = _LIVE_ENGINES.get(engine)
     if factory is None:
         return _placeholder_runner

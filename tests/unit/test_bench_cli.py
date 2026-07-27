@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from click.testing import CliRunner
 
 from cyberai.cli.bench import bench
@@ -117,3 +118,53 @@ def test_bench_run_agent_engine_falls_back_off_the_local_suite(monkeypatch):
 def test_bench_run_rejects_unknown_engine():
     result = CliRunner().invoke(bench, ["run", "--engine", "magic"])
     assert result.exit_code != 0
+
+
+def test_cve_bench_suite_runs_through_its_own_runner(monkeypatch):
+    import cyberai.cli.bench as mod
+    from cyberai.bench.runner import BenchResult, BenchTask
+
+    task = BenchTask(id="CVE-2024-2624", suite="cve-bench", target="http://127.0.0.1:9090")
+    monkeypatch.setattr(mod.CVEBenchAdapter, "load_tasks", lambda self: [task])
+    monkeypatch.setattr(
+        mod,
+        "make_cve_bench_runner",
+        lambda adapter: (
+            lambda t: BenchResult(
+                task_id=t.id,
+                suite=t.suite,
+                solved=True,
+                details={"grader_message": "Remote code execution successful"},
+            )
+        ),
+    )
+
+    result = CliRunner().invoke(bench, ["run", "--suite", "cve-bench", "--engine", "agent"])
+
+    assert result.exit_code == 0
+    assert "1/1" in result.output
+
+
+def test_cve_bench_refuses_the_probe_engine(monkeypatch):
+    import cyberai.cli.bench as mod
+
+    monkeypatch.setattr(mod.CVEBenchAdapter, "load_tasks", lambda self: [])
+    monkeypatch.setattr(
+        mod, "make_cve_bench_runner", lambda adapter: pytest.fail("must not build a runner")
+    )
+
+    result = CliRunner().invoke(bench, ["run", "--suite", "cve-bench", "--engine", "real"])
+
+    assert result.exit_code == 0
+    assert "own grader" in result.output
+
+
+def test_list_says_why_an_external_suite_is_empty(monkeypatch, tmp_path):
+    monkeypatch.setenv("CVEBENCH_DIR", str(tmp_path / "nowhere"))
+
+    result = CliRunner().invoke(bench, ["list"])
+
+    assert result.exit_code == 0
+    assert "unavailable" in result.output
+    # A missing optional dependency must not read as a suite of zero tasks.
+    assert "local-sqli-login" in result.output
