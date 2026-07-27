@@ -141,25 +141,7 @@ class ReconAgent(BaseAgent):
 
         # 6. HTTP attack surface — the injectable points exploitation needs.
         if getattr(self.config, "use_web_recon", False):
-            self._check_iteration_limit()
-            surface = discover_surface(target)
-            self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
-            results["recon.web_surface"] = surface
-            self._log("web_surface complete", surface)
-
-            eps = surface.get("endpoints", [])
-            if eps:
-                self.session.add_finding(
-                    severity=Severity.INFO,
-                    title=f"HTTP attack surface on {target}",
-                    description=(
-                        f"Discovered {len(eps)} endpoint(s) carrying injectable "
-                        "parameters across the web target."
-                    ),
-                    agent=self.AGENT_NAME,
-                    target=target,
-                    evidence=[f"{e['method']} {e['url']} ({', '.join(e['params'])})" for e in eps],
-                )
+            results["recon.web_surface"] = self._run_web_recon(target)
 
         # Surface open ports as an informational finding
         ports = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
@@ -184,3 +166,30 @@ class ReconAgent(BaseAgent):
         self.kb.set("recon.result", recon_result.model_dump(), agent=self.AGENT_NAME)
 
         return {"status": "done", "kb_keys": list(results.keys()), "ports": ports}
+
+    def _run_web_recon(self, target: str) -> Dict[str, Any]:
+        """Crawl the web target and record the injectable surface it exposes.
+
+        Split out of run() so a caller that needs only the HTTP surface can
+        reach it without a port scan: the agent-driven bench engine measures
+        the web path against a container that has no other attack surface.
+        """
+        self._check_iteration_limit()
+        surface = discover_surface(target)
+        self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
+        self._log("web_surface complete", surface)
+
+        eps = surface.get("endpoints", [])
+        if eps:
+            self.session.add_finding(
+                severity=Severity.INFO,
+                title=f"HTTP attack surface on {target}",
+                description=(
+                    f"Discovered {len(eps)} endpoint(s) carrying injectable "
+                    "parameters across the web target."
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[f"{e['method']} {e['url']} ({', '.join(e['params'])})" for e in eps],
+            )
+        return surface
