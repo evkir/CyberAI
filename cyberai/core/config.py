@@ -116,6 +116,8 @@ class CyberAIConfig:
     use_behavioral_fingerprint: bool = False
     # Flag-gated: crawl a web target for injectable endpoints and parameters.
     use_web_recon: bool = False
+    # Flag-gated: attack the discovered HTTP surface directly (non-blind).
+    use_web_exploit: bool = False
     exploit_memory_path: Optional[str] = None
     # Flag-gated: parse local practice-lab machine artifacts and detect flags.
     use_lab_dogfood: bool = False
@@ -175,6 +177,7 @@ class CyberAIConfig:
             use_exploit_memory=_env_bool("CYBERAI_USE_EXPLOIT_MEMORY", False),
             use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
             use_web_recon=_env_bool("CYBERAI_USE_WEB_RECON", False),
+            use_web_exploit=_env_bool("CYBERAI_USE_WEB_EXPLOIT", False),
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
             web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
             air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),
