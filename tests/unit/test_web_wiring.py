@@ -184,3 +184,15 @@ def test_missing_surface_is_a_clean_no_op():
     spy.assert_not_called()
     assert result["web_exploit"]["confirmed"] == 0
     assert session.findings == []
+
+
+def test_run_web_recon_runs_without_a_port_scan():
+    """The bench agent engine calls this method directly, with no recon tools
+    patched: it must do the crawl and the KB write on its own."""
+    agent, session = _recon_agent(use_web_recon=True)
+    with patch("cyberai.agents.recon.agent.discover_surface", return_value=_SURFACE) as spy:
+        returned = agent._run_web_recon("t.local")
+
+    spy.assert_called_once_with("t.local")
+    assert returned == _SURFACE
+    assert session.kb.get("recon.web_surface") == _SURFACE

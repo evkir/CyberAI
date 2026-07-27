@@ -19,11 +19,15 @@ from rich.table import Table
 
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter
+from cyberai.bench.agent_engine import make_agent_runner
 from cyberai.bench.engine_runner import make_engine_runner
 from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
 console = Console()
+
+# How a probe verdict renders beside the agent's; unknown stays unknown.
+_JUDGE_MARK = {True: "[green]✓[/green]", False: "[red]✗[/red]", None: "[dim]?[/dim]"}
 
 # Suite registry: name -> adapter factory. External adapters (CVE-Bench, ...)
 # register here later without touching the CLI.
@@ -42,6 +46,7 @@ def bench() -> None:
       cyberai bench list
       cyberai bench run --suite local
       cyberai bench run --suite local --engine real
+      cyberai bench run --suite local --engine agent
       cyberai bench run --suite local --scorecard reports/scorecard.md
 
     Results are reproducible: targets ship in this repo, success is binary
@@ -80,6 +85,32 @@ def _placeholder_runner(task) -> BenchResult:
     )
 
 
+# Engines that need a live target: name -> runner factory over the adapter.
+_LIVE_ENGINES = {
+    "real": make_engine_runner,
+    "agent": make_agent_runner,
+}
+
+
+def _select_runner(engine: str, adapter):
+    """Resolve an engine name to a runner, degrading to placeholder honestly.
+
+    A live engine needs a target it can bring up, which only the local suite
+    owns. Asking for one elsewhere reports all-unsolved rather than quietly
+    measuring something else.
+    """
+    factory = _LIVE_ENGINES.get(engine)
+    if factory is None:
+        return _placeholder_runner
+    if not isinstance(adapter, LocalSuiteAdapter):
+        console.print(
+            f"[yellow]⚠ the {engine} engine supports the local suite only; "
+            "using placeholder[/yellow]"
+        )
+        return _placeholder_runner
+    return factory(adapter)
+
+
 @bench.command("run")
 @click.option(
     "--suite",
@@ -100,31 +131,41 @@ def _placeholder_runner(task) -> BenchResult:
     "engine",
     default="placeholder",
     show_default=True,
-    type=click.Choice(["placeholder", "real"]),
-    help="placeholder reports all-unsolved; real runs live probes (local suite).",
+    type=click.Choice(["placeholder", "real", "agent"]),
+    help=(
+        "placeholder reports all-unsolved; real runs the fixed probes; agent "
+        "runs the CyberAI pipeline and cross-checks it against those probes "
+        "(real and agent: local suite only)."
+    ),
 )
 def run(suite: str, scorecard_path: str | None, engine: str) -> None:
     """Run a suite and print a pass@1 scorecard."""
     adapter = _SUITES[suite]()
-    if engine == "real" and isinstance(adapter, LocalSuiteAdapter):
-        runner = make_engine_runner(adapter)
-    else:
-        if engine == "real":
-            console.print(
-                "[yellow]⚠ real engine supports the local suite only; using placeholder[/yellow]"
-            )
-        runner = _placeholder_runner
+    runner = _select_runner(engine, adapter)
     report = run_suite(adapter, runner)
 
     table = Table(title=f"bench: {suite}")
     table.add_column("task id", style="cyan")
     table.add_column("solved")
     table.add_column("time (s)", justify="right")
+    if engine == "agent":
+        # The agent verdict is the score; the probe sits beside it so a gap
+        # between the two is visible in the run, not only in the JSON.
+        table.add_column("probe")
     for r in report.results:
         mark = "[green]✓[/green]" if r.solved else "[red]✗[/red]"
-        table.add_row(r.task_id, mark, f"{r.duration_s:.2f}")
+        row = [r.task_id, mark, f"{r.duration_s:.2f}"]
+        if engine == "agent":
+            row.append(_JUDGE_MARK[r.details.get("judge_solved")])
+        table.add_row(*row)
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
+
+    if engine == "agent":
+        for r in report.results:
+            note = r.details.get("disagreement")
+            if note:
+                console.print(f"[yellow]disagreement on {r.task_id}: {note}[/yellow]")
 
     if scorecard_path:
         md = generate_scorecard(
