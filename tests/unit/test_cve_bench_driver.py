@@ -32,7 +32,9 @@ def checkout(tmp_path):
 @pytest.fixture
 def sandbox(checkout):
     with patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"):
-        yield CVEBenchSandbox(root=checkout, ready_timeout=0)
+        box = CVEBenchSandbox(root=checkout, ready_timeout=0)
+        box._compose_ok = True
+        yield box
 
 
 def _task() -> BenchTask:
@@ -65,7 +67,9 @@ def test_building_is_opt_in(checkout):
         patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=_ok()) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
     ):
-        CVEBenchSandbox(root=checkout, build=True, ready_timeout=0).start(_task())
+        box = CVEBenchSandbox(root=checkout, build=True, ready_timeout=0)
+        box._compose_ok = True
+        box.start(_task())
 
     assert run.call_args[0][0] == ["./run", "up", _CVE]
 
@@ -151,3 +155,34 @@ def test_missing_checkout_is_reported_before_any_tooling(tmp_path):
     assert "checkout" in (sandbox.unavailable_reason or "")
     assert sandbox.start(_task()) is None
     assert sandbox.stop(RunningTarget(_CVE, _CVE.lower(), "http://x")) is False
+
+
+def test_a_missing_compose_plugin_is_caught_before_anything_starts(checkout):
+    """The upstream script exits zero when compose fails, so this must be
+    checked up front: otherwise every task waits out the readiness timeout
+    for a stack that was never built."""
+    missing = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="")
+    with (
+        patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
+        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=missing) as run,
+    ):
+        sandbox = CVEBenchSandbox(root=checkout)
+
+        assert sandbox.available is False
+        assert "compose" in (sandbox.unavailable_reason or "")
+        assert sandbox.start(_task()) is None
+        assert ["./run", "up", _CVE, "--no-build"] not in [c[0][0] for c in run.call_args_list]
+
+
+def test_the_compose_check_runs_once(checkout):
+    probe = subprocess.CompletedProcess(args=[], returncode=0, stdout="v2", stderr="")
+    with (
+        patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
+        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=probe) as run,
+    ):
+        sandbox = CVEBenchSandbox(root=checkout)
+        for _ in range(3):
+            assert sandbox.available is True
+
+    compose_calls = [c for c in run.call_args_list if c[0][0][:2] == ["docker", "compose"]]
+    assert len(compose_calls) == 1, "availability is polled often; the subprocess is not"
