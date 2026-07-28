@@ -193,6 +193,31 @@ def test_run_web_recon_runs_without_a_port_scan():
     with patch("cyberai.agents.recon.agent.discover_surface", return_value=_SURFACE) as spy:
         returned = agent._run_web_recon("t.local")
 
-    spy.assert_called_once_with("t.local")
+    spy.assert_called_once_with("t.local", api_discovery=False)
     assert returned == _SURFACE
     assert session.kb.get("recon.web_surface") == _SURFACE
+
+
+def test_recon_passes_api_discovery_flag_through(recon_patches):
+    agent, session = _recon_agent(use_web_recon=True, use_api_discovery=True)
+    with patch("cyberai.agents.recon.agent.discover_surface", return_value=_SURFACE) as spy:
+        agent.run("t.local")
+    assert spy.call_args.kwargs["api_discovery"] is True
+
+
+def test_recon_reports_bare_routes_when_nothing_is_injectable(recon_patches):
+    surface = {
+        "base_url": "http://t.local",
+        "reachable": True,
+        "endpoints": [],
+        "routes": [{"url": "http://t.local/health", "method": "GET", "params": []}],
+        "spec_url": None,
+    }
+    agent, session = _recon_agent(use_web_recon=True, use_api_discovery=True)
+    with patch("cyberai.agents.recon.agent.discover_surface", return_value=surface):
+        agent.run("t.local")
+
+    route_findings = [f for f in session.findings if "API routes" in f.title]
+    assert len(route_findings) == 1
+    assert route_findings[0].severity is Severity.INFO
+    assert any("/health" in str(e) for e in route_findings[0].evidence)
