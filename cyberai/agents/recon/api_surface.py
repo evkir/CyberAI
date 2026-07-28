@@ -461,3 +461,97 @@ def fetch_js_routes(
         for route in collected.values()
     ]
     return {"scripts": scripts, "endpoints": endpoints}
+
+
+# --- merged API surface ------------------------------------------------------
+
+# A last resort, kept deliberately short: these are conventions, not evidence,
+# and each one costs a request against a live target.
+WELL_KNOWN_PATHS: tuple[str, ...] = (
+    "/api",
+    "/api/v1",
+    "/api/v2",
+    "/graphql",
+    "/health",
+    "/status",
+    "/metrics",
+    "/actuator",
+    "/admin",
+    "/debug",
+)
+
+# A path that answers 401/403 exists and is guarded -- worth reporting. A 404
+# or a dead connection is absence, and absence is not a finding.
+_PRESENT_STATUSES: frozenset[int] = frozenset({401, 403})
+
+
+def probe_well_known(
+    base: str,
+    fetch: FetchFn,
+    paths: tuple[str, ...] = WELL_KNOWN_PATHS,
+) -> list[dict[str, Any]]:
+    """Conventional paths that answer, as parameterless endpoints."""
+    found: list[dict[str, Any]] = []
+    for path in paths:
+        url = base.rstrip("/") + path
+        resp = fetch(url)
+        if not isinstance(resp, dict):
+            continue
+        status = resp.get("status")
+        if not isinstance(status, int):
+            continue
+        if status < 400 or status in _PRESENT_STATUSES:
+            found.append({"url": url, "method": "GET", "params": [], "source": "well-known"})
+    return found
+
+
+def discover_api_surface(
+    base: str,
+    fetch: FetchFn,
+    html: str = "",
+    page_url: Optional[str] = None,
+    probe_conventions: bool = True,
+) -> dict[str, Any]:
+    """Collect the API surface a target publishes, from cheapest source first.
+
+    A spec is authoritative, a bundle is evidence, and a conventional path is
+    neither -- so the convention probe runs only when the first two produced
+    nothing, keeping the request cost of a guess out of the normal path.
+
+    Returns {"endpoints", "routes", "spec_url", "scripts"}. Endpoints carry
+    parameters and are what exploitation can act on; routes are paths that
+    exist with nothing to inject, kept separate so a report can name them
+    without exploitation wasting requests on them.
+    """
+    spec = fetch_openapi(base, fetch)
+    collected: list[dict[str, Any]] = list(spec["endpoints"])
+
+    js = (
+        fetch_js_routes(base, fetch, html, page_url=page_url)
+        if html
+        else {"scripts": [], "endpoints": []}
+    )
+    collected.extend(js["endpoints"])
+
+    if probe_conventions and not any(e["params"] for e in collected):
+        collected.extend(probe_well_known(base, fetch))
+
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    for endpoint in collected:
+        key = (endpoint["url"].rstrip("/"), endpoint["method"])
+        slot = merged.get(key)
+        if slot is None:
+            merged[key] = dict(endpoint)
+            continue
+        for name in endpoint["params"]:
+            if name not in slot["params"]:
+                slot["params"].append(name)
+
+    endpoints = [e for e in merged.values() if e["params"]]
+    routes = [e for e in merged.values() if not e["params"]]
+    return {
+        "endpoints": endpoints,
+        "routes": routes,
+        "spec_url": spec["spec_url"],
+        "scripts": js["scripts"],
+    }

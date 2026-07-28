@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 
 from cyberai.agents.recon.api_surface import (
+    discover_api_surface,
     fetch_js_routes,
     fetch_openapi,
     parse_openapi,
+    probe_well_known,
     routes_from_javascript,
     script_urls,
 )
@@ -208,3 +210,77 @@ def test_fetch_js_routes_absolutises_paths_and_records_bundles():
 def test_fetch_js_routes_without_bundles_returns_nothing():
     result = fetch_js_routes("http://t", lambda url: None, "<html><body></body></html>")
     assert result == {"scripts": [], "endpoints": []}
+
+
+def _statuses(mapping, default=404):
+    def fetch(url):
+        return {"status": mapping.get(url, default), "headers": {}, "body": "", "url": url}
+
+    return fetch
+
+
+def test_probe_reports_reachable_and_guarded_paths_only():
+    fetch = _statuses({"http://t/api": 200, "http://t/admin": 403, "http://t/graphql": 500})
+    urls = [e["url"] for e in probe_well_known("http://t", fetch)]
+    assert urls == ["http://t/api", "http://t/admin"]
+    assert all(
+        e["params"] == [] and e["source"] == "well-known"
+        for e in probe_well_known("http://t", fetch)
+    )
+
+
+def test_probe_treats_dead_target_as_absence():
+    assert probe_well_known("http://t", lambda url: None) == []
+
+
+def test_spec_endpoints_win_and_bare_routes_are_separated():
+    pages = {
+        "http://t/openapi.json": json.dumps(_SWAGGER2),
+        "http://t/assets/app.js": _BUNDLE,
+    }
+    result = discover_api_surface("http://t", _pages(pages), html=_SHELL)
+    assert result["spec_url"] == "http://t/openapi.json"
+    assert result["scripts"] == ["http://t/assets/app.js"]
+    injectable = {(e["url"], e["method"]) for e in result["endpoints"]}
+    assert ("http://t/v1/login", "POST") in injectable
+    assert ("http://t/switch_personal_path", "POST") in injectable
+    assert [r["url"] for r in result["routes"]] == ["http://t/health"]
+
+
+def test_conventions_are_probed_only_when_nothing_injectable_was_found():
+    probed = []
+
+    def fetch(url):
+        probed.append(url)
+        return None
+
+    discover_api_surface("http://t", fetch, html="")
+    assert "http://t/api" in probed
+
+
+def test_conventions_are_skipped_once_a_parameter_is_known():
+    pages = _pages({"http://t/assets/app.js": _BUNDLE})
+    seen = []
+
+    def fetch(url):
+        seen.append(url)
+        return pages(url)
+
+    discover_api_surface("http://t", fetch, html=_SHELL)
+    assert not any(url.endswith("/graphql") for url in seen)
+
+
+def test_same_route_from_two_sources_merges_parameters():
+    spec = {
+        "paths": {"/search": {"get": {"parameters": [{"name": "q", "in": "query"}]}}},
+    }
+    bundle = 'fetch("/search?page=2");'
+    pages = _pages({"http://t/openapi.json": json.dumps(spec), "http://t/assets/app.js": bundle})
+    result = discover_api_surface("http://t", pages, html=_SHELL)
+    assert len(result["endpoints"]) == 1
+    assert result["endpoints"][0]["params"] == ["q", "page"]
+
+
+def test_empty_target_yields_empty_surface():
+    result = discover_api_surface("http://t", lambda url: None, html="", probe_conventions=False)
+    assert result == {"endpoints": [], "routes": [], "spec_url": None, "scripts": []}
