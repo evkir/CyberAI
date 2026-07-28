@@ -23,6 +23,8 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 
+from .api_surface import discover_api_surface
+
 DEFAULT_TIMEOUT = 5.0
 DEFAULT_DEPTH = 1
 MAX_PAGES = 25
@@ -129,12 +131,19 @@ def discover_surface(
     depth: int = DEFAULT_DEPTH,
     timeout: float = DEFAULT_TIMEOUT,
     max_pages: int = MAX_PAGES,
+    api_discovery: bool = False,
 ) -> dict[str, Any]:
     """Walk a web target and return its injectable points.
 
-    Returns {"base_url", "reachable", "endpoints": [...], "pages_fetched"} where
-    each endpoint is {"url", "method", "params": [...], "source"}. An
-    unreachable target yields reachable=False and no endpoints -- never a guess.
+    Returns {"base_url", "reachable", "endpoints", "pages_fetched", "routes",
+    "spec_url"} where each endpoint is {"url", "method", "params", "source"}.
+    An unreachable target yields reachable=False and no endpoints -- never a
+    guess.
+
+    With `api_discovery` the walk is followed by `api_surface`, which reads the
+    spec and the JS bundles a single-page app ships. That path exists because
+    an SPA serves an empty shell: the crawler above finds nothing to follow and
+    reports no surface on a target that has a full API behind it.
     """
     base = normalize_base(target)
     fetch = fetcher or _default_fetcher(timeout)
@@ -144,6 +153,7 @@ def discover_surface(
     endpoints: dict[tuple[str, str], dict[str, Any]] = {}
     pages = 0
     reachable = False
+    root_html = ""
 
     def _record(url: str, method: str, params: list[str], source: str) -> None:
         clean = url.split("#")[0]
@@ -171,6 +181,8 @@ def discover_surface(
         body = resp.get("body") or ""
         if not isinstance(body, str):
             body = str(body)
+        if not root_html and url.rstrip("/") == base:
+            root_html = body
 
         # Query parameters already present on the fetched URL are injectable.
         qs = parse_qs(urlparse(url).query)
@@ -202,9 +214,23 @@ def discover_surface(
                 queue.append((link, level + 1))
                 _record(link, "GET", list(parse_qs(urlparse(link).query)), "link")
 
+    routes: list[dict[str, Any]] = []
+    spec_url: Optional[str] = None
+    if api_discovery:
+        api = discover_api_surface(base, fetch, html=root_html, page_url=base + "/")
+        for endpoint in api["endpoints"]:
+            _record(endpoint["url"], endpoint["method"], endpoint["params"], endpoint["source"])
+        routes = api["routes"]
+        spec_url = api["spec_url"]
+        # A published spec answers even when the HTML shell gave us nothing.
+        if api["endpoints"] or routes or spec_url:
+            reachable = True
+
     return {
         "base_url": base,
         "reachable": reachable,
         "pages_fetched": pages,
         "endpoints": list(endpoints.values()),
+        "routes": routes,
+        "spec_url": spec_url,
     }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from cyberai.agents.recon.web_surface import discover_surface, normalize_base
 
 _INDEX = """
@@ -101,3 +103,56 @@ def test_recon_agent_skips_web_surface_by_default():
         cfg = CyberAIConfig()
         assert getattr(cfg, "use_web_recon", False) is False
         spy.assert_not_called()
+
+
+def test_api_discovery_is_off_by_default():
+    asked = []
+
+    def fetch(url):
+        asked.append(url)
+        return {"status": 200, "headers": {}, "body": "<html></html>", "url": url}
+
+    result = discover_surface("http://t", fetcher=fetch)
+    assert not any("openapi" in url for url in asked)
+    assert result["routes"] == [] and result["spec_url"] is None
+
+
+def test_api_discovery_merges_spec_endpoints_into_the_surface():
+    spec = json.dumps(
+        {"paths": {"/ping": {"get": {"parameters": [{"name": "host", "in": "query"}]}}}}
+    )
+    shell = '<html><body><div id="app"></div></body></html>'
+
+    def fetch(url):
+        if url.rstrip("/") == "http://t":
+            return {"status": 200, "headers": {}, "body": shell, "url": url}
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": spec, "url": url}
+        return None
+
+    result = discover_surface("http://t", fetcher=fetch, api_discovery=True)
+    assert result["spec_url"] == "http://t/openapi.json"
+    assert [(e["url"], e["params"], e["source"]) for e in result["endpoints"]] == [
+        ("http://t/ping", ["host"], "openapi")
+    ]
+
+
+def test_api_discovery_makes_a_spec_only_target_reachable():
+    spec = json.dumps(
+        {"paths": {"/ping": {"get": {"parameters": [{"name": "host", "in": "query"}]}}}}
+    )
+
+    def fetch(url):
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": spec, "url": url}
+        return None
+
+    result = discover_surface("http://t", fetcher=fetch, api_discovery=True)
+    assert result["reachable"] is True
+    assert result["pages_fetched"] == 0
+
+
+def test_api_discovery_config_flag_defaults_off():
+    from cyberai.core.config import CyberAIConfig
+
+    assert CyberAIConfig().use_api_discovery is False

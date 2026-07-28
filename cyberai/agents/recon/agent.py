@@ -175,7 +175,9 @@ class ReconAgent(BaseAgent):
         the web path against a container that has no other attack surface.
         """
         self._check_iteration_limit()
-        surface = discover_surface(target)
+        surface = discover_surface(
+            target, api_discovery=getattr(self.config, "use_api_discovery", False)
+        )
         self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
         self._log("web_surface complete", surface)
 
@@ -192,4 +194,21 @@ class ReconAgent(BaseAgent):
                 target=target,
                 evidence=[f"{e['method']} {e['url']} ({', '.join(e['params'])})" for e in eps],
             )
+        else:
+            # Routes that exist with nothing to inject are worth naming: they
+            # are the API an empty HTML shell hides, and exploitation skipping
+            # them is not the same as recon having found nothing.
+            routes = surface.get("routes") or []
+            if routes:
+                self.session.add_finding(
+                    severity=Severity.INFO,
+                    title=f"API routes without injectable parameters on {target}",
+                    description=(
+                        f"Discovered {len(routes)} route(s) that respond but expose "
+                        "no parameter to inject."
+                    ),
+                    agent=self.AGENT_NAME,
+                    target=target,
+                    evidence=[f"{r['method']} {r['url']}" for r in routes],
+                )
         return surface
