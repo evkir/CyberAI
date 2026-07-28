@@ -30,7 +30,7 @@ code the full pipeline runs behind `use_web_recon` / `use_web_exploit`.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Optional
 
 from cyberai.agents.exploit.agent import ExploitAgent
@@ -73,8 +73,14 @@ def agent_attack(base_url: str, config: Optional[CyberAIConfig] = None) -> Attac
     out of the same knowledge base the recon agent wrote it to. That seam is
     the thing under measurement: a runner that called the modules directly
     would still pass while the agents were wired to different keys.
+
+    The config comes from the environment so every other flag reaches the
+    bench: building it from defaults instead silently pinned each new
+    capability to off here, and a run would report the pipeline missing what
+    it was never allowed to try. The two web flags are forced on regardless,
+    because the web path is the whole measurement.
     """
-    cfg = config or CyberAIConfig(use_web_recon=True, use_web_exploit=True)
+    cfg = config or replace(CyberAIConfig.from_env(), use_web_recon=True, use_web_exploit=True)
     session = ScanSession(target=base_url)
 
     ReconAgent(cfg, session)._run_web_recon(base_url)
