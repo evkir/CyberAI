@@ -176,3 +176,57 @@ def test_agent_attack_drives_both_agents_through_one_session(live_sqli_app):
     assert outcome.endpoints_tested >= 1
     assert all(f["vuln_class"] == "sqli" for f in outcome.findings)
     assert all(f["proof"] for f in outcome.findings), "a finding without a proof is a guess"
+
+
+def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
+    """Env flags must reach the bench: a config built from defaults pinned
+    every new capability to off, and the run reported the pipeline missing
+    what it was never allowed to try."""
+    monkeypatch.setenv("CYBERAI_USE_API_DISCOVERY", "1")
+    seen = {}
+
+    class _Recon:
+        def __init__(self, cfg, session):
+            seen["cfg"] = cfg
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_exploit(self, base_url):
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+
+    agent_attack("http://t")
+    assert seen["cfg"].use_api_discovery is True
+
+
+def test_agent_attack_forces_the_web_path_on(monkeypatch):
+    monkeypatch.delenv("CYBERAI_USE_WEB_RECON", raising=False)
+    monkeypatch.delenv("CYBERAI_USE_WEB_EXPLOIT", raising=False)
+    seen = {}
+
+    class _Recon:
+        def __init__(self, cfg, session):
+            seen["cfg"] = cfg
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_exploit(self, base_url):
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+
+    agent_attack("http://t")
+    assert seen["cfg"].use_web_recon is True and seen["cfg"].use_web_exploit is True
