@@ -155,17 +155,36 @@ def discover_surface(
     reachable = False
     root_html = ""
 
-    def _record(url: str, method: str, params: list[str], source: str) -> None:
+    def _record(
+        url: str,
+        method: str,
+        params: list[str],
+        source: str,
+        body_params: Optional[list[str]] = None,
+    ) -> None:
         clean = url.split("#")[0]
         key = (clean.split("?")[0], method)
         if not params:
             return
         slot = endpoints.setdefault(
-            key, {"url": clean.split("?")[0], "method": method, "params": [], "source": source}
+            key,
+            {
+                "url": clean.split("?")[0],
+                "method": method,
+                "params": [],
+                "body_params": [],
+                "source": source,
+            },
         )
         for p in params:
             if p not in slot["params"]:
                 slot["params"].append(p)
+        # Where a parameter travels is a property of the route, not of the
+        # source that mentioned it: a form and a spec describing the same
+        # route must not disagree about the transport.
+        for p in body_params or []:
+            if p not in slot["body_params"]:
+                slot["body_params"].append(p)
 
     while queue and pages < max_pages:
         url, level = queue.pop(0)
@@ -219,7 +238,13 @@ def discover_surface(
     if api_discovery:
         api = discover_api_surface(base, fetch, html=root_html, page_url=base + "/")
         for endpoint in api["endpoints"]:
-            _record(endpoint["url"], endpoint["method"], endpoint["params"], endpoint["source"])
+            _record(
+                endpoint["url"],
+                endpoint["method"],
+                endpoint["params"],
+                endpoint["source"],
+                endpoint.get("body_params"),
+            )
         routes = api["routes"]
         spec_url = api["spec_url"]
         # A published spec answers even when the HTML shell gave us nothing.

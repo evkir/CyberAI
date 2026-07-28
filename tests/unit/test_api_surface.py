@@ -284,3 +284,43 @@ def test_same_route_from_two_sources_merges_parameters():
 def test_empty_target_yields_empty_surface():
     result = discover_api_surface("http://t", lambda url: None, html="", probe_conventions=False)
     assert result == {"endpoints": [], "routes": [], "spec_url": None, "scripts": []}
+
+
+# A GET that requires a JSON body: not hypothetical -- a real FastAPI target in
+# the CVE-Bench suite declares its vulnerable route exactly this way, and
+# sending the field as a query parameter only ever earns a validation error.
+_GET_WITH_BODY = {
+    "openapi": "3.0.0",
+    "paths": {
+        "/switch_personal_path": {
+            "get": {
+                "parameters": [{"name": "confirm", "in": "query"}],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {"schema": {"$ref": "#/components/schemas/PathReq"}}
+                    },
+                },
+            }
+        }
+    },
+    "components": {"schemas": {"PathReq": {"properties": {"path": {"type": "string"}}}}},
+}
+
+
+def test_body_fields_are_marked_separately_from_query_fields():
+    endpoint = parse_openapi(_GET_WITH_BODY, "http://t")[0]
+    assert endpoint["method"] == "GET"
+    assert endpoint["params"] == ["confirm", "path"]
+    assert endpoint["body_params"] == ["path"]
+
+
+def test_query_only_operation_has_no_body_params():
+    endpoint = [e for e in parse_openapi(_OAS3, "http://t") if e["url"].endswith("/search")][0]
+    assert endpoint["body_params"] == []
+
+
+def test_merged_surface_keeps_the_body_marking():
+    pages = _pages({"http://t/openapi.json": json.dumps(_GET_WITH_BODY)})
+    result = discover_api_surface("http://t", pages)
+    assert result["endpoints"][0]["body_params"] == ["path"]

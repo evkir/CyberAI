@@ -156,3 +156,35 @@ def test_api_discovery_config_flag_defaults_off():
     from cyberai.core.config import CyberAIConfig
 
     assert CyberAIConfig().use_api_discovery is False
+
+
+def test_surface_carries_the_body_transport_marking_from_the_spec():
+    spec = json.dumps(
+        {
+            "paths": {
+                "/switch": {
+                    "get": {
+                        "requestBody": {
+                            "content": {
+                                "application/json": {"schema": {"properties": {"path": {}}}}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    def fetch(url):
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": spec, "url": url}
+        return None
+
+    endpoint = discover_surface("http://t", fetcher=fetch, api_discovery=True)["endpoints"][0]
+    assert endpoint["params"] == ["path"]
+    assert endpoint["body_params"] == ["path"]
+
+
+def test_html_discovered_endpoints_declare_no_body_transport():
+    result = discover_surface("http://t", fetcher=_pages({"http://t/": _INDEX}))
+    assert all(e["body_params"] == [] for e in result["endpoints"])

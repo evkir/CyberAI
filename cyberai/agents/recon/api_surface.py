@@ -143,9 +143,14 @@ def _join(base: str, prefix: str, path: str) -> str:
 def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
     """Endpoints declared by an OpenAPI 3 or Swagger 2 document.
 
-    Returns the `web_surface` endpoint shape. Parameter names come from the
-    document; a path carrying a `{placeholder}` is dropped, because requesting
-    the template would hit a route that does not exist.
+    Returns the `web_surface` endpoint shape plus `body_params`, the subset of
+    names the document says travel in the request body. That distinction is
+    not cosmetic: a route can declare a required body on a GET, and sending
+    those names as query parameters earns a validation error, never an answer.
+
+    Parameter names come from the document; a path carrying a `{placeholder}`
+    is dropped, because requesting the template would hit a route that does
+    not exist.
     """
     if not isinstance(spec, dict):
         return []
@@ -163,16 +168,16 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
             if method.lower() not in _OPERATIONS or not isinstance(operation, dict):
                 continue
             params = list(shared)
-            for name in _declared_params(spec, operation.get("parameters")) + _body_params(
-                spec, operation
-            ):
+            for name in _declared_params(spec, operation.get("parameters")):
                 if name not in params:
                     params.append(name)
+            body = [name for name in _body_params(spec, operation) if name not in params]
             endpoints.append(
                 {
                     "url": _join(base, prefix, path),
                     "method": method.upper(),
-                    "params": params,
+                    "params": params + body,
+                    "body_params": body,
                     "source": "openapi",
                 }
             )
@@ -546,6 +551,11 @@ def discover_api_surface(
         for name in endpoint["params"]:
             if name not in slot["params"]:
                 slot["params"].append(name)
+        if endpoint.get("body_params"):
+            slot.setdefault("body_params", [])
+            for name in endpoint["body_params"]:
+                if name not in slot["body_params"]:
+                    slot["body_params"].append(name)
 
     endpoints = [e for e in merged.values() if e["params"]]
     routes = [e for e in merged.values() if not e["params"]]
