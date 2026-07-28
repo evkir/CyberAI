@@ -14,8 +14,10 @@ template placeholder is skipped rather than filled with a guessed value.
 from __future__ import annotations
 
 import json
+import re
+from html.parser import HTMLParser
 from typing import Any, Callable, Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 # Same contract as `web_surface.FetchFn`: URL -> response dict or None.
 FetchFn = Callable[[str], Optional[dict[str, Any]]]
@@ -206,3 +208,256 @@ def fetch_openapi(
             continue
         return {"spec_url": url, "endpoints": parse_openapi(spec, base)}
     return {"spec_url": None, "endpoints": []}
+
+
+# --- JS bundle route extraction ---------------------------------------------
+
+# Bundle budget: a route table repeats itself, and a build ships more chunks
+# than a recon pass should download.
+MAX_SCRIPTS = 8
+MAX_ROUTES = 40
+MAX_SCRIPT_BYTES = 3_000_000
+
+# A quoted absolute path, with any query string it carries.
+_ROUTE_LITERAL = re.compile(r"""['"`](/[A-Za-z0-9_\-./]*)((?:\?[A-Za-z0-9_\-=&%.]*)?)['"`]""")
+
+# Static files a build references by path; requesting them proves nothing.
+_ASSET_SUFFIXES: tuple[str, ...] = (
+    ".js",
+    ".mjs",
+    ".css",
+    ".map",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".svg",
+    ".ico",
+    ".webp",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".mp4",
+    ".html",
+    ".htm",
+)
+
+# Transport settings of a fetch/axios options object, never app fields.
+_HARD_OPTIONS: frozenset[str] = frozenset(
+    {
+        "method",
+        "headers",
+        "credentials",
+        "mode",
+        "cache",
+        "signal",
+        "redirect",
+        "referrer",
+        "referrerPolicy",
+        "integrity",
+        "keepalive",
+        "responseType",
+        "timeout",
+        "withCredentials",
+        "baseURL",
+        "url",
+    }
+)
+
+# Names that mean "the payload" inside an options object but are ordinary
+# fields anywhere else. Dropped only when the object is provably options.
+_SOFT_OPTIONS: frozenset[str] = frozenset({"body", "data", "params", "query"})
+
+# How far around a literal to look for the call that uses it.
+_WINDOW = 160
+
+_OBJECT_KEY = re.compile(r"""[{,]\s*['"]?([A-Za-z_$][A-Za-z0-9_$]*)['"]?\s*:""")
+_CALL_METHOD = re.compile(r"""\.(get|post|put|patch|delete)\s*\($""", re.IGNORECASE)
+_OPTION_METHOD = re.compile(r"""method\s*:\s*['"]([A-Za-z]+)['"]""")
+
+
+def _is_route(path: str) -> bool:
+    """Whether a quoted path is plausibly a request target, not an asset."""
+    if len(path) < 2 or path.startswith("//") or "{" in path or "$" in path:
+        return False
+    return not path.lower().endswith(_ASSET_SUFFIXES)
+
+
+def _query_names(query: str) -> list[str]:
+    """Parameter names present on the literal itself."""
+    names: list[str] = []
+    for pair in query.lstrip("?").split("&"):
+        name = pair.split("=")[0].strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def _call_window(text: str, end: int) -> str:
+    """Text belonging to the call that used the literal, and nothing after it.
+
+    Minified output packs unrelated calls onto one line, so the window ends
+    where this call's parentheses close: without that bound, the fields of the
+    next request leak onto this route.
+    """
+    depth = 0
+    out: list[str] = []
+    for ch in text[end : end + _WINDOW]:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif ch == ";" and depth == 0:
+            break
+        out.append(ch)
+    return "".join(out)
+
+
+def _object_keys(window: str) -> list[str]:
+    """Application field names from object literals next to the call.
+
+    Nested braces are read too, so a `JSON.stringify({...})` payload
+    contributes its fields. A `method:` key proves the object is a request
+    options bag, and only then are payload-wrapper names dropped -- elsewhere
+    `body` is as likely to be a real field as any other.
+    """
+    is_options = _OPTION_METHOD.search(window) is not None
+    names: list[str] = []
+    for name in _OBJECT_KEY.findall(window):
+        if name in _HARD_OPTIONS or (is_options and name in _SOFT_OPTIONS):
+            continue
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def _method_for(before: str, window: str) -> str:
+    """Verb the call uses, from `.post(` before it or `method:` after it."""
+    call = _CALL_METHOD.search(before.rstrip())
+    if call:
+        return call.group(1).upper()
+    option = _OPTION_METHOD.search(window)
+    if option:
+        return option.group(1).upper()
+    return "GET"
+
+
+class _ScriptParser(HTMLParser):
+    """Collects `<script src=...>` locations from one HTML page."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.sources: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag != "script":
+            return
+        attr = {k.lower(): (v or "") for k, v in attrs}
+        src = attr.get("src")
+        if src:
+            self.sources.append(src)
+
+
+def script_urls(html: str, page_url: str, base: str, limit: int = MAX_SCRIPTS) -> list[str]:
+    """Same-origin bundle URLs referenced by a page, in document order."""
+    parser = _ScriptParser()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:  # malformed HTML must not abort discovery
+        pass
+
+    origin = urlparse(base)
+    found: list[str] = []
+    for src in parser.sources:
+        url = urljoin(page_url, src).split("#")[0]
+        parts = urlparse(url)
+        if (parts.scheme, parts.hostname, parts.port) != (
+            origin.scheme,
+            origin.hostname,
+            origin.port,
+        ):
+            continue
+        if url not in found:
+            found.append(url)
+        if len(found) >= limit:
+            break
+    return found
+
+
+def routes_from_javascript(text: str, max_routes: int = MAX_ROUTES) -> list[dict[str, Any]]:
+    """Request paths a bundle names literally, with the fields sent alongside.
+
+    A bundled SPA calls its own API by string literal, so the route table the
+    empty HTML shell never mentions sits in the bundle in plain text. Parameter
+    names come from the query string on the literal or from the object literal
+    passed to the call; nothing else is inferred.
+    """
+    routes: dict[tuple[str, str], dict[str, Any]] = {}
+    for match in _ROUTE_LITERAL.finditer(text):
+        path, query = match.group(1), match.group(2)
+        if not _is_route(path):
+            continue
+        window = _call_window(text, match.end())
+        method = _method_for(text[max(0, match.start() - _WINDOW) : match.start()], window)
+        params = _query_names(query)
+        for name in _object_keys(window):
+            if name not in params:
+                params.append(name)
+        slot = routes.setdefault(
+            (path, method), {"path": path, "method": method, "params": [], "source": "js-route"}
+        )
+        for name in params:
+            if name not in slot["params"]:
+                slot["params"].append(name)
+        if len(routes) >= max_routes:
+            break
+    return list(routes.values())
+
+
+def fetch_js_routes(
+    base: str,
+    fetch: FetchFn,
+    html: str,
+    page_url: Optional[str] = None,
+    max_scripts: int = MAX_SCRIPTS,
+    max_routes: int = MAX_ROUTES,
+) -> dict[str, Any]:
+    """Read the page's own bundles and return the routes they name.
+
+    Returns {"scripts", "endpoints"} where endpoints carry absolute URLs in the
+    `web_surface` shape; an endpoint may legitimately have no parameters, and
+    the caller decides what an unparameterised route is worth.
+    """
+    origin = page_url or base.rstrip("/") + "/"
+    collected: dict[tuple[str, str], dict[str, Any]] = {}
+    scripts: list[str] = []
+
+    for url in script_urls(html, origin, base, limit=max_scripts):
+        resp = fetch(url)
+        if not isinstance(resp, dict):
+            continue
+        body = resp.get("body")
+        if not isinstance(body, str) or not body:
+            continue
+        scripts.append(url)
+        for route in routes_from_javascript(body[:MAX_SCRIPT_BYTES], max_routes=max_routes):
+            key = (route["path"], route["method"])
+            slot = collected.setdefault(key, route)
+            for name in route["params"]:
+                if name not in slot["params"]:
+                    slot["params"].append(name)
+
+    endpoints = [
+        {
+            "url": urljoin(base.rstrip("/") + "/", route["path"].lstrip("/")),
+            "method": route["method"],
+            "params": route["params"],
+            "source": "js-route",
+        }
+        for route in collected.values()
+    ]
+    return {"scripts": scripts, "endpoints": endpoints}
