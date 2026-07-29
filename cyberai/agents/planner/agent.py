@@ -2,9 +2,11 @@
 
 Turns the knowledge-base relationship graph into an ordered list of concrete
 subtasks (a TODO plan) that later phases can act on. Deterministic by default:
-CVE nodes become exploitation subtasks ranked by score, LLM/RAG endpoints
+CVE nodes become exploitation subtasks ranked by score, HTTP endpoints with
+injectable parameters become web-exploitation subtasks, LLM/RAG endpoints
 become injection-fuzzing subtasks, and remaining services become enumeration
-subtasks. The plan and a serialised graph are written to the KB under ``plan``.
+subtasks. Which endpoints matter is decided here; the order payloads are tried
+in stays with the exploitation layer, so there is one source of truth for each. The plan and a serialised graph are written to the KB under ``plan``.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from cyberai.core.base_agent import BaseAgent
 from cyberai.core.kb_graph import (
     CVE,
     HOST,
+    HTTP_ENDPOINT,
     LLM_ENDPOINT,
     SERVICE,
     attack_paths,
@@ -65,6 +68,24 @@ class PlannerAgent(BaseAgent):
                     "severity": graph.nodes[node].get("severity"),
                     "score": graph.nodes[node].get("score"),
                     "path": [n[1] for n in paths[0]] if paths else [target, node[1]],
+                }
+            )
+
+        for node in nodes_by_type(graph, HTTP_ENDPOINT):
+            attrs = graph.nodes[node]
+            params = attrs.get("params") or []
+            if not params:
+                # A route with no parameters offers nothing to inject; it stays
+                # in the graph as reachable surface but earns no subtask.
+                continue
+            subtasks.append(
+                {
+                    "action": "web-exploit",
+                    "target": attrs.get("url"),
+                    "method": attrs.get("method"),
+                    "params": list(params),
+                    "body_params": list(attrs.get("body_params") or []),
+                    "path": [target, attrs.get("url")],
                 }
             )
 
