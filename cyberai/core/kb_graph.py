@@ -1,7 +1,8 @@
 """In-memory knowledge-base graph.
 
 Builds a directed relationship graph from KnowledgeBase entries so a planner
-can reason over multi-step attack paths (host -> port -> service -> CVE).
+can reason over multi-step attack paths (host -> port -> service -> CVE,
+and host -> HTTP endpoint for web surface).
 Backed by networkx and held entirely in memory — no external graph database —
 to keep the pipeline air-gapped.
 
@@ -26,6 +27,7 @@ PORT = "port"
 SERVICE = "service"
 CVE = "cve"
 LLM_ENDPOINT = "llm_endpoint"
+HTTP_ENDPOINT = "http_endpoint"
 
 # Edge relations.
 HAS_PORT = "HAS_PORT"
@@ -33,6 +35,7 @@ RUNS = "RUNS"
 VULN_TO = "VULN_TO"
 SUBDOMAIN = "SUBDOMAIN"
 EXPOSES = "EXPOSES"
+SERVES = "SERVES"
 
 
 def _add_node(g: nx.DiGraph, ntype: str, name: Any, **attrs: Any) -> Node:
@@ -92,8 +95,42 @@ def build_kb_graph(kb: KnowledgeBase, target: Optional[str] = None) -> nx.DiGrap
                 continue
             g.add_edge(root, _add_node(g, LLM_ENDPOINT, url), rel=EXPOSES)
 
+    _add_http_endpoints(g, kb, root)
     _add_cves(g, kb, root)
     return g
+
+
+def _add_http_endpoints(g: nx.DiGraph, kb: KnowledgeBase, root: Node) -> None:
+    """Add HTTP endpoint nodes from the web surface recon discovered.
+
+    Identity is method plus URL, because the surface keys endpoints by that
+    pair: one path can expose different parameters per method, and collapsing
+    them would lose a route. Parameterless routes are recorded as well -- they
+    describe reachable surface even though nothing can be injected into them
+    yet, and a consumer can tell them apart by an empty ``params``.
+    """
+    surface = kb.get("recon.web_surface") or {}
+    if not isinstance(surface, dict):
+        return
+    entries = list(surface.get("endpoints") or []) + list(surface.get("routes") or [])
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        url = entry.get("url")
+        if not url:
+            continue
+        method = str(entry.get("method") or "GET").upper()
+        node = _add_node(
+            g,
+            HTTP_ENDPOINT,
+            f"{method} {url}",
+            url=str(url),
+            method=method,
+            params=list(entry.get("params") or []),
+            body_params=list(entry.get("body_params") or []),
+            source=entry.get("source"),
+        )
+        g.add_edge(root, node, rel=SERVES)
 
 
 def _add_cves(g: nx.DiGraph, kb: KnowledgeBase, root: Node) -> None:
