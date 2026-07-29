@@ -122,6 +122,8 @@ class CyberAIConfig:
     use_api_discovery: bool = False
     # Flag-gated: attack the endpoints the planner named before the rest.
     use_plan_web_order: bool = False
+    # Flag-gated: fuzz the LLM channels the planner named, in the exploit phase.
+    use_planned_redteam: bool = False
     exploit_memory_path: Optional[str] = None
     # Flag-gated: parse local practice-lab machine artifacts and detect flags.
     use_lab_dogfood: bool = False
@@ -184,6 +186,7 @@ class CyberAIConfig:
             use_web_exploit=_env_bool("CYBERAI_USE_WEB_EXPLOIT", False),
             use_api_discovery=_env_bool("CYBERAI_USE_API_DISCOVERY", False),
             use_plan_web_order=_env_bool("CYBERAI_USE_PLAN_WEB_ORDER", False),
+            use_planned_redteam=_env_bool("CYBERAI_USE_PLANNED_REDTEAM", False),
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
             web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
             air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),

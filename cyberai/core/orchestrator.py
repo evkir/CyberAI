@@ -279,8 +279,25 @@ class Orchestrator:
 
         agent = ExploitAgent(self.config, session, self._client_for(ScanPhase.EXPLOIT), self.audit)
         result = agent.run(session.target)
+        redteam = self._run_planned_redteam(session)
+        if redteam:
+            result = {**result, "redteam": redteam}
         session.kb_set("exploit", result)
         return result
+
+    def _run_planned_redteam(self, session: ScanSession) -> Dict:
+        """Fuzz the LLM channels the plan named, inside the exploit phase.
+
+        Not a phase of its own: the planner already decides whether there is
+        anything to fuzz, and a phase that exists only to be skipped costs the
+        CLI, the replay format, and the scorecard a column each.
+        """
+        if not getattr(self.config, "use_planned_redteam", False):
+            return {}
+        from cyberai.agents.redteam.agent import RedTeamAgent
+
+        agent = RedTeamAgent(self.config, session, self._client_for(ScanPhase.EXPLOIT), self.audit)
+        return agent.run(session.target)
 
     def _run_report(self, session: ScanSession) -> Dict:
         from cyberai.agents.report.agent import ReportAgent
