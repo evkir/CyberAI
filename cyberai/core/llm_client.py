@@ -10,6 +10,11 @@ if TYPE_CHECKING:
     from .base_agent import Tool
 
 
+# Local models on a 3060 are slow on long exploit prompts; the async path
+# used to allow only 60s and timed out where the sync path succeeded.
+OLLAMA_TIMEOUT = 120
+
+
 class LLMClient:
     """
     Unified LLM interface — OpenAI / Anthropic / Ollama
@@ -122,9 +127,14 @@ class LLMClient:
         )
         return response.content[0].text
 
-    def _call_ollama(
-        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
-    ) -> str:
+    def _ollama_request(self, messages: List[Dict], system: Optional[str]) -> tuple:
+        """Build the (url, payload) pair for an ollama /api/chat call.
+
+        Single source for both the sync and async entry points: the async one
+        used to build its own payload and had silently dropped the system
+        prompt and the raised num_ctx, so the same call behaved differently
+        depending on which path reached it.
+        """
         url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
         full_messages: List[Dict] = []
         if system:
@@ -138,7 +148,13 @@ class LLMClient:
             # prompts (CVE JSON + attack paths + chain), which 4xx/5xx the call.
             "options": {"num_ctx": 8192},
         }
-        response = httpx.post(url, json=payload, timeout=120)
+        return url, payload
+
+    def _call_ollama(
+        self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
+    ) -> str:
+        url, payload = self._ollama_request(messages, system)
+        response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
         if response.status_code != 200:
             raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
         data = response.json()
@@ -420,13 +436,8 @@ class LLMClient:
     async def _acall_ollama(
         self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
     ) -> str:
-        url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
-        payload = {
-            "model": self.config.model,
-            "messages": messages,
-            "stream": False,
-        }
-        async with httpx.AsyncClient(timeout=60) as client:
+        url, payload = self._ollama_request(messages, system)
+        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
             response = await client.post(url, json=payload)
             response.raise_for_status()
             data = response.json()

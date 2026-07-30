@@ -145,3 +145,61 @@ def test_acall_ollama_records_usage(monkeypatch):
     assert client.cost_tracker.call_count == 1
     assert client.cost_tracker.total_input_tokens == 10
     assert client.cost_tracker.total_output_tokens == 3
+
+
+def test_ollama_sync_and_async_send_identical_payloads(monkeypatch):
+    """Both ollama entry points must build the same request body. The async
+    one used to construct its own, dropping the system prompt and the raised
+    num_ctx, so the same prompt behaved differently depending on the path."""
+    import asyncio
+
+    from cyberai.core import llm_client as lc
+
+    captured = {}
+
+    class _Resp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": "ok"}}
+
+    def fake_post(url, json, timeout):
+        captured["sync"] = (url, json, timeout)
+        return _Resp()
+
+    class _AsyncClient:
+        def __init__(self, timeout):
+            captured["async_timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json):
+            captured["async"] = (url, json)
+            return _Resp()
+
+    monkeypatch.setattr(lc.httpx, "post", fake_post)
+    monkeypatch.setattr(lc.httpx, "AsyncClient", _AsyncClient)
+
+    client = lc.LLMClient.__new__(lc.LLMClient)
+    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b", "provider": "ollama"})()
+    client.cost_tracker = None
+    client.budget_usd = 0
+
+    messages = [{"role": "user", "content": "hi"}]
+    client._call_ollama(messages, "SYS")
+    asyncio.run(client._acall_ollama(messages, "SYS"))
+
+    sync_url, sync_payload, sync_timeout = captured["sync"]
+    async_url, async_payload = captured["async"]
+    assert sync_url == async_url
+    assert sync_payload == async_payload
+    assert sync_timeout == captured["async_timeout"] == lc.OLLAMA_TIMEOUT
+    assert async_payload["messages"][0] == {"role": "system", "content": "SYS"}
+    assert async_payload["options"]["num_ctx"] == 8192
