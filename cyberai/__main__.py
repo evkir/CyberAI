@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 
 import click
+
+from cyberai.version import __version__
 from rich.console import Console
 from rich.panel import Panel
 
@@ -91,6 +93,7 @@ BANNER = """
 
 
 @click.group()
+@click.version_option(__version__, "-V", "--version", prog_name="cyberai")
 def cli() -> None:
     """CyberAI — AI-powered pentest platform."""
 
