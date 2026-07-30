@@ -426,6 +426,17 @@ class AsyncOrchestrator(Orchestrator):
         whois_result = await asyncio.to_thread(run_whois, session.target)
         session.kb.set("recon.whois", whois_result, agent="async_recon")
 
+        # HTTP attack surface: AsyncReconAgent has no web branch, so
+        # recon.web_surface was absent on the async path and every consumer
+        # of it (build_kb_graph, ExploitAgent) silently saw nothing. Reuse the
+        # sync agent's method rather than re-deriving the crawl and its
+        # findings here — one source of truth for the web surface.
+        if getattr(self.config, "use_web_recon", False):
+            from cyberai.agents.recon.agent import ReconAgent
+
+            web_agent = ReconAgent(self.config, session, None, getattr(self, "audit", None))
+            await asyncio.to_thread(web_agent._run_web_recon, session.target)
+
         # Validated ReconResult so the planner KB graph gets port/service/
         # subdomain nodes (build_kb_graph reads recon.result), matching sync.
         nmap = result.get("nmap") if isinstance(result.get("nmap"), dict) else {}
