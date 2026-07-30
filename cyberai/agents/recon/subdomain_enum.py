@@ -64,6 +64,18 @@ DEFAULT_WORDLIST = [
 ]
 
 
+def fqdns(result: Dict[str, Any] | None = None) -> List[str]:
+    """Extract plain hostnames from an enumerate_subdomains* result.
+
+    Both enumerators return {"found": [{"fqdn": ...}]}. Callers that need
+    bare hostnames (ReconResult.subdomains, the planner KB graph) must use
+    this instead of re-deriving the shape, or the sync and async pipeline
+    paths drift apart silently.
+    """
+    found = (result or {}).get("found") or []
+    return [r["fqdn"] for r in found if isinstance(r, dict) and r.get("fqdn")]
+
+
 def enumerate_subdomains(
     domain: str,
     wordlist: List[str] = None,

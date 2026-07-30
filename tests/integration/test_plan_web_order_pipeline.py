@@ -67,7 +67,7 @@ def _run(config: CyberAIConfig) -> List[str]:
         patch("cyberai.agents.recon.agent.run_nmap", return_value=RECON_RESULT),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch("cyberai.agents.recon.agent.discover_surface", return_value=SURFACE),
         patch("cyberai.agents.exploit.web_exploit._default_sender", return_value=send),

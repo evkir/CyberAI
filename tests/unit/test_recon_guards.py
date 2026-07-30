@@ -14,7 +14,7 @@ from cyberai.core.scan_session import ScanPhase, ScanSession
 _RECON_TOOLS = {
     "run_whois": {},
     "run_dns": {},
-    "detect_subdomains": {},
+    "enumerate_subdomains": {},
     "detect_llm_endpoints": {},
 }
 

@@ -36,10 +36,10 @@ def register(
 # ── recon tools ───────────────────────────────────────────────────────
 
 from cyberai.agents.recon.dns_tool import (  # noqa: E402
-    detect_subdomains,
     run_dns,
     run_whois,
 )
+from cyberai.agents.recon.subdomain_enum import enumerate_subdomains  # noqa: E402
 from cyberai.agents.recon.nmap_tool import run_nmap  # noqa: E402
 
 register(
@@ -88,8 +88,8 @@ register(
 
 
 def _subdomain_handler(target: str, wordlist: list[str] | None = None) -> dict:
-    """Adapt detect_subdomains to MCP (wordlist optional)."""
-    return detect_subdomains(target, wordlist)
+    """Adapt enumerate_subdomains to MCP (wordlist optional)."""
+    return enumerate_subdomains(target, wordlist)
 
 
 register(

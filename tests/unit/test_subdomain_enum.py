@@ -1,6 +1,7 @@
 from unittest.mock import patch
 from cyberai.agents.recon.subdomain_enum import (
     enumerate_subdomains,
+    fqdns,
     _resolve,
     load_wordlist,
     DEFAULT_WORDLIST,
@@ -81,3 +82,34 @@ def test_load_wordlist_from_file(tmp_path):
     wl.write_text("sub1\nsub2\n# comment\nsub3\n")
     result = load_wordlist(str(wl))
     assert result == ["sub1", "sub2", "sub3"]
+
+
+class TestFqdnsContract:
+    """fqdns() is the single place that turns an enumerator result into bare
+    hostnames. Both the sync ReconAgent and AsyncOrchestrator feed
+    ReconResult.subdomains through it, so a shape change cannot make one
+    pipeline path silently disagree with the other."""
+
+    def test_extracts_hostnames_from_found(self):
+        result = {"found": [{"fqdn": "api.t.local"}, {"fqdn": "dev.t.local"}]}
+        assert fqdns(result) == ["api.t.local", "dev.t.local"]
+
+    def test_skips_malformed_entries(self):
+        result = {"found": [{"fqdn": "api.t.local"}, {"ips": ["1.2.3.4"]}, "www.t.local", {}]}
+        assert fqdns(result) == ["api.t.local"]
+
+    def test_empty_inputs_yield_empty_list(self):
+        assert fqdns(None) == []
+        assert fqdns({}) == []
+        assert fqdns({"found": []}) == []
+
+    def test_real_enumerator_output_is_consumable(self):
+        """Guards the contract against the producer, not a hand-built dict."""
+        from unittest.mock import patch
+
+        with patch(
+            "cyberai.agents.recon.subdomain_enum._resolve",
+            side_effect=lambda fqdn: {"fqdn": fqdn, "ips": ["1.2.3.4"]},
+        ):
+            produced = enumerate_subdomains("t.local", wordlist=["api", "dev"])
+        assert sorted(fqdns(produced)) == ["api.t.local", "dev.t.local"]

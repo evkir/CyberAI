@@ -128,7 +128,7 @@ def _run_recon(config):
         patch("cyberai.agents.recon.agent.run_nmap", return_value=ok_nmap),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch(
             "cyberai.agents.recon.agent.build_probe_context",
@@ -191,7 +191,7 @@ def test_recon_passes_mass_open_into_probe_context():
         patch("cyberai.agents.recon.agent.run_nmap", return_value=mass_nmap),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch("cyberai.agents.recon.agent.build_probe_context", side_effect=fake_build),
     ):

@@ -401,6 +401,7 @@ class AsyncOrchestrator(Orchestrator):
     async def _run_recon_async(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.async_agent import AsyncReconAgent
         from cyberai.agents.recon.llm_detector import detect_llm_endpoints
+        from cyberai.agents.recon.subdomain_enum import fqdns
         from cyberai.core.types import OpenPort, ReconResult
 
         agent = AsyncReconAgent()
@@ -423,9 +424,7 @@ class AsyncOrchestrator(Orchestrator):
         nmap = result.get("nmap") if isinstance(result.get("nmap"), dict) else {}
         raw_ports = nmap.get("ports", []) if isinstance(nmap, dict) else []
         subs = result.get("subdomains") if isinstance(result.get("subdomains"), dict) else {}
-        subdomains = [
-            r["fqdn"] for r in (subs.get("found") or []) if isinstance(r, dict) and r.get("fqdn")
-        ]
+        subdomains = fqdns(subs)
         recon_result = ReconResult(
             target=session.target,
             ports=[OpenPort(**p) for p in raw_ports if isinstance(p, dict)],
