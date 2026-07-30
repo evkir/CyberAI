@@ -22,7 +22,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Mapping, Optional, Sequence
+from typing import IO, Any, Mapping, Optional, Sequence
 
 # Variables the child always gets. Nothing here is sensitive.
 _BASE_ENV_KEYS = ("PATH", "LANG", "LC_ALL", "TERM", "TZ")
@@ -99,4 +99,45 @@ def run_sealed(
         text=True,
         timeout=timeout,
         check=check,
+    )
+
+
+def operator_home() -> Path:
+    """HOME for tools that need the operator's real toolchain caches.
+
+    forge/anvil read ~/.foundry and ~/.svm; slither reads ~/.solc-select.
+    Passing a synthetic HOME breaks them without buying isolation: run_sealed
+    does not confine the filesystem, so a child can still reach any absolute
+    path. HOME is a functional variable here, not a security control. Real
+    filesystem confinement is the container's job.
+    """
+    return Path.home()
+
+
+def popen_sealed(
+    argv: Sequence[str],
+    *,
+    cwd: Optional[Path | str] = None,
+    stdout: int | IO[Any] | None = None,
+    stderr: int | IO[Any] | None = None,
+    allow: Optional[Sequence[str]] = None,
+    extra_env: Optional[Mapping[str, str]] = None,
+    home: Optional[Path] = None,
+) -> subprocess.Popen[str]:
+    """subprocess.Popen() with a sealed environment, for long-lived children.
+
+    Used for managed daemons (anvil) where run_sealed's capture-and-wait model
+    does not apply. Same guarantee: the child never inherits os.environ.
+    """
+    if isinstance(argv, (str, bytes)):
+        raise SealedEnvError("argv must be a sequence, not a string")
+
+    env = sealed_env(allow=allow, extra=extra_env, home=home)
+    return subprocess.Popen(  # noqa: S603 — argv list, no shell, sealed env
+        list(argv),
+        cwd=str(cwd) if cwd else None,
+        env=env,
+        stdout=stdout,
+        stderr=stderr,
+        text=True,
     )

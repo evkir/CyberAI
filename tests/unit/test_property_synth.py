@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 from cyberai.agents.web3.property_synth import (
-    PropertyCandidate,
     PropertySynthesizer,
     render_harness,
     synthesize_properties,
