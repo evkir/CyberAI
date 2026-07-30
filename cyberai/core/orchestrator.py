@@ -400,7 +400,9 @@ class AsyncOrchestrator(Orchestrator):
 
     async def _run_recon_async(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.async_agent import AsyncReconAgent
+        from cyberai.agents.recon.dns_tool import run_whois
         from cyberai.agents.recon.llm_detector import detect_llm_endpoints
+        from cyberai.agents.recon.subdomain_enum import fqdns
         from cyberai.core.types import OpenPort, ReconResult
 
         agent = AsyncReconAgent()
@@ -418,17 +420,33 @@ class AsyncOrchestrator(Orchestrator):
         llm_result = await asyncio.to_thread(detect_llm_endpoints, session.target)
         session.kb.set("recon.llm_endpoints", llm_result, agent="async_recon")
 
+        # whois too: AsyncReconAgent runs only nmap/dns/subdomains/tls, so the
+        # sync agent's recon.whois key and ReconResult.whois were empty on the
+        # async path. Blocking lookup -> offload, same as the LLM detector.
+        whois_result = await asyncio.to_thread(run_whois, session.target)
+        session.kb.set("recon.whois", whois_result, agent="async_recon")
+
+        # HTTP attack surface: AsyncReconAgent has no web branch, so
+        # recon.web_surface was absent on the async path and every consumer
+        # of it (build_kb_graph, ExploitAgent) silently saw nothing. Reuse the
+        # sync agent's method rather than re-deriving the crawl and its
+        # findings here — one source of truth for the web surface.
+        if getattr(self.config, "use_web_recon", False):
+            from cyberai.agents.recon.agent import ReconAgent
+
+            web_agent = ReconAgent(self.config, session, None, getattr(self, "audit", None))
+            await asyncio.to_thread(web_agent._run_web_recon, session.target)
+
         # Validated ReconResult so the planner KB graph gets port/service/
         # subdomain nodes (build_kb_graph reads recon.result), matching sync.
         nmap = result.get("nmap") if isinstance(result.get("nmap"), dict) else {}
         raw_ports = nmap.get("ports", []) if isinstance(nmap, dict) else []
         subs = result.get("subdomains") if isinstance(result.get("subdomains"), dict) else {}
-        subdomains = [
-            r["fqdn"] for r in (subs.get("found") or []) if isinstance(r, dict) and r.get("fqdn")
-        ]
+        subdomains = fqdns(subs)
         recon_result = ReconResult(
             target=session.target,
             ports=[OpenPort(**p) for p in raw_ports if isinstance(p, dict)],
+            whois=whois_result if isinstance(whois_result, dict) else {},
             dns=result.get("dns") if isinstance(result.get("dns"), dict) else {},
             subdomains=subdomains,
         )

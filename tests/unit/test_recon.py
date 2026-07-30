@@ -52,7 +52,7 @@ def test_recon_logs_nmap_failure_visibly(monkeypatch):
         patch("cyberai.agents.recon.agent.run_nmap", return_value=err_nmap),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
     ):
         agent.run("t.local")
@@ -84,10 +84,52 @@ def test_recon_logs_nmap_success(monkeypatch):
         patch("cyberai.agents.recon.agent.run_nmap", return_value=ok_nmap),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
     ):
         agent.run("t.local")
 
     assert "nmap_scan complete" in logged
     assert not any("nmap_scan FAILED" in m for m in logged)
+
+
+class TestSubdomainShapeParity:
+    """The sync ReconAgent and AsyncOrchestrator must write the same shape
+    under recon.subdomains and derive ReconResult.subdomains identically.
+    They used to call different enumerators returning different keys, so a
+    consumer of the KB key was only ever correct for one of the two paths."""
+
+    _ENUM_RESULT = {
+        "domain": "t.local",
+        "found": [{"fqdn": "api.t.local", "ips": ["1.2.3.4"]}],
+        "count": 1,
+        "checked": 1,
+        "wordlist": ["api"],
+    }
+
+    def test_sync_recon_writes_found_shape_and_fills_recon_result(self):
+        from unittest.mock import MagicMock, patch
+
+        from cyberai.agents.recon.agent import ReconAgent
+        from cyberai.core.config import CyberAIConfig
+        from cyberai.core.scan_session import ScanSession
+
+        session = ScanSession(target="t.local")
+        agent = ReconAgent(CyberAIConfig(), session, MagicMock(), MagicMock())
+        with (
+            patch(
+                "cyberai.agents.recon.agent.run_nmap",
+                return_value={"target": "t.local", "ports": []},
+            ),
+            patch("cyberai.agents.recon.agent.run_whois", return_value={}),
+            patch("cyberai.agents.recon.agent.run_dns", return_value={}),
+            patch(
+                "cyberai.agents.recon.agent.enumerate_subdomains",
+                return_value=self._ENUM_RESULT,
+            ),
+            patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
+        ):
+            agent.run("t.local")
+
+        assert session.kb.get("recon.subdomains") == self._ENUM_RESULT
+        assert session.kb.get("recon.result")["subdomains"] == ["api.t.local"]

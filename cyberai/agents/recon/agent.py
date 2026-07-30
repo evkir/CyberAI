@@ -8,8 +8,9 @@ from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.core.types import OpenPort, ReconResult
 
-from .dns_tool import detect_subdomains, run_dns, run_whois
+from .dns_tool import run_dns, run_whois
 from .llm_detector import detect_llm_endpoints
+from .subdomain_enum import enumerate_subdomains, fqdns
 from .web_surface import discover_surface
 from .behavioral import BehavioralFingerprint
 from .behavioral_probe import build_probe_context
@@ -54,7 +55,7 @@ class ReconAgent(BaseAgent):
             Tool(
                 name="subdomain_scan",
                 description="Subdomain bruteforce",
-                func=detect_subdomains,
+                func=enumerate_subdomains,
                 parameters={"target": "str"},
             )
         )
@@ -113,7 +114,7 @@ class ReconAgent(BaseAgent):
 
         # 4. Subdomains
         self._check_iteration_limit()
-        sub_result = detect_subdomains(target)
+        sub_result = enumerate_subdomains(target)
         self.kb.set("recon.subdomains", sub_result, agent=self.AGENT_NAME)
         results["recon.subdomains"] = sub_result
         self._log("subdomain_scan complete", sub_result)
@@ -161,7 +162,7 @@ class ReconAgent(BaseAgent):
             ports=[OpenPort(**p) for p in ports if isinstance(p, dict)],
             whois=whois_result if isinstance(whois_result, dict) else {},
             dns=dns_result if isinstance(dns_result, dict) else {},
-            subdomains=(sub_result.get("subdomains", []) if isinstance(sub_result, dict) else []),
+            subdomains=fqdns(sub_result if isinstance(sub_result, dict) else None),
         )
         self.kb.set("recon.result", recon_result.model_dump(), agent=self.AGENT_NAME)
 

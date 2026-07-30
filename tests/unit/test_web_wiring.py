@@ -34,7 +34,7 @@ _RECON_PATCHES = {
     "run_nmap": {"target": "t.local", "ports": []},
     "run_whois": {},
     "run_dns": {},
-    "detect_subdomains": {},
+    "enumerate_subdomains": {},
     "detect_llm_endpoints": {},
 }
 
@@ -51,7 +51,7 @@ def recon_patches():
         patch("cyberai.agents.recon.agent.run_nmap", return_value=_RECON_PATCHES["run_nmap"]),
         patch("cyberai.agents.recon.agent.run_whois", return_value={}),
         patch("cyberai.agents.recon.agent.run_dns", return_value={}),
-        patch("cyberai.agents.recon.agent.detect_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
     ):
         yield
