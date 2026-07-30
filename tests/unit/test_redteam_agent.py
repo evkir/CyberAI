@@ -192,3 +192,55 @@ def test_orchestrator_runs_red_team_when_enabled():
         result = orch._run_planned_redteam(session)
 
     assert result["channels"] == 2
+
+
+def test_exploit_phase_merges_red_team_result():
+    """The red-team result has to reach the phase output, not just the agent.
+
+    `_run_planned_redteam` returning a report means nothing if the exploit
+    phase drops it: the report is what the scorecard and the session KB read.
+    """
+    from unittest.mock import patch
+
+    from cyberai.core.orchestrator import Orchestrator
+
+    orch = Orchestrator(CyberAIConfig(use_planned_redteam=True))
+    orch.audit = MagicMock()
+    session = ScanSession(target="t.local")
+    session.kb_set("plan", PLAN)
+
+    exploit_agent = MagicMock()
+    exploit_agent.run.return_value = {"attack_paths": []}
+
+    with (
+        patch.object(Orchestrator, "_client_for", return_value=MagicMock()),
+        patch("cyberai.agents.exploit.agent.ExploitAgent", return_value=exploit_agent),
+        patch.object(Orchestrator, "_run_planned_redteam", return_value={"channels": 2}),
+    ):
+        result = orch._run_exploit(session)
+
+    assert result["redteam"] == {"channels": 2}
+    assert session.kb_get("exploit")["redteam"] == {"channels": 2}
+    # The exploit agent's own keys survive the merge.
+    assert result["attack_paths"] == []
+
+
+def test_exploit_phase_omits_the_key_when_red_team_is_off():
+    from unittest.mock import patch
+
+    from cyberai.core.orchestrator import Orchestrator
+
+    orch = Orchestrator(CyberAIConfig())
+    orch.audit = MagicMock()
+    session = ScanSession(target="t.local")
+
+    exploit_agent = MagicMock()
+    exploit_agent.run.return_value = {"attack_paths": []}
+
+    with (
+        patch.object(Orchestrator, "_client_for", return_value=MagicMock()),
+        patch("cyberai.agents.exploit.agent.ExploitAgent", return_value=exploit_agent),
+    ):
+        result = orch._run_exploit(session)
+
+    assert "redteam" not in result
