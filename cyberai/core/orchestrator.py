@@ -400,6 +400,7 @@ class AsyncOrchestrator(Orchestrator):
 
     async def _run_recon_async(self, session: ScanSession) -> Dict:
         from cyberai.agents.recon.async_agent import AsyncReconAgent
+        from cyberai.agents.recon.dns_tool import run_whois
         from cyberai.agents.recon.llm_detector import detect_llm_endpoints
         from cyberai.agents.recon.subdomain_enum import fqdns
         from cyberai.core.types import OpenPort, ReconResult
@@ -419,6 +420,12 @@ class AsyncOrchestrator(Orchestrator):
         llm_result = await asyncio.to_thread(detect_llm_endpoints, session.target)
         session.kb.set("recon.llm_endpoints", llm_result, agent="async_recon")
 
+        # whois too: AsyncReconAgent runs only nmap/dns/subdomains/tls, so the
+        # sync agent's recon.whois key and ReconResult.whois were empty on the
+        # async path. Blocking lookup -> offload, same as the LLM detector.
+        whois_result = await asyncio.to_thread(run_whois, session.target)
+        session.kb.set("recon.whois", whois_result, agent="async_recon")
+
         # Validated ReconResult so the planner KB graph gets port/service/
         # subdomain nodes (build_kb_graph reads recon.result), matching sync.
         nmap = result.get("nmap") if isinstance(result.get("nmap"), dict) else {}
@@ -428,6 +435,7 @@ class AsyncOrchestrator(Orchestrator):
         recon_result = ReconResult(
             target=session.target,
             ports=[OpenPort(**p) for p in raw_ports if isinstance(p, dict)],
+            whois=whois_result if isinstance(whois_result, dict) else {},
             dns=result.get("dns") if isinstance(result.get("dns"), dict) else {},
             subdomains=subdomains,
         )

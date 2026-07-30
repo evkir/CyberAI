@@ -255,6 +255,35 @@ class TestAsyncOrchestrator:
         ntypes = {d["ntype"] for _, d in graph.nodes(data=True)}
         assert "port" in ntypes and "llm_endpoint" in ntypes
 
+    def test_async_recon_writes_whois_like_sync(self):
+        """AsyncReconAgent runs only nmap/dns/subdomains/tls, so whois has to
+        be offloaded by the orchestrator or recon.whois and ReconResult.whois
+        stay empty on the async path while the sync agent fills both."""
+        recon_payload = {"target": "t.local", "nmap": {"ports": []}, "dns": {}}
+        whois_payload = {"target": "t.local", "registrar": "Example Registrar"}
+        from cyberai.core.config import CyberAIConfig
+        from cyberai.core.orchestrator import AsyncOrchestrator
+        from cyberai.core.scan_session import ScanSession
+
+        orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=False)
+        session = ScanSession(target="t.local")
+        with (
+            patch(
+                "cyberai.agents.recon.async_agent.AsyncReconAgent.run",
+                new_callable=AsyncMock,
+                return_value=recon_payload,
+            ),
+            patch(
+                "cyberai.agents.recon.llm_detector.detect_llm_endpoints",
+                return_value={},
+            ),
+            patch("cyberai.agents.recon.dns_tool.run_whois", return_value=whois_payload),
+        ):
+            asyncio.run(orch._run_recon_async(session))
+
+        assert session.kb.get("recon.whois") == whois_payload
+        assert session.kb.get("recon.result")["whois"] == whois_payload
+
     def test_sync_intel_runs_under_to_thread(self):
         """Intel/exploit/report stay sync; AsyncOrchestrator must offload them."""
         from cyberai.core.scan_session import ScanSession, ScanPhase
