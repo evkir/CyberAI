@@ -62,18 +62,14 @@ def sealed_env(
 
     for key in allow or ():
         if _SECRET_PATTERN.search(key):
-            raise SealedEnvError(
-                f"refusing to forward credential-shaped variable: {key}"
-            )
+            raise SealedEnvError(f"refusing to forward credential-shaped variable: {key}")
         value = os.environ.get(key)
         if value is not None:
             env[key] = value
 
     for key, value in (extra or {}).items():
         if _SECRET_PATTERN.search(key):
-            raise SealedEnvError(
-                f"refusing to inject credential-shaped variable: {key}"
-            )
+            raise SealedEnvError(f"refusing to inject credential-shaped variable: {key}")
         env[key] = str(value)
 
     env["HOME"] = str(home) if home else "/tmp/cyberai-worker-home"

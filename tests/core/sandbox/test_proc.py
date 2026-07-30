@@ -41,9 +41,7 @@ def test_allowlist_forwards_harmless_var(poisoned_env):
     assert env["HARMLESS_FLAG"] == "1"
 
 
-@pytest.mark.parametrize(
-    "name", ["OPENAI_API_KEY", "MY_TOKEN", "DB_PASSWORD", "WALLET_MNEMONIC"]
-)
+@pytest.mark.parametrize("name", ["OPENAI_API_KEY", "MY_TOKEN", "DB_PASSWORD", "WALLET_MNEMONIC"])
 def test_allowlist_rejects_credential_shaped_names(name, poisoned_env):
     with pytest.raises(SealedEnvError):
         sealed_env(allow=[name])
@@ -64,7 +62,5 @@ def test_no_inherited_env_at_all(poisoned_env):
 
     proc = run_sealed([sys.executable, "-c", _DUMP], timeout=30)
     child_env = json.loads(proc.stdout)
-    leaked = set(child_env) & set(os.environ) - {
-        "PATH", "LANG", "LC_ALL", "TERM", "TZ", "HOME"
-    }
+    leaked = set(child_env) & set(os.environ) - {"PATH", "LANG", "LC_ALL", "TERM", "TZ", "HOME"}
     assert not leaked, f"unexpected inherited vars: {sorted(leaked)}"
