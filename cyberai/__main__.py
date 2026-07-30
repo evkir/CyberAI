@@ -60,6 +60,8 @@ def _apply_feature_overrides(
     web_recon: bool | None = None,
     web_exploit: bool | None = None,
     api_discovery: bool | None = None,
+    plan_web_order: bool | None = None,
+    planned_redteam: bool | None = None,
 ) -> CyberAIConfig:
     """Apply CLI feature-flag overrides onto a config built from the env.
 
@@ -85,6 +87,10 @@ def _apply_feature_overrides(
         config.use_web_exploit = web_exploit
     if api_discovery is not None:
         config.use_api_discovery = api_discovery
+    if plan_web_order is not None:
+        config.use_plan_web_order = plan_web_order
+    if planned_redteam is not None:
+        config.use_planned_redteam = planned_redteam
     return config
 
 
@@ -162,6 +168,16 @@ def cli() -> None:
     default=None,
     help="Force reading API specs and JS bundles during web recon on or off",
 )
+@click.option(
+    "--plan-web-order/--no-plan-web-order",
+    default=None,
+    help="Force attacking the endpoints the planner named first on or off",
+)
+@click.option(
+    "--planned-redteam/--no-planned-redteam",
+    default=None,
+    help="Force fuzzing the LLM channels the planner named on or off",
+)
 def scan(
     target: str,
     verbose: bool,
@@ -180,6 +196,8 @@ def scan(
     web_recon: bool | None,
     web_exploit: bool | None,
     api_discovery: bool | None,
+    plan_web_order: bool | None,
+    planned_redteam: bool | None,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -210,6 +228,8 @@ def scan(
         web_recon=web_recon,
         web_exploit=web_exploit,
         api_discovery=api_discovery,
+        plan_web_order=plan_web_order,
+        planned_redteam=planned_redteam,
     )
 
     if max_rps:
