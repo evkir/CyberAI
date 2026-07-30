@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 
 import click
+
+from cyberai.version import __version__
 from rich.console import Console
 from rich.panel import Panel
 
@@ -55,6 +57,11 @@ def _apply_feature_overrides(
     replan: bool | None = None,
     planner: bool | None = None,
     air_gapped: bool | None = None,
+    web_recon: bool | None = None,
+    web_exploit: bool | None = None,
+    api_discovery: bool | None = None,
+    plan_web_order: bool | None = None,
+    planned_redteam: bool | None = None,
 ) -> CyberAIConfig:
     """Apply CLI feature-flag overrides onto a config built from the env.
 
@@ -74,6 +81,16 @@ def _apply_feature_overrides(
         config.enable_planner = planner
     if air_gapped is not None:
         config.air_gapped = air_gapped
+    if web_recon is not None:
+        config.use_web_recon = web_recon
+    if web_exploit is not None:
+        config.use_web_exploit = web_exploit
+    if api_discovery is not None:
+        config.use_api_discovery = api_discovery
+    if plan_web_order is not None:
+        config.use_plan_web_order = plan_web_order
+    if planned_redteam is not None:
+        config.use_planned_redteam = planned_redteam
     return config
 
 
@@ -91,6 +108,7 @@ BANNER = """
 
 
 @click.group()
+@click.version_option(__version__, "-V", "--version", prog_name="cyberai")
 def cli() -> None:
     """CyberAI — AI-powered pentest platform."""
 
@@ -135,6 +153,31 @@ def cli() -> None:
     default=None,
     help="Force local-only (no-egress) LLM path on or off",
 )
+@click.option(
+    "--web-recon/--no-web-recon",
+    default=None,
+    help="Force crawling the target for injectable HTTP endpoints on or off",
+)
+@click.option(
+    "--web-exploit/--no-web-exploit",
+    default=None,
+    help="Force direct exploitation of the discovered HTTP surface on or off",
+)
+@click.option(
+    "--api-discovery/--no-api-discovery",
+    default=None,
+    help="Force reading API specs and JS bundles during web recon on or off",
+)
+@click.option(
+    "--plan-web-order/--no-plan-web-order",
+    default=None,
+    help="Force attacking the endpoints the planner named first on or off",
+)
+@click.option(
+    "--planned-redteam/--no-planned-redteam",
+    default=None,
+    help="Force fuzzing the LLM channels the planner named on or off",
+)
 def scan(
     target: str,
     verbose: bool,
@@ -150,6 +193,11 @@ def scan(
     replan: bool | None,
     planner: bool | None,
     air_gapped: bool | None,
+    web_recon: bool | None,
+    web_exploit: bool | None,
+    api_discovery: bool | None,
+    plan_web_order: bool | None,
+    planned_redteam: bool | None,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -177,6 +225,11 @@ def scan(
         replan=replan,
         planner=planner,
         air_gapped=air_gapped,
+        web_recon=web_recon,
+        web_exploit=web_exploit,
+        api_discovery=api_discovery,
+        plan_web_order=plan_web_order,
+        planned_redteam=planned_redteam,
     )
 
     if max_rps:
