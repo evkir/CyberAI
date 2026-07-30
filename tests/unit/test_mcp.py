@@ -88,3 +88,45 @@ def test_call_tool_result_is_json_text():
         assert json.loads(res[0].text) == {"items": [1, 2, 3]}
     finally:
         TOOL_REGISTRY.pop("list_test", None)
+
+
+def test_subdomain_enum_tool_returns_the_shared_enumerator_shape(monkeypatch):
+    """The MCP tool must return what both pipeline paths write under
+    recon.subdomains. It used to wrap dns_tool.detect_subdomains, which
+    returned a different key, so an MCP client saw a third shape."""
+    from cyberai.mcp import tools as mcp_tools
+
+    enum_result = {
+        "domain": "t.local",
+        "found": [{"fqdn": "api.t.local", "ips": ["1.2.3.4"]}],
+        "count": 1,
+        "checked": 1,
+        "wordlist": ["api"],
+    }
+    captured = {}
+
+    def fake_enum(target, wordlist=None):
+        captured["args"] = (target, wordlist)
+        return enum_result
+
+    monkeypatch.setattr(mcp_tools, "enumerate_subdomains", fake_enum)
+
+    res = asyncio.run(call_tool("subdomain_enum", {"target": "t.local"}))
+    assert json.loads(res[0].text) == enum_result
+    assert captured["args"] == ("t.local", None)
+
+
+def test_subdomain_enum_tool_forwards_an_explicit_wordlist(monkeypatch):
+    """wordlist is optional in the schema but must reach the enumerator."""
+    from cyberai.mcp import tools as mcp_tools
+
+    captured = {}
+
+    def fake_enum(target, wordlist=None):
+        captured["args"] = (target, wordlist)
+        return {"domain": target, "found": [], "count": 0}
+
+    monkeypatch.setattr(mcp_tools, "enumerate_subdomains", fake_enum)
+
+    asyncio.run(call_tool("subdomain_enum", {"target": "t.local", "wordlist": ["dev"]}))
+    assert captured["args"] == ("t.local", ["dev"])
