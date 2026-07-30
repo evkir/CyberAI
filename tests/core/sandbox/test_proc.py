@@ -1,6 +1,7 @@
 """Sealed subprocess must not leak operator credentials to untrusted tools."""
 
 import os
+import subprocess
 import sys
 
 import pytest
@@ -64,3 +65,34 @@ def test_no_inherited_env_at_all(poisoned_env):
     child_env = json.loads(proc.stdout)
     leaked = set(child_env) & set(os.environ) - {"PATH", "LANG", "LC_ALL", "TERM", "TZ", "HOME"}
     assert not leaked, f"unexpected inherited vars: {sorted(leaked)}"
+
+
+def test_popen_child_cannot_read_llm_keys(poisoned_env):
+    import json
+
+    from cyberai.core.sandbox import popen_sealed
+
+    proc = popen_sealed(
+        [sys.executable, "-c", _DUMP], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    out, _ = proc.communicate(timeout=30)
+    child_env = json.loads(out)
+
+    assert "OPENAI_API_KEY" not in child_env
+    assert "ANTHROPIC_API_KEY" not in child_env
+    assert "canary" not in out
+
+
+def test_popen_string_argv_is_rejected():
+    from cyberai.core.sandbox import popen_sealed
+
+    with pytest.raises(SealedEnvError):
+        popen_sealed("echo hi")  # type: ignore[arg-type]
+
+
+def test_operator_home_is_real_home():
+    from pathlib import Path
+
+    from cyberai.core.sandbox import operator_home
+
+    assert operator_home() == Path.home()
