@@ -38,6 +38,8 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from cyberai.core.sandbox import operator_home, run_sealed
+
 logger = logging.getLogger("cyberai.web3.foundry")
 
 _FALLBACK_PATHS = [
@@ -217,13 +219,8 @@ class ForgePoCTool:
         if rpc_url:
             cmd += ["--fork-url", rpc_url]
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                check=False,  # forge exits non-zero when any test fails; parse stdout anyway
-            )
+            # forge exits non-zero when any test fails; parse stdout anyway
+            proc = run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
         except subprocess.TimeoutExpired:
             logger.warning("forge test timed out after %ss", self.timeout)
             return []

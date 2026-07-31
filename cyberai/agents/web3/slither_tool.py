@@ -20,6 +20,8 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from cyberai.core.sandbox import operator_home, run_sealed
+
 logger = logging.getLogger("cyberai.web3.slither")
 
 _FALLBACK_PATHS = [
@@ -117,12 +119,7 @@ class SlitherTool:
             return []
         cmd = [self.slither_path or "slither", target, "--json", "-"]
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-            )
+            proc = run_sealed(cmd, timeout=self.timeout, home=operator_home())
         except subprocess.TimeoutExpired:
             logger.warning("slither timed out after %ss", self.timeout)
             return []
