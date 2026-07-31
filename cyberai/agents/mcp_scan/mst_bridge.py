@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+from cyberai.core.sandbox import run_sealed
 from cyberai.core.scan_session import Severity
 
 logger = logging.getLogger("cyberai.mcp.mst_bridge")
@@ -157,13 +158,9 @@ class MSTBridge:
             if not lab:
                 cmd.append("--confirm-scope")
             try:
-                subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.timeout,
-                    check=False,
-                )
+                # No operator HOME: MST reads none of it, so the child gets
+                # the synthetic home and cannot reach our toolchain caches.
+                run_sealed(cmd, timeout=self.timeout, check=False)
             except (subprocess.SubprocessError, OSError) as exc:
                 logger.warning("mas-sentry invocation failed: %s", exc)
                 return []
