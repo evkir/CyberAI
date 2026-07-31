@@ -24,6 +24,7 @@ from cyberai.bench.cve_bench import CVEBenchAdapter
 from cyberai.bench.cve_bench_runner import make_cve_bench_runner
 from cyberai.bench.engine_runner import make_engine_runner
 from cyberai.bench.ctf_loader import CTFAdapter
+from cyberai.bench.run_manifest import DEFAULT_SEED, set_global_seed
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
 console = Console()
@@ -189,6 +190,14 @@ def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
     help="Run only these task ids. Repeatable. The score then covers the selection only.",
 )
 @click.option(
+    "--seed",
+    "seed",
+    default=DEFAULT_SEED,
+    show_default=True,
+    type=int,
+    help="Pin process-wide randomness so a run can be reproduced.",
+)
+@click.option(
     "--engine",
     "engine",
     default="placeholder",
@@ -204,9 +213,13 @@ def run(
     suite: str,
     scorecard_path: str | None,
     engine: str,
+    seed: int = DEFAULT_SEED,
     task_ids: tuple[str, ...] = (),
 ) -> None:
     """Run a suite and print a pass@1 scorecard."""
+    # Before anything samples: PYTHONHASHSEED only reaches children spawned
+    # after this call, and the engines spawn containers.
+    set_global_seed(seed)
     adapter = _SUITES[suite]()
     runner = _select_runner(engine, adapter)
     all_tasks = adapter.load_tasks()
@@ -244,7 +257,7 @@ def run(
                 console.print(f"[yellow]disagreement on {r.task_id}: {note}[/yellow]")
 
     if scorecard_path:
-        extra = {"engine": engine, "suite": suite}
+        extra = {"engine": engine, "suite": suite, "seed": str(seed)}
         if filtered:
             # A scorecard outlives the terminal it was printed in; the narrowed
             # denominator has to travel with it.
