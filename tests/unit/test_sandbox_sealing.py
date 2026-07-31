@@ -41,8 +41,6 @@ _PENDING_MIGRATION = {
     "cyberai/bench/cve_bench_driver.py",
     "cyberai/bench/docker_builder.py",
     "cyberai/web/routes/bench.py",
-    # Local exploit database, lowest exposure.
-    "cyberai/agents/exploit/searchsploit.py",
 }
 
 _SPAWN_ATTRS = {"run", "Popen", "call", "check_call", "check_output", "getoutput"}

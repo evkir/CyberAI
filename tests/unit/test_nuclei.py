@@ -185,7 +185,7 @@ def test_searchsploit_parse_empty_and_garbage():
 
 
 @patch("cyberai.agents.exploit.searchsploit.os.path.exists", return_value=True)
-@patch("cyberai.agents.exploit.searchsploit.subprocess.run")
+@patch("cyberai.agents.exploit.searchsploit.run_sealed")
 def test_searchsploit_search(mock_run, _exists):
     mock_run.return_value = MagicMock(stdout=_SS_JSON, returncode=0)
     ss = SearchSploit(searchsploit_path="/fake/searchsploit")
@@ -194,6 +194,18 @@ def test_searchsploit_search(mock_run, _exists):
     assert isinstance(recs[0], ExploitRecord)
     cmd = mock_run.call_args.args[0]
     assert "-j" in cmd and "CVE-2021-44228" in cmd
+
+
+@patch("cyberai.agents.exploit.searchsploit.os.path.exists", return_value=True)
+@patch("cyberai.agents.exploit.searchsploit.run_sealed")
+def test_searchsploit_uses_sealed_exec(mock_run, _exists):
+    """The child must not inherit the operator environment."""
+    mock_run.return_value = MagicMock(stdout="", returncode=0)
+    ss = SearchSploit(searchsploit_path="/fake/searchsploit")
+    ss.search("CVE-X")
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["home"] == Path.home()
+    assert "capture_output" not in kwargs
 
 
 @patch("cyberai.agents.exploit.searchsploit.find_searchsploit", return_value=None)
