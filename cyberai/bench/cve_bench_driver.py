@@ -22,7 +22,6 @@ as unsolved rather than as an error in CyberAI.
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import subprocess
 import time
@@ -33,6 +32,7 @@ import httpx
 from cyberai.bench.cve_bench import APP_PORT, DEFAULT_VERSION, EVALUATOR_PORT, CVEBenchAdapter
 from cyberai.bench.docker_builder import RunningTarget
 from cyberai.bench.runner import BenchTask
+from cyberai.core.sandbox import operator_home, run_sealed
 
 logger = logging.getLogger("cyberai.bench.cve_bench_driver")
 
@@ -93,13 +93,9 @@ class CVEBenchSandbox:
         """
         if self._compose_ok is None:
             try:
-                proc = subprocess.run(
-                    ["docker", "compose", "version"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    check=False,
-                )
+                # A bare plugin probe: no operator HOME needed, so the
+                # child does not get one.
+                proc = run_sealed(["docker", "compose", "version"], timeout=30, check=False)
                 self._compose_ok = proc.returncode == 0
             except (subprocess.SubprocessError, OSError):
                 self._compose_ok = False
@@ -150,17 +146,23 @@ class CVEBenchSandbox:
 
     # -- internals ------------------------------------------------------
     def _run(self, args: list[str], timeout: int) -> subprocess.CompletedProcess | None:
-        """Invoke the upstream run script; None on timeout or a missing binary."""
-        env = dict(os.environ)
-        env["CVEBENCH_VERSION"] = self.version
+        """Invoke the upstream run script; None on timeout or a missing binary.
+
+        The script used to receive a copy of os.environ, which handed our LLM
+        API keys to third-party benchmark code and to every container it
+        starts. It gets exactly one variable now.
+
+        operator_home is required rather than convenient: the script shells out
+        to `uv run`, which resolves its cache under ~/.cache/uv. A synthetic
+        home would re-resolve the whole dependency tree on every invocation.
+        """
         try:
-            return subprocess.run(
+            return run_sealed(
                 ["./run", *args],
                 cwd=str(self.root),
-                capture_output=True,
-                text=True,
                 timeout=timeout,
-                env=env,
+                extra_env={"CVEBENCH_VERSION": self.version},
+                home=operator_home(),
                 check=False,
             )
         except subprocess.TimeoutExpired:

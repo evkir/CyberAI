@@ -10,6 +10,7 @@ task fails for a reason that has nothing to do with the agent.
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 import httpx
 from unittest.mock import patch
@@ -49,7 +50,7 @@ def _ok(**kw) -> subprocess.CompletedProcess:
 
 def test_start_uses_the_upstream_script_without_building(sandbox, checkout):
     with (
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=_ok()) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
     ):
         running = sandbox.start(_task())
@@ -60,13 +61,13 @@ def test_start_uses_the_upstream_script_without_building(sandbox, checkout):
     argv, kwargs = run.call_args[0][0], run.call_args[1]
     assert argv == ["./run", "up", _CVE, "--no-build"]
     assert kwargs["cwd"] == str(checkout)
-    assert kwargs["env"]["CVEBENCH_VERSION"] == "critical"
+    assert kwargs["extra_env"]["CVEBENCH_VERSION"] == "critical"
 
 
 def test_building_is_opt_in(checkout):
     with (
         patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=_ok()) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
     ):
         box = CVEBenchSandbox(root=checkout, build=True, ready_timeout=0)
@@ -79,7 +80,7 @@ def test_building_is_opt_in(checkout):
 def test_a_failed_start_is_torn_down_not_abandoned(sandbox):
     failed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="boom")
     with (
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=failed) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=failed) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
     ):
         running = sandbox.start(_task())
@@ -92,7 +93,7 @@ def test_a_failed_start_is_torn_down_not_abandoned(sandbox):
 
 def test_a_stack_that_never_goes_healthy_is_torn_down(sandbox):
     with (
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=_ok()) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=False),
     ):
         running = sandbox.start(_task())
@@ -107,7 +108,7 @@ def test_a_timeout_is_a_teardown_too(sandbox):
             raise subprocess.TimeoutExpired(cmd=argv, timeout=1)
         return _ok()
 
-    with patch("cyberai.bench.cve_bench_driver.subprocess.run", side_effect=_side_effect) as run:
+    with patch("cyberai.bench.cve_bench_driver.run_sealed", side_effect=_side_effect) as run:
         running = sandbox.start(_task())
 
     assert running is None
@@ -117,10 +118,10 @@ def test_a_timeout_is_a_teardown_too(sandbox):
 def test_stop_reports_failure_honestly(sandbox):
     failed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="")
     running = RunningTarget(target_id=_CVE, container_id=_CVE.lower(), base_url="http://x")
-    with patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=failed):
+    with patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=failed):
         assert sandbox.stop(running) is False
 
-    with patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=_ok()):
+    with patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()):
         assert sandbox.stop(running) is True
 
 
@@ -133,7 +134,7 @@ def test_missing_docker_is_a_skip_not_a_crash(checkout):
     # that happens to lack docker.
     with patch("cyberai.bench.cve_bench_driver.shutil.which", side_effect=_which):
         sandbox = CVEBenchSandbox(root=checkout)
-        with patch("cyberai.bench.cve_bench_driver.subprocess.run") as run:
+        with patch("cyberai.bench.cve_bench_driver.run_sealed") as run:
             assert sandbox.start(_task()) is None
             run.assert_not_called()
         assert "docker" in (sandbox.unavailable_reason or "")
@@ -166,7 +167,7 @@ def test_a_missing_compose_plugin_is_caught_before_anything_starts(checkout):
     missing = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="")
     with (
         patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=missing) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=missing) as run,
     ):
         sandbox = CVEBenchSandbox(root=checkout)
 
@@ -176,11 +177,25 @@ def test_a_missing_compose_plugin_is_caught_before_anything_starts(checkout):
         assert ["./run", "up", _CVE, "--no-build"] not in [c[0][0] for c in run.call_args_list]
 
 
+def test_the_upstream_script_gets_one_variable_not_our_environment(sandbox):
+    """The script and its containers must not see the operator's LLM keys."""
+    with (
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()) as run,
+        patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
+    ):
+        sandbox.start(_task())
+
+    up = next(c for c in run.call_args_list if c[0][0][:2] == ["./run", "up"])
+    assert set(up[1]["extra_env"]) == {"CVEBENCH_VERSION"}
+    assert "env" not in up[1]  # no os.environ copy
+    assert up[1]["home"] == Path.home()  # uv resolves its cache under ~
+
+
 def test_the_compose_check_runs_once(checkout):
     probe = subprocess.CompletedProcess(args=[], returncode=0, stdout="v2", stderr="")
     with (
         patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
-        patch("cyberai.bench.cve_bench_driver.subprocess.run", return_value=probe) as run,
+        patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=probe) as run,
     ):
         sandbox = CVEBenchSandbox(root=checkout)
         for _ in range(3):
@@ -204,7 +219,7 @@ def test_a_docker_that_will_not_run_is_treated_as_no_compose(checkout):
     ):
         with (
             patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
-            patch("cyberai.bench.cve_bench_driver.subprocess.run", side_effect=boom),
+            patch("cyberai.bench.cve_bench_driver.run_sealed", side_effect=boom),
         ):
             sandbox = CVEBenchSandbox(root=checkout)
 
@@ -214,7 +229,7 @@ def test_a_docker_that_will_not_run_is_treated_as_no_compose(checkout):
 
 
 def test_a_run_script_that_cannot_be_executed_is_not_fatal(sandbox):
-    with patch("cyberai.bench.cve_bench_driver.subprocess.run", side_effect=OSError("no exec")):
+    with patch("cyberai.bench.cve_bench_driver.run_sealed", side_effect=OSError("no exec")):
         assert sandbox.start(_task()) is None
         assert sandbox.stop(RunningTarget(_CVE, _CVE.lower(), "http://x")) is False
 

@@ -28,16 +28,11 @@ _EXEMPT = {
     # Deliberately vulnerable benchmark targets. These are what we attack, not
     # what we run: sealing them would defeat the command-injection fixture.
     "cyberai/bench/apps/cmdi_ping.py",
-}
-
-# Not yet migrated. Every entry here is an open path for a child to inherit
-# operator credentials; the first three talk to attacker-controlled parties and
-# are the priority. Each needs its own tests because run_sealed already applies
-# capture_output/text, which changes what the call site receives back.
-_PENDING_MIGRATION = {
-    # Runs upstream benchmark scripts and the docker CLI.
-    "cyberai/bench/cve_bench_driver.py",
-    "cyberai/bench/docker_builder.py",
+    # Spawns our own CLI (sys.executable -m cyberai bench run), not a foreign
+    # binary. The bench run needs the operator's LLM credentials to do anything
+    # at all, and sealed_env refuses credential-shaped names by design, so
+    # sealing here would break the feature without closing a path: the child is
+    # the same trust domain as the parent.
     "cyberai/web/routes/bench.py",
 }
 
@@ -73,8 +68,6 @@ def test_no_unsealed_process_spawn(path: Path):
     calls = _spawn_calls(ast.parse(path.read_text()))
     if not calls:
         return
-    if path.as_posix() in _PENDING_MIGRATION:
-        pytest.xfail("sealed-exec migration pending")
     assert path.as_posix() in _EXEMPT, (
         f"{path} spawns a child via {', '.join(sorted(set(calls)))}. "
         "Use run_sealed/popen_sealed from cyberai.core.sandbox so the child "
@@ -85,5 +78,5 @@ def test_no_unsealed_process_spawn(path: Path):
 
 def test_exemptions_still_exist():
     """A stale exemption hides a module that no longer needs one."""
-    for rel in _EXEMPT | _PENDING_MIGRATION:
+    for rel in _EXEMPT:
         assert Path(rel).exists(), f"exempt module {rel} is gone; drop the entry"

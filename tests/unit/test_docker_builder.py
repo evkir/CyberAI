@@ -8,6 +8,18 @@ from cyberai.bench.docker_builder import DockerBuilder, RunningTarget
 from cyberai.bench.targets import LOCAL_SUITE
 
 
+@patch("cyberai.bench.docker_builder.run_sealed")
+def test_run_uses_sealed_exec(mock_run):
+    """The docker CLI must not inherit the operator environment."""
+    mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+    DockerBuilder()._run(["ps"])
+    argv = mock_run.call_args.args[0]
+    assert argv[0] == "docker"
+    kwargs = mock_run.call_args.kwargs
+    assert "home" not in kwargs  # synthetic home, not the operator's
+    assert "capture_output" not in kwargs  # run_sealed applies it itself
+
+
 @patch("cyberai.bench.docker_builder.shutil.which", return_value=None)
 def test_unavailable_without_docker(_which):
     b = DockerBuilder()
