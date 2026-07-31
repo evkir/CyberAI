@@ -37,7 +37,6 @@ _EXEMPT = {
 _PENDING_MIGRATION = {
     # Runs upstream benchmark scripts and the docker CLI.
     "cyberai/bench/cve_bench_driver.py",
-    "cyberai/bench/docker_builder.py",
     "cyberai/web/routes/bench.py",
 }
 

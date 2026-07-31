@@ -19,6 +19,7 @@ from pathlib import Path
 import httpx
 
 from cyberai.bench.targets import VulnTarget
+from cyberai.core.sandbox import run_sealed
 
 logger = logging.getLogger("cyberai.bench.docker")
 
@@ -51,7 +52,13 @@ class DockerBuilder:
         return shutil.which("docker") is not None
 
     def _run(self, args: list[str], timeout: int = DEFAULT_TIMEOUT) -> subprocess.CompletedProcess:
-        return subprocess.run(["docker", *args], capture_output=True, text=True, timeout=timeout)
+        """Invoke the docker CLI with a sealed environment.
+
+        No operator HOME: the compose plugin is a system install and the CLI
+        reads nothing from ~ here, so the child gets the synthetic home and
+        never reaches ~/.docker, where registry credential helpers live.
+        """
+        return run_sealed(["docker", *args], timeout=timeout)
 
     def start(self, target: VulnTarget) -> RunningTarget | None:
         """Start a container for `target`. Returns None when Docker is absent
