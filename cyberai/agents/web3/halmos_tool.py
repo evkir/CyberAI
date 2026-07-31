@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from cyberai.core.sandbox import operator_home, run_sealed
+
 logger = logging.getLogger("cyberai.web3.halmos")
 
 _FALLBACK_PATHS = [
@@ -188,13 +190,7 @@ class HalmosTool:
             if contract:
                 cmd += ["--contract", contract]
             try:
-                subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.timeout,
-                    check=False,
-                )
+                run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
             except subprocess.TimeoutExpired:
                 logger.warning("halmos timed out after %ss", self.timeout)
                 return []
