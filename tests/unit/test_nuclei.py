@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from cyberai.agents.exploit.nuclei_engine import (
@@ -75,11 +76,11 @@ def test_parse_empty():
     assert parse_jsonl("") == []
 
 
-# ── NucleiEngine.run (subprocess mocked) ──────────────────────────────
+# ── NucleiEngine.run (sealed exec mocked) ─────────────────────────────
 
 
 @patch("cyberai.agents.exploit.nuclei_engine.os.path.exists", return_value=True)
-@patch("cyberai.agents.exploit.nuclei_engine.subprocess.run")
+@patch("cyberai.agents.exploit.nuclei_engine.run_sealed")
 def test_run_parses_stdout(mock_run, _exists):
     mock_run.return_value = MagicMock(stdout=_CVE_LINE, returncode=0)
     eng = NucleiEngine(nuclei_path="/fake/nuclei")
@@ -93,7 +94,7 @@ def test_run_parses_stdout(mock_run, _exists):
 
 
 @patch("cyberai.agents.exploit.nuclei_engine.os.path.exists", return_value=True)
-@patch("cyberai.agents.exploit.nuclei_engine.subprocess.run")
+@patch("cyberai.agents.exploit.nuclei_engine.run_sealed")
 def test_run_tags(mock_run, _exists):
     mock_run.return_value = MagicMock(stdout="", returncode=0)
     eng = NucleiEngine(nuclei_path="/fake/nuclei")
@@ -104,7 +105,7 @@ def test_run_tags(mock_run, _exists):
 
 
 @patch("cyberai.agents.exploit.nuclei_engine.os.path.exists", return_value=True)
-@patch("cyberai.agents.exploit.nuclei_engine.subprocess.run")
+@patch("cyberai.agents.exploit.nuclei_engine.run_sealed")
 def test_run_injects_oob_var(mock_run, _exists):
     mock_run.return_value = MagicMock(stdout="", returncode=0)
     eng = NucleiEngine(nuclei_path="/fake/nuclei")
@@ -116,11 +117,23 @@ def test_run_injects_oob_var(mock_run, _exists):
 
 
 @patch("cyberai.agents.exploit.nuclei_engine.os.path.exists", return_value=True)
-@patch("cyberai.agents.exploit.nuclei_engine.subprocess.run")
+@patch("cyberai.agents.exploit.nuclei_engine.run_sealed")
 def test_run_timeout_returns_empty(mock_run, _exists):
     mock_run.side_effect = subprocess.TimeoutExpired(cmd="nuclei", timeout=1)
     eng = NucleiEngine(nuclei_path="/fake/nuclei")
     assert eng.run("victim.local", cve_id="CVE-X") == []
+
+
+@patch("cyberai.agents.exploit.nuclei_engine.os.path.exists", return_value=True)
+@patch("cyberai.agents.exploit.nuclei_engine.run_sealed")
+def test_run_uses_sealed_exec(mock_run, _exists):
+    """The child must not inherit the operator environment."""
+    mock_run.return_value = MagicMock(stdout="", returncode=0)
+    eng = NucleiEngine(nuclei_path="/fake/nuclei")
+    eng.run("victim.local", cve_id="CVE-X")
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["home"] == Path.home()
+    assert "capture_output" not in kwargs
 
 
 @patch("cyberai.agents.exploit.nuclei_engine.find_nuclei", return_value=None)

@@ -37,7 +37,6 @@ _EXEMPT = {
 _PENDING_MIGRATION = {
     # Speaks to the scan target — the decoy-and-manipulate scenario.
     "cyberai/agents/recon/nmap_tool.py",
-    "cyberai/agents/exploit/nuclei_engine.py",
     # Speaks to a third-party MCP server.
     "cyberai/agents/mcp_scan/mst_bridge.py",
     # Runs upstream benchmark scripts and the docker CLI.
