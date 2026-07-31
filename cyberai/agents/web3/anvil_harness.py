@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+from cyberai.core.sandbox import operator_home, popen_sealed
+
 logger = logging.getLogger("cyberai.web3.anvil")
 
 _FALLBACK_PATHS = [
@@ -99,11 +101,11 @@ class AnvilFork:
         )
         self._log_path = log_file.name
         try:
-            self._proc = subprocess.Popen(  # noqa: S603 — argv list, no shell
+            self._proc = popen_sealed(
                 self._build_cmd(),
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
-                text=True,
+                home=operator_home(),
             )
         except Exception as exc:  # noqa: BLE001 — never hard-fail on spawn
             logger.warning("anvil failed to start: %s", exc)
