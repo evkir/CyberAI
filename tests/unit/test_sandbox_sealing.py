@@ -28,16 +28,20 @@ _EXEMPT = {
     # Deliberately vulnerable benchmark targets. These are what we attack, not
     # what we run: sealing them would defeat the command-injection fixture.
     "cyberai/bench/apps/cmdi_ping.py",
+    # Spawns our own CLI (sys.executable -m cyberai bench run), not a foreign
+    # binary. The bench run needs the operator's LLM credentials to do anything
+    # at all, and sealed_env refuses credential-shaped names by design, so
+    # sealing here would break the feature without closing a path: the child is
+    # the same trust domain as the parent.
+    "cyberai/web/routes/bench.py",
 }
 
 # Not yet migrated. Every entry here is an open path for a child to inherit
-# operator credentials; the first three talk to attacker-controlled parties and
-# are the priority. Each needs its own tests because run_sealed already applies
-# capture_output/text, which changes what the call site receives back.
+# operator credentials. Each needs its own tests because run_sealed already
+# applies capture_output/text, which changes what the call site receives back.
 _PENDING_MIGRATION = {
-    # Runs upstream benchmark scripts and the docker CLI.
+    # Runs the upstream benchmark script.
     "cyberai/bench/cve_bench_driver.py",
-    "cyberai/web/routes/bench.py",
 }
 
 _SPAWN_ATTRS = {"run", "Popen", "call", "check_call", "check_output", "getoutput"}
