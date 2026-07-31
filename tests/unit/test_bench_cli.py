@@ -81,6 +81,41 @@ def test_no_manifest_without_the_flag(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
+def test_gate_passes_against_an_equal_baseline(tmp_path):
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert "regression gate" in result.output
+
+
+def test_gate_passes_when_there_is_no_baseline_yet(tmp_path):
+    """A first run has nothing to regress against and must not fail."""
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(tmp_path / "absent.json")])
+    assert result.exit_code == 0
+
+
+def test_gate_fails_when_the_suite_changed_under_it(tmp_path):
+    """A filtered run against a full-suite baseline is not a comparison."""
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    result = CliRunner().invoke(
+        bench, ["run", "--baseline", str(base), "--task", "local-sqli-login"]
+    )
+    assert result.exit_code == 1
+    assert "suite content changed" in result.output
+
+
+def test_the_gate_runs_without_writing_a_manifest(tmp_path):
+    """--baseline stands alone: CI checks, it does not have to publish."""
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    out = tmp_path / "unwritten.json"
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert not out.exists()
+
+
 def test_bench_run_rejects_unknown_suite():
     result = CliRunner().invoke(bench, ["run", "--suite", "nope"])
     assert result.exit_code != 0
