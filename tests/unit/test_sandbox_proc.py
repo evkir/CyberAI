@@ -90,6 +90,17 @@ def test_popen_string_argv_is_rejected():
         popen_sealed("echo hi")  # type: ignore[arg-type]
 
 
+def test_run_sealed_forwards_stdin():
+    """DEVNULL keeps interactive tools from reading the operator's terminal."""
+    read_stdin = "import sys;sys.stdout.write(repr(sys.stdin.read()))"
+    proc = run_sealed(
+        [sys.executable, "-c", read_stdin],
+        timeout=30,
+        stdin=subprocess.DEVNULL,
+    )
+    assert proc.stdout == "''"
+
+
 def test_operator_home_is_real_home():
     from pathlib import Path
 

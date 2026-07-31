@@ -35,17 +35,10 @@ _EXEMPT = {
 # are the priority. Each needs its own tests because run_sealed already applies
 # capture_output/text, which changes what the call site receives back.
 _PENDING_MIGRATION = {
-    # Speaks to the scan target — the decoy-and-manipulate scenario.
-    "cyberai/agents/recon/nmap_tool.py",
-    "cyberai/agents/exploit/nuclei_engine.py",
-    # Speaks to a third-party MCP server.
-    "cyberai/agents/mcp_scan/mst_bridge.py",
     # Runs upstream benchmark scripts and the docker CLI.
     "cyberai/bench/cve_bench_driver.py",
     "cyberai/bench/docker_builder.py",
     "cyberai/web/routes/bench.py",
-    # Local exploit database, lowest exposure.
-    "cyberai/agents/exploit/searchsploit.py",
 }
 
 _SPAWN_ATTRS = {"run", "Popen", "call", "check_call", "check_output", "getoutput"}

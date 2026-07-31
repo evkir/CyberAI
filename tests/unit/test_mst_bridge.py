@@ -66,7 +66,7 @@ def test_fuzz_returns_empty_when_unavailable(monkeypatch):
     monkeypatch.delenv("MAS_SENTRY_PATH", raising=False)
     with patch("cyberai.agents.mcp_scan.mst_bridge.shutil.which", return_value=None):
         bridge = MSTBridge(mst_path=None)
-    with patch("cyberai.agents.mcp_scan.mst_bridge.subprocess.run") as run:
+    with patch("cyberai.agents.mcp_scan.mst_bridge.run_sealed") as run:
         assert bridge.fuzz("http://localhost/mcp") == []
         run.assert_not_called()
 
@@ -75,7 +75,7 @@ def test_fuzz_skips_nonlab_without_confirm(tmp_path):
     fake = tmp_path / "mas-sentry"
     fake.write_text("#!/bin/sh\n")
     bridge = MSTBridge(mst_path=str(fake))
-    with patch("cyberai.agents.mcp_scan.mst_bridge.subprocess.run") as run:
+    with patch("cyberai.agents.mcp_scan.mst_bridge.run_sealed") as run:
         assert bridge.fuzz("https://evil.example.com/mcp", confirm_scope=False) == []
         run.assert_not_called()
 
@@ -102,9 +102,7 @@ def test_fuzz_parses_report(tmp_path):
 
         return _P()
 
-    with patch(
-        "cyberai.agents.mcp_scan.mst_bridge.subprocess.run", side_effect=_write_report
-    ) as run:
+    with patch("cyberai.agents.mcp_scan.mst_bridge.run_sealed", side_effect=_write_report) as run:
         findings = bridge.fuzz("stdio://python3 server.py")
 
     run.assert_called_once()
@@ -135,9 +133,30 @@ def test_fuzz_confirmed_nonlab_appends_flag(tmp_path):
 
         return _P()
 
-    with patch("cyberai.agents.mcp_scan.mst_bridge.subprocess.run", side_effect=_noop) as run:
+    with patch("cyberai.agents.mcp_scan.mst_bridge.run_sealed", side_effect=_noop) as run:
         bridge.fuzz("https://scope.example.com/mcp", confirm_scope=True)
     assert "--confirm-scope" in run.call_args.args[0]
+
+
+def test_fuzz_uses_sealed_exec(tmp_path):
+    """The MST child must not inherit the operator environment or HOME."""
+    fake = tmp_path / "mas-sentry"
+    fake.write_text("#!/bin/sh\n")
+    bridge = MSTBridge(mst_path=str(fake))
+
+    def _noop(cmd, **kwargs):
+        class _P:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _P()
+
+    with patch("cyberai.agents.mcp_scan.mst_bridge.run_sealed", side_effect=_noop) as run:
+        bridge.fuzz("stdio://python3 server.py")
+    kwargs = run.call_args.kwargs
+    assert "home" not in kwargs  # synthetic home, not the operator's
+    assert "capture_output" not in kwargs  # run_sealed applies it itself
 
 
 def test_parse_report_missing_file():

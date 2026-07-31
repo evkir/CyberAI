@@ -85,8 +85,14 @@ def run_sealed(
     extra_env: Optional[Mapping[str, str]] = None,
     home: Optional[Path] = None,
     check: bool = False,
+    stdin: int | IO[Any] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """subprocess.run() with a sealed environment. argv only, never a shell."""
+    """subprocess.run() with a sealed environment. argv only, never a shell.
+
+    stdin: pass subprocess.DEVNULL for tools that would otherwise read the
+    operator's terminal. Not a security control — a child can still open
+    /dev/tty directly — but it keeps interactive tools from stalling.
+    """
     if isinstance(argv, (str, bytes)):
         raise SealedEnvError("argv must be a sequence, not a string")
 
@@ -99,6 +105,7 @@ def run_sealed(
         text=True,
         timeout=timeout,
         check=check,
+        stdin=stdin,
     )
 
 
