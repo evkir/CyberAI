@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from click.testing import CliRunner
 
@@ -47,6 +49,36 @@ def test_the_scorecard_records_the_seed(tmp_path):
     result = CliRunner().invoke(bench, ["run", "--seed", "7", "--scorecard", str(out)])
     assert result.exit_code == 0
     assert "| seed | 7 |" in out.read_text()
+
+
+def test_bench_run_writes_a_manifest(tmp_path):
+    out = tmp_path / "run.json"
+    result = CliRunner().invoke(bench, ["run", "--seed", "5", "--manifest", str(out)])
+    assert result.exit_code == 0
+    data = json.loads(out.read_text())
+    assert data["suite"] == "local"
+    assert data["config"]["seed"] == 5
+    assert data["config"]["extra"]["engine"] == "placeholder"
+    assert data["manifest_hash"]
+
+
+def test_a_filtered_run_does_not_fingerprint_as_the_whole_suite(tmp_path):
+    """The suite hash describes what ran, or the regression gate would compare
+    a one-task run against a three-task baseline and call it a pass."""
+    full = tmp_path / "full.json"
+    part = tmp_path / "part.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(full)])
+    CliRunner().invoke(bench, ["run", "--manifest", str(part), "--task", "local-sqli-login"])
+    a = json.loads(full.read_text())
+    b = json.loads(part.read_text())
+    assert a["total"] > b["total"]
+    assert a["suite_hash"] != b["suite_hash"]
+
+
+def test_no_manifest_without_the_flag(tmp_path):
+    result = CliRunner().invoke(bench, ["run"])
+    assert result.exit_code == 0
+    assert not list(tmp_path.iterdir())
 
 
 def test_bench_run_rejects_unknown_suite():
