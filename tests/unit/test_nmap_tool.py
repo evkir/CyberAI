@@ -69,7 +69,7 @@ def _fake_proc(stdout: str = "", rc: int = 0) -> MagicMock:
 def test_cache_miss_then_hit():
     """First call runs nmap; second identical call comes from cache."""
     fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         first = run_nmap("scanme.test", flags="-sV")
         second = run_nmap("scanme.test", flags="-sV")
 
@@ -82,7 +82,7 @@ def test_cache_miss_then_hit():
 def test_failed_scan_not_cached():
     """A non-zero return code must not be cached."""
     fake = _fake_proc(stdout="", rc=1)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
         run_nmap("scanme.test", flags="-sV")
 
@@ -93,7 +93,7 @@ def test_failed_scan_not_cached():
 def test_different_flags_different_cache():
     """Different flags must not collide in the cache."""
     fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
         run_nmap("scanme.test", flags="-sV -Pn")
 
@@ -124,8 +124,8 @@ def test_timeout_returns_consistent_ports_shape():
     """A timeout must still yield a dict carrying an empty ports list so
     downstream consumers never hit a missing key."""
     with patch.object(
-        nmap_tool.subprocess,
-        "run",
+        nmap_tool,
+        "run_sealed",
         side_effect=subprocess.TimeoutExpired(cmd="nmap", timeout=180),
     ) as m:
         res = run_nmap("scanme.test", flags="-T4")
@@ -141,8 +141,8 @@ def test_sV_discovery_then_scoped_recovers_versions():
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)  # port 80 with product
     with patch.object(
-        nmap_tool.subprocess,
-        "run",
+        nmap_tool,
+        "run_sealed",
         side_effect=[disco, targeted],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
@@ -164,8 +164,8 @@ def test_sV_scoped_reprobe_fails_marks_degraded():
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     scoped_timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=90)
     with patch.object(
-        nmap_tool.subprocess,
-        "run",
+        nmap_tool,
+        "run_sealed",
         side_effect=[disco, scoped_timeout],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
@@ -180,8 +180,8 @@ def test_sV_no_open_ports_skips_scoped_scan():
     -sV and returns the version-less discovery result marked degraded."""
     empty = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)  # no open ports
     with patch.object(
-        nmap_tool.subprocess,
-        "run",
+        nmap_tool,
+        "run_sealed",
         side_effect=[empty],
     ) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
@@ -194,17 +194,27 @@ def test_nmap_detaches_stdin_to_protect_terminal():
     """nmap must run with stdin detached so its runtime keypress interaction
     never leaves the analyst's terminal in no-echo/raw mode."""
     fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
     _, kwargs = m.call_args
     assert kwargs.get("stdin") == subprocess.DEVNULL
+
+
+def test_nmap_uses_sealed_exec():
+    """nmap talks to the scan target; the child must not inherit our env."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap("scanme.test", flags="-sV")
+    kwargs = m.call_args.kwargs
+    assert "home" not in kwargs  # synthetic home, not the operator's
+    assert "capture_output" not in kwargs  # run_sealed applies it itself
 
 
 def test_nmap_runs_noninteractive():
     """nmap must be invoked with --noninteractive so its keypress reader never
     opens /dev/tty and corrupts the analyst's terminal echo."""
     fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake) as m:
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
     argv = m.call_args[0][0]
     assert "--noninteractive" in argv
@@ -254,7 +264,7 @@ def test_mass_open_flags_untrusted_scan():
         for i in range(1, 151)
     )
     fake = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake):
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is True
     assert res["open_count"] == 150
@@ -262,7 +272,7 @@ def test_mass_open_flags_untrusted_scan():
 
 def test_normal_scan_not_flagged_mass_open():
     fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", return_value=fake):
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is None
     assert res["ports"] and res["ports"][0]["port"] == 80
@@ -323,7 +333,7 @@ def test_mass_open_skips_sV_entirely():
         for i in range(1, 151)
     )
     disco = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco]) as m:
+    with patch.object(nmap_tool, "run_sealed", side_effect=[disco]) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
     assert res["mass_open"] is True
     assert res["open_count"] == 150
@@ -335,7 +345,7 @@ def test_discovery_pass_is_version_less_and_keeps_scope():
     """The discovery pass strips -sV but preserves the requested port scope."""
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)
     targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)
-    with patch.object(nmap_tool.subprocess, "run", side_effect=[disco, targeted]) as m:
+    with patch.object(nmap_tool, "run_sealed", side_effect=[disco, targeted]) as m:
         run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
     disco_argv = m.call_args_list[0][0][0]
     assert "-sV" not in disco_argv
@@ -345,7 +355,7 @@ def test_discovery_pass_is_version_less_and_keeps_scope():
 def test_non_sV_scan_single_pass_no_discovery():
     """A caller passing explicit non-sV flags gets one scan, no discovery-first."""
     fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
-    with patch.object(nmap_tool.subprocess, "run", side_effect=[fake]) as m:
+    with patch.object(nmap_tool, "run_sealed", side_effect=[fake]) as m:
         res = run_nmap("scanme.test", flags="-T4 --top-ports 100")
     assert m.call_count == 1
     assert res["ports"][0]["port"] == 80

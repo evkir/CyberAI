@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 from cyberai.core.security.input_sanitizer import sanitize_target
 from cyberai.core.cache import FileCache
+from cyberai.core.sandbox import run_sealed
 from pathlib import Path
 
 # Whitelist of nmap flags the toolkit is allowed to pass through.
@@ -88,13 +89,9 @@ def _exec_nmap(
     # This flag disables it outright. stdin=DEVNULL is kept as belt-and-braces.
     cmd = ["nmap", "-oX", "-", "--noninteractive"] + safe_flags + [safe_target]
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-        )
+        # No operator HOME: nmap reads its NSE data from the system datadir,
+        # so the child gets the synthetic home and cannot reach ~/.
+        result = run_sealed(cmd, timeout=timeout, stdin=subprocess.DEVNULL)
         return {
             "target": target,
             "raw": result.stdout,

@@ -35,8 +35,6 @@ _EXEMPT = {
 # are the priority. Each needs its own tests because run_sealed already applies
 # capture_output/text, which changes what the call site receives back.
 _PENDING_MIGRATION = {
-    # Speaks to the scan target — the decoy-and-manipulate scenario.
-    "cyberai/agents/recon/nmap_tool.py",
     # Runs upstream benchmark scripts and the docker CLI.
     "cyberai/bench/cve_bench_driver.py",
     "cyberai/bench/docker_builder.py",
