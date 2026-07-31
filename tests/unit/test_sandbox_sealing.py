@@ -36,14 +36,6 @@ _EXEMPT = {
     "cyberai/web/routes/bench.py",
 }
 
-# Not yet migrated. Every entry here is an open path for a child to inherit
-# operator credentials. Each needs its own tests because run_sealed already
-# applies capture_output/text, which changes what the call site receives back.
-_PENDING_MIGRATION = {
-    # Runs the upstream benchmark script.
-    "cyberai/bench/cve_bench_driver.py",
-}
-
 _SPAWN_ATTRS = {"run", "Popen", "call", "check_call", "check_output", "getoutput"}
 
 
@@ -76,8 +68,6 @@ def test_no_unsealed_process_spawn(path: Path):
     calls = _spawn_calls(ast.parse(path.read_text()))
     if not calls:
         return
-    if path.as_posix() in _PENDING_MIGRATION:
-        pytest.xfail("sealed-exec migration pending")
     assert path.as_posix() in _EXEMPT, (
         f"{path} spawns a child via {', '.join(sorted(set(calls)))}. "
         "Use run_sealed/popen_sealed from cyberai.core.sandbox so the child "
@@ -88,5 +78,5 @@ def test_no_unsealed_process_spawn(path: Path):
 
 def test_exemptions_still_exist():
     """A stale exemption hides a module that no longer needs one."""
-    for rel in _EXEMPT | _PENDING_MIGRATION:
+    for rel in _EXEMPT:
         assert Path(rel).exists(), f"exempt module {rel} is gone; drop the entry"
