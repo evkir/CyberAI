@@ -24,6 +24,13 @@ from cyberai.bench.cve_bench import CVEBenchAdapter
 from cyberai.bench.cve_bench_runner import make_cve_bench_runner
 from cyberai.bench.engine_runner import make_engine_runner
 from cyberai.bench.ctf_loader import CTFAdapter
+from cyberai.bench.regression_gate import check_regression, load_baseline
+from cyberai.bench.run_manifest import (
+    DEFAULT_SEED,
+    RunConfig,
+    build_manifest,
+    set_global_seed,
+)
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 
 console = Console()
@@ -189,6 +196,28 @@ def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
     help="Run only these task ids. Repeatable. The score then covers the selection only.",
 )
 @click.option(
+    "--baseline",
+    "baseline_path",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Fail the run if the solve-rate regressed against this manifest.",
+)
+@click.option(
+    "--manifest",
+    "manifest_path",
+    default=None,
+    type=click.Path(dir_okay=False, writable=True),
+    help="Write a run manifest (provenance + fingerprint) to this JSON path.",
+)
+@click.option(
+    "--seed",
+    "seed",
+    default=DEFAULT_SEED,
+    show_default=True,
+    type=int,
+    help="Pin process-wide randomness so a run can be reproduced.",
+)
+@click.option(
     "--engine",
     "engine",
     default="placeholder",
@@ -204,9 +233,15 @@ def run(
     suite: str,
     scorecard_path: str | None,
     engine: str,
+    manifest_path: str | None = None,
+    baseline_path: str | None = None,
+    seed: int = DEFAULT_SEED,
     task_ids: tuple[str, ...] = (),
 ) -> None:
     """Run a suite and print a pass@1 scorecard."""
+    # Before anything samples: PYTHONHASHSEED only reaches children spawned
+    # after this call, and the engines spawn containers.
+    set_global_seed(seed)
     adapter = _SUITES[suite]()
     runner = _select_runner(engine, adapter)
     all_tasks = adapter.load_tasks()
@@ -243,8 +278,26 @@ def run(
             if note:
                 console.print(f"[yellow]disagreement on {r.task_id}: {note}[/yellow]")
 
+    manifest = None
+    if manifest_path or baseline_path:
+        # `selected`, not `all_tasks`: the suite hash has to describe what was
+        # actually run, or a filtered run would fingerprint as the full suite
+        # and the regression gate would compare two different things.
+        manifest = build_manifest(
+            suite=suite,
+            tasks=selected,
+            report=report,
+            config=RunConfig(seed=seed, extra={"engine": engine}),
+        )
+
+    if manifest_path and manifest is not None:
+        mpath = Path(manifest_path)
+        mpath.parent.mkdir(parents=True, exist_ok=True)
+        mpath.write_text(manifest.to_json())
+        console.print(f"[dim]manifest written to {mpath} ({manifest.manifest_hash[:12]})[/dim]")
+
     if scorecard_path:
-        extra = {"engine": engine, "suite": suite}
+        extra = {"engine": engine, "suite": suite, "seed": str(seed)}
         if filtered:
             # A scorecard outlives the terminal it was printed in; the narrowed
             # denominator has to travel with it.
@@ -256,3 +309,13 @@ def run(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(md)
         console.print(f"[dim]scorecard written to {out}[/dim]")
+
+    if baseline_path and manifest is not None:
+        # Last, so the manifest and scorecard are on disk even when the gate
+        # fails: a regression is exactly when the artefacts are wanted.
+        gate = check_regression(manifest, load_baseline(baseline_path))
+        if gate.passed:
+            console.print(f"[green]regression gate: {gate.reason}[/green]")
+        else:
+            console.print(f"[red]regression gate failed: {gate.reason}[/red]")
+            raise SystemExit(1)

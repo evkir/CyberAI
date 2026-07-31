@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from click.testing import CliRunner
 
+from cyberai.bench.run_manifest import DEFAULT_SEED
+from cyberai.cli import bench as bench_cli
 from cyberai.cli.bench import bench
 
 
@@ -21,6 +25,95 @@ def test_bench_run_default_suite_exit_zero():
     assert "pass@1" in result.output
     # placeholder runner never fakes success -> 0/3
     assert "0/3" in result.output
+
+
+def test_bench_run_pins_the_seed(monkeypatch):
+    """Randomness is pinned before the adapter loads, not after."""
+    seen: list[int] = []
+    monkeypatch.setattr(bench_cli, "set_global_seed", lambda s: seen.append(s) or s)
+    result = CliRunner().invoke(bench, ["run", "--seed", "42"])
+    assert result.exit_code == 0
+    assert seen == [42]
+
+
+def test_bench_run_seed_defaults_without_the_flag(monkeypatch):
+    seen: list[int] = []
+    monkeypatch.setattr(bench_cli, "set_global_seed", lambda s: seen.append(s) or s)
+    CliRunner().invoke(bench, ["run"])
+    assert seen == [DEFAULT_SEED]
+
+
+def test_the_scorecard_records_the_seed(tmp_path):
+    """A scorecard outlives its terminal; the seed has to travel with it."""
+    out = tmp_path / "scorecard.md"
+    result = CliRunner().invoke(bench, ["run", "--seed", "7", "--scorecard", str(out)])
+    assert result.exit_code == 0
+    assert "| seed | 7 |" in out.read_text()
+
+
+def test_bench_run_writes_a_manifest(tmp_path):
+    out = tmp_path / "run.json"
+    result = CliRunner().invoke(bench, ["run", "--seed", "5", "--manifest", str(out)])
+    assert result.exit_code == 0
+    data = json.loads(out.read_text())
+    assert data["suite"] == "local"
+    assert data["config"]["seed"] == 5
+    assert data["config"]["extra"]["engine"] == "placeholder"
+    assert data["manifest_hash"]
+
+
+def test_a_filtered_run_does_not_fingerprint_as_the_whole_suite(tmp_path):
+    """The suite hash describes what ran, or the regression gate would compare
+    a one-task run against a three-task baseline and call it a pass."""
+    full = tmp_path / "full.json"
+    part = tmp_path / "part.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(full)])
+    CliRunner().invoke(bench, ["run", "--manifest", str(part), "--task", "local-sqli-login"])
+    a = json.loads(full.read_text())
+    b = json.loads(part.read_text())
+    assert a["total"] > b["total"]
+    assert a["suite_hash"] != b["suite_hash"]
+
+
+def test_no_manifest_without_the_flag(tmp_path):
+    result = CliRunner().invoke(bench, ["run"])
+    assert result.exit_code == 0
+    assert not list(tmp_path.iterdir())
+
+
+def test_gate_passes_against_an_equal_baseline(tmp_path):
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert "regression gate" in result.output
+
+
+def test_gate_passes_when_there_is_no_baseline_yet(tmp_path):
+    """A first run has nothing to regress against and must not fail."""
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(tmp_path / "absent.json")])
+    assert result.exit_code == 0
+
+
+def test_gate_fails_when_the_suite_changed_under_it(tmp_path):
+    """A filtered run against a full-suite baseline is not a comparison."""
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    result = CliRunner().invoke(
+        bench, ["run", "--baseline", str(base), "--task", "local-sqli-login"]
+    )
+    assert result.exit_code == 1
+    assert "suite content changed" in result.output
+
+
+def test_the_gate_runs_without_writing_a_manifest(tmp_path):
+    """--baseline stands alone: CI checks, it does not have to publish."""
+    base = tmp_path / "base.json"
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    out = tmp_path / "unwritten.json"
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert not out.exists()
 
 
 def test_bench_run_rejects_unknown_suite():
