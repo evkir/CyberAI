@@ -11,31 +11,57 @@ from cyberai.cli.scope import format_scope
 console = Console()
 
 
-# Module names below must exist under cyberai/agents/<phase>/ and be reachable
-# from that phase's agent. Enforced by tests/unit/test_dry_run_plan.py.
+# Full dotted paths: the phase name is not always the package name (the
+# "plan" phase lives in cyberai.agents.planner). Enforced by
+# tests/unit/test_dry_run_plan.py.
 PHASE_TOOLS: dict[str, tuple[str, tuple[str, ...]]] = {
     "recon": (
         "ReconAgent",
-        ("nmap_tool", "dns_tool", "subdomain_enum", "web_surface", "llm_detector", "behavioral"),
+        (
+            "cyberai.agents.recon.nmap_tool",
+            "cyberai.agents.recon.dns_tool",
+            "cyberai.agents.recon.subdomain_enum",
+            "cyberai.agents.recon.web_surface",
+            "cyberai.agents.recon.llm_detector",
+            "cyberai.agents.recon.behavioral",
+        ),
     ),
     "intel": (
         "IntelAgent",
-        ("nvd_client", "epss_client", "service_mapper", "version_match", "risk_prioritizer"),
+        (
+            "cyberai.agents.intel.nvd_client",
+            "cyberai.agents.intel.epss_client",
+            "cyberai.agents.intel.service_mapper",
+            "cyberai.agents.intel.version_match",
+            "cyberai.agents.intel.risk_prioritizer",
+        ),
+    ),
+    "plan": (
+        "PlannerAgent",
+        (
+            "cyberai.agents.planner.agent",
+            "cyberai.agents.planner.critic",
+        ),
     ),
     "exploit": (
         "ExploitAgent",
         (
-            "chain_builder",
-            "attack_path",
-            "cvss_analyzer",
-            "poc_mapper",
-            "nuclei_engine",
-            "web_exploit",
+            "cyberai.agents.exploit.chain_builder",
+            "cyberai.agents.exploit.attack_path",
+            "cyberai.agents.exploit.cvss_analyzer",
+            "cyberai.agents.exploit.poc_mapper",
+            "cyberai.agents.exploit.nuclei_engine",
+            "cyberai.agents.exploit.web_exploit",
         ),
     ),
     "report": (
         "ReportAgent",
-        ("markdown_renderer", "html_renderer", "json_exporter", "judge"),
+        (
+            "cyberai.agents.report.markdown_renderer",
+            "cyberai.agents.report.html_renderer",
+            "cyberai.agents.report.json_exporter",
+            "cyberai.agents.report.judge",
+        ),
     ),
 }
 
@@ -74,7 +100,9 @@ def show_dry_run_plan(
 
     for i, phase in enumerate(phases, 1):
         agent, modules = PHASE_TOOLS.get(phase, (phase, ()))
-        table.add_row(f"{i}. {phase}", agent, " · ".join(modules) or "—")
+        table.add_row(
+            f"{i}. {phase}", agent, " · ".join(m.rsplit(".", 1)[-1] for m in modules) or "—"
+        )
 
     console.print(table)
     console.print("\n[dim]Run without --dry-run to execute.[/dim]\n")
