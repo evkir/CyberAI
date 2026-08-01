@@ -11,6 +11,35 @@ from cyberai.cli.scope import format_scope
 console = Console()
 
 
+# Module names below must exist under cyberai/agents/<phase>/ and be reachable
+# from that phase's agent. Enforced by tests/unit/test_dry_run_plan.py.
+PHASE_TOOLS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "recon": (
+        "ReconAgent",
+        ("nmap_tool", "dns_tool", "subdomain_enum", "web_surface", "llm_detector", "behavioral"),
+    ),
+    "intel": (
+        "IntelAgent",
+        ("nvd_client", "epss_client", "service_mapper", "version_match", "risk_prioritizer"),
+    ),
+    "exploit": (
+        "ExploitAgent",
+        (
+            "chain_builder",
+            "attack_path",
+            "cvss_analyzer",
+            "poc_mapper",
+            "nuclei_engine",
+            "web_exploit",
+        ),
+    ),
+    "report": (
+        "ReportAgent",
+        ("markdown_renderer", "html_renderer", "json_exporter", "judge"),
+    ),
+}
+
+
 def show_dry_run_plan(
     target: str,
     scope: ScopeConfig,
@@ -43,16 +72,9 @@ def show_dry_run_plan(
     table.add_column("Agent", style="white")
     table.add_column("Tools", style="dim")
 
-    phase_map = {
-        "recon": ("ReconAgent", "nmap · dns · tls"),
-        "intel": ("IntelAgent", "nvd_client · cve_scorer · tls_cve_mapper"),
-        "exploit": ("ExploitAgent", "ssrf_workflow · xxe_workflow · chain_builder"),
-        "report": ("ReportAgent", "markdown_renderer · html_renderer · json_exporter"),
-    }
-
     for i, phase in enumerate(phases, 1):
-        agent, tools = phase_map.get(phase, (phase, "—"))
-        table.add_row(f"{i}. {phase}", agent, tools)
+        agent, modules = PHASE_TOOLS.get(phase, (phase, ()))
+        table.add_row(f"{i}. {phase}", agent, " · ".join(modules) or "—")
 
     console.print(table)
     console.print("\n[dim]Run without --dry-run to execute.[/dim]\n")
