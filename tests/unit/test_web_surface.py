@@ -188,3 +188,37 @@ def test_surface_carries_the_body_transport_marking_from_the_spec():
 def test_html_discovered_endpoints_declare_no_body_transport():
     result = discover_surface("http://t", fetcher=_pages({"http://t/": _INDEX}))
     assert all(e["body_params"] == [] for e in result["endpoints"])
+
+
+def test_spec_path_parameters_survive_the_surface_merge():
+    """The exploit side reads this dict; a lost key is an unreachable route."""
+    import json
+
+    spec = {
+        "paths": {
+            "/users/{username}": {"get": {}},
+            "/search": {"get": {"parameters": [{"name": "q", "in": "query"}]}},
+        }
+    }
+
+    def fetch(url):
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": json.dumps(spec), "url": url}
+        if url == "http://t":
+            return {"status": 200, "headers": {}, "body": "<html></html>", "url": url}
+        return None
+
+    surface = discover_surface("http://t", fetcher=fetch, api_discovery=True)
+    by_url = {e["url"]: e for e in surface["endpoints"]}
+    templated = by_url["http://t/users/{username}"]
+    assert templated["path_params"] == ["username"]
+    assert by_url["http://t/search"]["path_params"] == []
+
+
+def test_html_endpoints_report_an_empty_path_parameter_list():
+    """Absent must be [] rather than a missing key, so readers need no guard."""
+    body = '<form action="/login" method="post"><input name="user"></form>'
+    surface = discover_surface("http://t", fetcher=_pages({"http://t/": body}))
+    assert surface["endpoints"]
+    for endpoint in surface["endpoints"]:
+        assert endpoint["path_params"] == []
