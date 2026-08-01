@@ -161,6 +161,7 @@ def discover_surface(
         params: list[str],
         source: str,
         body_params: Optional[list[str]] = None,
+        path_params: Optional[list[str]] = None,
     ) -> None:
         clean = url.split("#")[0]
         key = (clean.split("?")[0], method)
@@ -173,6 +174,7 @@ def discover_surface(
                 "method": method,
                 "params": [],
                 "body_params": [],
+                "path_params": [],
                 "source": source,
             },
         )
@@ -185,6 +187,13 @@ def discover_surface(
         for p in body_params or []:
             if p not in slot["body_params"]:
                 slot["body_params"].append(p)
+        # A placeholder is spliced into the path, not appended to the query.
+        # Losing that distinction here is silent: the parameter still shows up
+        # in `params`, so exploitation would send the template verbatim and
+        # score an unreachable route as clean.
+        for p in path_params or []:
+            if p not in slot["path_params"]:
+                slot["path_params"].append(p)
 
     while queue and pages < max_pages:
         url, level = queue.pop(0)
@@ -244,6 +253,7 @@ def discover_surface(
                 endpoint["params"],
                 endpoint["source"],
                 endpoint.get("body_params"),
+                endpoint.get("path_params"),
             )
         routes = api["routes"]
         spec_url = api["spec_url"]

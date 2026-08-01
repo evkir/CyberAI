@@ -40,7 +40,7 @@ def test_traversal_proof_needs_file_contents():
 
 
 def test_sqli_proof_needs_an_authenticated_response():
-    payload = payloads_for(WebVulnClass.SQLI)[0]
+    payload = [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0]
     assert payload.proof.holds('{"status": "ok", "flag": "FLAG{x}"}') is True
     assert payload.proof.holds('{"status": "denied"}') is False
 
@@ -60,3 +60,38 @@ def test_verifier_catches_a_deliberately_unsafe_payload():
         proof=Proof(description="marker echoed", expected="MARKER123"),
     )
     assert verify_corpus_is_non_reflective([unsafe]) != []
+
+
+def _error_based():
+    return [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" in p.tags]
+
+
+def test_error_based_payloads_exist_and_are_minimal():
+    payloads = _error_based()
+    assert payloads
+    assert {p.value for p in payloads} == {"'", '"'}
+
+
+def test_error_based_proof_reads_an_engine_parse_error():
+    proof = _error_based()[0].proof
+    body = "sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unrecognized token"
+    assert proof.holds(body) is True
+
+
+def test_error_based_proof_recognises_other_engines():
+    proof = _error_based()[0].proof
+    assert proof.holds("You have an error in your SQL syntax; MySQL server version") is True
+    assert proof.holds("ORA-01756: quoted string not properly terminated") is True
+
+
+def test_error_based_proof_ignores_a_generic_server_error():
+    """A 500 that is not a database complaint proves nothing about SQL."""
+    proof = _error_based()[0].proof
+    assert proof.holds("500 Internal Server Error") is False
+    assert proof.holds("TypeError: cannot read property of undefined") is False
+
+
+def test_error_based_proof_states_what_it_does_not_prove():
+    """The description must not read as data extraction."""
+    description = _error_based()[0].proof.description
+    assert "reached the query" in description
