@@ -84,9 +84,13 @@ def test_body_schema_ref_is_resolved_into_parameters():
     assert switch["params"] == ["path"]
 
 
-def test_templated_paths_are_skipped():
+def test_templated_path_keeps_the_template_and_names_its_parameter():
     eps = parse_openapi(_OAS3, "http://t")
-    assert not any("{" in e["url"] for e in eps)
+    users = [e for e in eps if "{id}" in e["url"]]
+    assert len(users) == 1
+    assert users[0]["url"] == "http://t/api/users/{id}"
+    assert users[0]["path_params"] == ["id"]
+    assert users[0]["params"] == ["id"]
     assert not any(e["url"].endswith("/users") for e in eps)
 
 
@@ -324,3 +328,34 @@ def test_merged_surface_keeps_the_body_marking():
     pages = _pages({"http://t/openapi.json": json.dumps(_GET_WITH_BODY)})
     result = discover_api_surface("http://t", pages)
     assert result["endpoints"][0]["body_params"] == ["path"]
+
+
+def test_placeholder_absent_from_the_document_is_still_a_parameter():
+    spec = {"paths": {"/items/{item_id}/tags": {"get": {}}}}
+    endpoint = parse_openapi(spec, "http://t")[0]
+    assert endpoint["path_params"] == ["item_id"]
+    assert endpoint["params"] == ["item_id"]
+
+
+def test_repeated_placeholder_is_named_once():
+    spec = {"paths": {"/a/{k}/b/{k}": {"get": {}}}}
+    assert parse_openapi(spec, "http://t")[0]["path_params"] == ["k"]
+
+
+def test_untemplated_path_reports_no_path_parameters():
+    spec = {"paths": {"/plain": {"get": {"parameters": [{"name": "q", "in": "query"}]}}}}
+    endpoint = parse_openapi(spec, "http://t")[0]
+    assert endpoint["path_params"] == []
+    assert endpoint["params"] == ["q"]
+
+
+def test_path_parameter_precedes_declared_parameters():
+    spec = {
+        "paths": {
+            "/u/{uid}": {
+                "parameters": [{"name": "shared", "in": "query"}],
+                "get": {"parameters": [{"name": "own", "in": "query"}]},
+            }
+        }
+    }
+    assert parse_openapi(spec, "http://t")[0]["params"] == ["uid", "shared", "own"]

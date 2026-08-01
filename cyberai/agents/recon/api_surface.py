@@ -140,6 +140,23 @@ def _join(base: str, prefix: str, path: str) -> str:
     return f"{root}/{tail}" if tail else root
 
 
+_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _path_params(path: str) -> list[str]:
+    """Names templated into the path itself.
+
+    The document is not the authority here: a spec may leave a placeholder
+    out of its `parameters` list while the route still refuses any request
+    that leaves it unfilled. The template is the fact, so it is what we read.
+    """
+    names: list[str] = []
+    for name in _PLACEHOLDER.findall(path):
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
     """Endpoints declared by an OpenAPI 3 or Swagger 2 document.
 
@@ -149,8 +166,10 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
     those names as query parameters earns a validation error, never an answer.
 
     Parameter names come from the document; a path carrying a `{placeholder}`
-    is dropped, because requesting the template would hit a route that does
-    not exist.
+    keeps the template in `url` and names the placeholder in `path_params`,
+    because a value spliced into the path is as injectable as one carried on
+    the query string. A caller must fill every placeholder before requesting:
+    the template itself addresses no route.
     """
     if not isinstance(spec, dict):
         return []
@@ -161,13 +180,17 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
 
     endpoints: list[dict[str, Any]] = []
     for path, item in paths.items():
-        if not isinstance(path, str) or not isinstance(item, dict) or "{" in path:
+        if not isinstance(path, str) or not isinstance(item, dict):
             continue
+        path_names = _path_params(path)
         shared = _declared_params(spec, item.get("parameters"))
         for method, operation in item.items():
             if method.lower() not in _OPERATIONS or not isinstance(operation, dict):
                 continue
-            params = list(shared)
+            params = list(path_names)
+            for name in shared:
+                if name not in params:
+                    params.append(name)
             for name in _declared_params(spec, operation.get("parameters")):
                 if name not in params:
                     params.append(name)
@@ -178,6 +201,7 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
                     "method": method.upper(),
                     "params": params + body,
                     "body_params": body,
+                    "path_params": path_names,
                     "source": "openapi",
                 }
             )
