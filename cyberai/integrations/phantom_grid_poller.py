@@ -4,7 +4,7 @@ phantom-grid result poller — thin compatibility shim over PhantomGridClient.
 Historically this module had its own client + OOBInteraction. It now delegates
 to the single PhantomGridClient (v2.0 API) so there is one endpoint contract
 and one OOBInteraction type. The public API (wait_for_callback,
-get_interactions) is preserved for ssrf_workflow / xxe_workflow.
+get_interactions) is preserved for OOBWorkflow and the redteam fuzzer.
 """
 
 from __future__ import annotations
