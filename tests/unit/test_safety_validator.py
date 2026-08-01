@@ -69,3 +69,34 @@ def test_high_probability_warning():
 def test_validation_result_bool():
     result = validate_exploit_scope("93.184.216.34", [])
     assert bool(result) is True
+
+
+# ── URL targets ───────────────────────────────────────────────────────
+# Every web run reaches this validator as a URL, and the checks below all
+# compare bare hosts. Until these cases existed the exploit phase aborted on
+# any http:// target and no unit test noticed, because none of them passed a
+# URL in.
+
+
+def test_url_target_matches_bare_host_scope():
+    assert validate_exploit_scope("http://10.10.10.5:3000", ["10.10.10.5"]).passed
+
+
+def test_url_with_path_matches_wildcard_scope():
+    assert validate_exploit_scope("https://sub.acme.com:8443/app?x=1", ["*.acme.com"]).passed
+
+
+def test_url_target_still_hits_protected_range_check():
+    result = validate_exploit_scope("http://192.168.1.1:8080", [])
+    assert not result.passed
+    assert any("protected range" in v for v in result.violations)
+
+
+def test_violation_quotes_the_target_as_typed():
+    result = validate_exploit_scope("http://10.10.10.5:3000", ["example.com"])
+    assert any("http://10.10.10.5:3000" in v for v in result.violations)
+
+
+def test_bare_host_scope_matching_unchanged():
+    assert _target_in_scope("sub.example.com", ["*.example.com"])
+    assert not _target_in_scope("example.com", ["*.example.com"])
