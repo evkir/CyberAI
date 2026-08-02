@@ -51,6 +51,7 @@ def _plan_summary(plan: object) -> str | None:
 def _apply_feature_overrides(
     config: CyberAIConfig,
     *,
+    target: str = "",
     behavioral: bool | None = None,
     nuclei: bool | None = None,
     judge: bool | None = None,
@@ -68,7 +69,19 @@ def _apply_feature_overrides(
     Each flag is tri-state: None leaves the env/default value untouched,
     True/False forces it. The CLI can thus both enable and disable a flag
     regardless of what the environment set.
+
+    An http(s) target additionally turns the web phase on before the explicit
+    flags are read. Scanning a URL with web recon off produces an empty report
+    while the surface is sitting right there, and a silent nothing reads like
+    a clean target rather than a phase that never ran. Explicit flags still
+    win, so --no-web-recon disables it again; the shape of the target only
+    decides the default.
     """
+    if target.lower().startswith(("http://", "https://")):
+        config.use_web_recon = True
+        config.use_api_discovery = True
+        config.use_web_exploit = True
+
     if behavioral is not None:
         config.use_behavioral_fingerprint = behavioral
     if nuclei is not None:
@@ -219,6 +232,7 @@ def scan(
 
     _apply_feature_overrides(
         config,
+        target=target,
         behavioral=behavioral,
         nuclei=nuclei,
         judge=judge,
