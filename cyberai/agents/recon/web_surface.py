@@ -28,7 +28,14 @@ from .api_surface import discover_api_surface
 DEFAULT_TIMEOUT = 5.0
 DEFAULT_DEPTH = 1
 MAX_PAGES = 25
+# An HTML page is walked by a parser, so it is capped at a size a parser
+# should be asked to handle. A script is not walked but searched, and a
+# bundled SPA names its API across the whole file -- Juice Shop keeps most of
+# its routes past the 200 KB mark. Capping both at the page limit reads the
+# head of the bundle and reports the routes it happens to contain, which is
+# indistinguishable from an application with a smaller API.
 MAX_BODY = 200_000
+MAX_SCRIPT_BODY = 3_000_000
 
 # A fetcher maps a URL to {"status", "headers", "body", "url"} or None on failure.
 FetchFn = Callable[[str], Optional[dict[str, Any]]]
@@ -41,10 +48,15 @@ def _default_fetcher(timeout: float) -> FetchFn:
         try:
             with httpx.Client(timeout=timeout, follow_redirects=True) as client:
                 r = client.get(url)
+                headers = {k.lower(): v for k, v in r.headers.items()}
+                is_script = "javascript" in headers.get("content-type", "") or url.endswith(
+                    (".js", ".mjs")
+                )
+                limit = MAX_SCRIPT_BODY if is_script else MAX_BODY
                 return {
                     "status": r.status_code,
-                    "headers": {k.lower(): v for k, v in r.headers.items()},
-                    "body": r.text[:MAX_BODY],
+                    "headers": headers,
+                    "body": r.text[:limit],
                     "url": str(r.url),
                 }
         except Exception:
