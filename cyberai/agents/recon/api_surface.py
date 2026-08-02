@@ -244,11 +244,28 @@ def fetch_openapi(
 # Bundle budget: a route table repeats itself, and a build ships more chunks
 # than a recon pass should download.
 MAX_SCRIPTS = 8
-MAX_ROUTES = 40
+# A bundle names its whole API, and a real SPA has more than forty calls in
+# it: Juice Shop alone yields eighty-five. The cap survives a pathological
+# bundle rather than sampling a normal one -- set too low it truncates the
+# surface silently, and an endpoint that fell off the end looks exactly like
+# an endpoint that does not exist.
+MAX_ROUTES = 200
 MAX_SCRIPT_BYTES = 3_000_000
 
 # A quoted absolute path, with any query string it carries.
-_ROUTE_LITERAL = re.compile(r"""['"`](/[A-Za-z0-9_\-./]*)((?:\?[A-Za-z0-9_\-=&%.]*)?)['"`]""")
+#
+# A bundled SPA rarely writes the path as one flat literal: the host comes
+# from a field and the identifiers come from variables, so the route reaches
+# the bundle as a template literal. Allowing a leading interpolation (the host
+# base) and further ones inside the path is what makes those routes visible at
+# all -- requiring a literal slash right after the quote hides every call an
+# Angular or React service makes through its own base URL.
+_INTERP = r"\$\{[^{}]*\}"
+_ROUTE_LITERAL = re.compile(
+    r"""['"`](?:""" + _INTERP + r""")?"""
+    r"""(/(?:[A-Za-z0-9_\-./]|""" + _INTERP + r""")*)"""
+    r"""((?:\?(?:[A-Za-z0-9_\-=&%.]|""" + _INTERP + r""")*)?)['"`]"""
+)
 
 # Static files a build references by path; requesting them proves nothing.
 _ASSET_SUFFIXES: tuple[str, ...] = (
@@ -307,10 +324,63 @@ _OPTION_METHOD = re.compile(r"""method\s*:\s*['"]([A-Za-z]+)['"]""")
 
 
 def _is_route(path: str) -> bool:
-    """Whether a quoted path is plausibly a request target, not an asset."""
-    if len(path) < 2 or path.startswith("//") or "{" in path or "$" in path:
+    """Whether a quoted path is plausibly a request target, not an asset.
+
+    Interpolation is judged by `_normalise_interpolated`, not here: a `${id}`
+    inside a path names a path parameter, which is a route we can attack, so
+    rejecting it outright would discard exactly the templated endpoints the
+    exploit side now knows how to fill.
+    """
+    if len(path) < 2 or path.startswith("//"):
+        return False
+    if "{" in path and "${" not in path:
         return False
     return not path.lower().endswith(_ASSET_SUFFIXES)
+
+
+_INTERP_RE = re.compile(r"\$\{([^{}]*)\}")
+_IDENT_TAIL = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*$")
+
+
+def _interp_name(expression: str, index: int) -> str:
+    """A parameter name for one interpolation, from its trailing identifier.
+
+    `${this.userId}` names userId; an expression ending in a call or an index
+    names nothing usable, so the position gets a positional name instead. The
+    name only has to be stable and unique within the path -- it labels a slot
+    to inject into, it is not a contract with the server.
+    """
+    match = _IDENT_TAIL.search(expression)
+    return match.group(1) if match else f"p{index}"
+
+
+def _normalise_interpolated(path: str) -> Optional[str]:
+    """Rewrite `${expr}` segments as `{name}` placeholders, or reject the path.
+
+    Two interpolations with nothing between them cannot be told apart once
+    filled -- the request would address a path neither value ever formed -- so
+    such a literal is dropped rather than guessed at.
+    """
+    if "${" not in path:
+        return path
+    if re.search(r"\}\s*\$\{", path):
+        return None
+    # A path whose first segment is the interpolation has lost its prefix: the
+    # base was concatenated elsewhere ("host = server + '/rest/products'") and
+    # never appears in the literal. What is left addresses the site root, so
+    # requesting it tests a route the application does not serve.
+    if path.startswith("${") or path.startswith("/${"):
+        return None
+    seen: set[str] = set()
+
+    def _replace(match: re.Match[str]) -> str:
+        name = _interp_name(match.group(1), len(seen))
+        while name in seen:
+            name = f"{name}_{len(seen)}"
+        seen.add(name)
+        return "{" + name + "}"
+
+    return _INTERP_RE.sub(_replace, path)
 
 
 def _query_names(query: str) -> list[str]:
@@ -318,6 +388,8 @@ def _query_names(query: str) -> list[str]:
     names: list[str] = []
     for pair in query.lstrip("?").split("&"):
         name = pair.split("=")[0].strip()
+        if "${" in name:
+            continue
         if name and name not in names:
             names.append(name)
     return names
@@ -430,14 +502,29 @@ def routes_from_javascript(text: str, max_routes: int = MAX_ROUTES) -> list[dict
         path, query = match.group(1), match.group(2)
         if not _is_route(path):
             continue
+        normalised = _normalise_interpolated(path)
+        if normalised is None:
+            continue
+        path = normalised
+        path_names = _path_params(path)
         window = _call_window(text, match.end())
         method = _method_for(text[max(0, match.start() - _WINDOW) : match.start()], window)
-        params = _query_names(query)
+        params = list(path_names)
+        for name in _query_names(query):
+            if name not in params:
+                params.append(name)
         for name in _object_keys(window):
             if name not in params:
                 params.append(name)
         slot = routes.setdefault(
-            (path, method), {"path": path, "method": method, "params": [], "source": "js-route"}
+            (path, method),
+            {
+                "path": path,
+                "method": method,
+                "params": [],
+                "path_params": path_names,
+                "source": "js-route",
+            },
         )
         for name in params:
             if name not in slot["params"]:
@@ -479,12 +566,16 @@ def fetch_js_routes(
             for name in route["params"]:
                 if name not in slot["params"]:
                     slot["params"].append(name)
+            for name in route.get("path_params", []):
+                if name not in slot.setdefault("path_params", []):
+                    slot["path_params"].append(name)
 
     endpoints = [
         {
             "url": urljoin(base.rstrip("/") + "/", route["path"].lstrip("/")),
             "method": route["method"],
             "params": route["params"],
+            "path_params": route.get("path_params", []),
             "source": "js-route",
         }
         for route in collected.values()

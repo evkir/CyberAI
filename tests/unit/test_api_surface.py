@@ -178,9 +178,27 @@ def test_adjacent_calls_do_not_leak_parameters():
     assert found[("/b", "POST")] == ["secret"]
 
 
-def test_assets_and_template_literals_are_not_routes():
+def test_assets_are_not_routes():
+    """A build references its own files by path; requesting them proves nothing."""
     paths = {path for path, _ in _routes(_BUNDLE)}
-    assert paths == {"/switch_personal_path", "/api/items", "/api/login", "/health"}
+    assert paths == {
+        "/switch_personal_path",
+        "/api/items",
+        "/api/login",
+        "/health",
+        "/tpl/{id}",
+    }
+    assert not any(p.startswith("/static/") or p.startswith("/assets/") for p in paths)
+
+
+def test_template_literal_becomes_a_path_parameter():
+    """An interpolated segment is a slot to inject into, not noise to discard.
+
+    Dropping these hid every route a bundled SPA builds from its own base URL,
+    which on a real target is most of the API.
+    """
+    routes = _routes(_BUNDLE)
+    assert ("/tpl/{id}", "GET") in routes
 
 
 def test_route_without_parameters_is_still_reported():
