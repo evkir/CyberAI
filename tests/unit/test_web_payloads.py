@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from cyberai.agents.exploit.web_payloads import (
     WebVulnClass,
     full_corpus,
@@ -95,3 +97,34 @@ def test_error_based_proof_states_what_it_does_not_prove():
     """The description must not read as data extraction."""
     description = _error_based()[0].proof.description
     assert "reached the query" in description
+
+
+ENGINE_ERRORS = [
+    ("node-sqlite3", "Error: SQLITE_ERROR: near \"'%'\": syntax error"),
+    ("mysql", "ER_PARSE_ERROR: You have an error in your SQL syntax"),
+    ("postgres", 'syntax error at or near "\'"'),
+    ("sequelize", 'SequelizeDatabaseError: near "\'": syntax error'),
+    ("mssql", "System.Data.SqlClient.SqlException: Incorrect syntax"),
+]
+
+
+@pytest.mark.parametrize("stack,body", ENGINE_ERRORS)
+def test_error_proof_reads_every_stack_we_know(stack, body):
+    """One fault, worded per driver: a corpus fluent in one stack is blind to the rest."""
+    proof = _error_based()[0].proof
+    assert proof.holds(body) is True, stack
+
+
+NON_DATABASE_BODIES = [
+    '{"status":"success","data":[]}',
+    "404 Not Found",
+    "TypeError: cannot read property of undefined",
+    "Error: connection refused",
+    "500 Internal Server Error",
+]
+
+
+@pytest.mark.parametrize("body", NON_DATABASE_BODIES)
+def test_error_proof_ignores_failures_that_are_not_the_database(body):
+    """A server that broke for another reason is not evidence of injection."""
+    assert _error_based()[0].proof.holds(body) is False
