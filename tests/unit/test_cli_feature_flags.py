@@ -86,3 +86,41 @@ def test_scan_accepts_every_new_flag(tmp_path, monkeypatch):
         args.append(f"--{kw.replace('_', '-')}")
     result = CliRunner().invoke(scan, args)
     assert result.exit_code == 0
+
+
+WEB_PHASE_ATTRS = ("use_web_recon", "use_api_discovery", "use_web_exploit")
+
+
+@pytest.mark.parametrize("target", ["http://t:5001", "https://t", "HTTP://T"])
+def test_http_target_turns_the_web_phase_on(target):
+    """A URL with the web phase off yields an empty report, not a clean one."""
+    config = CyberAIConfig()
+    _apply_feature_overrides(config, target=target)
+    for attr in WEB_PHASE_ATTRS:
+        assert getattr(config, attr) is True, attr
+
+
+@pytest.mark.parametrize("target", ["example.com", "10.0.0.1", "scanme.nmap.org", ""])
+def test_non_url_target_leaves_the_web_phase_alone(target):
+    """Only the shape of the target decides; a host name is not a web target."""
+    config = CyberAIConfig()
+    _apply_feature_overrides(config, target=target)
+    for attr in WEB_PHASE_ATTRS:
+        assert getattr(config, attr) is False, attr
+
+
+def test_explicit_flag_still_beats_the_url_default():
+    """The default follows the target; an explicit choice overrides it."""
+    config = CyberAIConfig()
+    _apply_feature_overrides(config, target="http://t", web_exploit=False)
+    assert config.use_web_recon is True
+    assert config.use_api_discovery is True
+    assert config.use_web_exploit is False
+
+
+def test_target_defaults_to_empty_and_changes_nothing():
+    """Callers that pass no target keep the previous behaviour exactly."""
+    config = CyberAIConfig()
+    _apply_feature_overrides(config)
+    for attr in WEB_PHASE_ATTRS:
+        assert getattr(config, attr) is False, attr
