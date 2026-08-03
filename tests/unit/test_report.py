@@ -111,3 +111,46 @@ def test_empty_fields_are_not_rendered():
     assert "**Payload:**" in md
     assert "**Note:**" not in md
     assert "**Tags:**" not in md
+
+
+def test_a_finding_without_data_renders_no_data_section():
+    from cyberai.agents.report.markdown_renderer import render_markdown
+
+    md = render_markdown(_finding_with())
+    assert "**Data:**" not in md
+    assert "proof text" in md
+
+
+def test_a_list_of_empty_values_renders_nothing():
+    """Filtering leaves nothing to show, and an empty bullet is noise."""
+    from cyberai.agents.report.markdown_renderer import render_markdown
+
+    md = render_markdown(_finding_with(data=["", None, [], {}]))
+    assert "- ``" not in md
+    assert "**Data:**" not in md
+
+
+def test_a_list_of_long_entries_becomes_one_block():
+    """Bullets of 300-character lines are worse than a block to scroll past."""
+    from cyberai.agents.report.markdown_renderer import render_markdown
+
+    md = render_markdown(_finding_with(data=["x" * 300, "y" * 300]))
+    assert "```" in md
+    assert "- `xxx" not in md
+
+
+def test_a_scalar_value_is_labelled_data():
+    """Nothing structured to name the field with, so the generic label stands."""
+    from cyberai.agents.report.markdown_renderer import render_markdown
+
+    md = render_markdown(_finding_with(data="a plain string"))
+    assert "**Data:** `a plain string`" in md
+
+
+def test_render_data_tolerates_an_empty_value():
+    """The renderer guards its own contract: callers need not pre-check."""
+    from cyberai.agents.report.markdown_renderer import _render_data
+
+    assert _render_data(None) == []
+    assert _render_data({}) == []
+    assert _render_data("") == []
