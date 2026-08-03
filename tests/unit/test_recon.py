@@ -133,3 +133,67 @@ class TestSubdomainShapeParity:
 
         assert session.kb.get("recon.subdomains") == self._ENUM_RESULT
         assert session.kb.get("recon.result")["subdomains"] == ["api.t.local"]
+
+
+def _run_recon(nmap_result, web_surface=None):
+    """Drive ReconAgent.run with every tool patched; return its verdict."""
+    from unittest.mock import MagicMock, patch
+
+    from cyberai.agents.recon.agent import ReconAgent
+    from cyberai.core.config import CyberAIConfig
+    from cyberai.core.scan_session import ScanSession
+
+    session = ScanSession(target="t.local")
+    agent = ReconAgent(CyberAIConfig(), session, MagicMock(), MagicMock())
+    with (
+        patch("cyberai.agents.recon.agent.run_nmap", return_value=nmap_result),
+        patch("cyberai.agents.recon.agent.run_whois", return_value={}),
+        patch("cyberai.agents.recon.agent.run_dns", return_value={}),
+        patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
+        patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
+    ):
+        if web_surface is not None:
+            agent.config.use_web_recon = True
+            with patch.object(ReconAgent, "_run_web_recon", return_value=web_surface):
+                return agent.run("t.local")
+        return agent.run("t.local")
+
+
+def test_a_scan_that_worked_reports_done():
+    """The control: nothing was missing, so nothing is named."""
+    result = _run_recon({"target": "t.local", "ports": []})
+    assert result["status"] == "done"
+    assert result["degraded"] == []
+
+
+def test_nmap_that_could_not_run_is_named():
+    """A missing binary is not a target with no open ports."""
+    result = _run_recon(
+        {
+            "target": "t.local",
+            "ports": [],
+            "error": "nmap not found — install with: apt install nmap",
+        }
+    )
+    assert result["status"] == "degraded"
+    assert "nmap" in result["degraded"]
+
+
+def test_a_web_target_that_never_answered_is_named():
+    """An unreachable host is not a host with no attack surface."""
+    result = _run_recon(
+        {"target": "t.local", "ports": []},
+        web_surface={"base_url": "http://t.local", "reachable": False, "endpoints": []},
+    )
+    assert result["status"] == "degraded"
+    assert "web_surface" in result["degraded"]
+
+
+def test_a_reachable_web_target_is_not_named():
+    """Presence of a web phase is not by itself a degradation."""
+    result = _run_recon(
+        {"target": "t.local", "ports": []},
+        web_surface={"base_url": "http://t.local", "reachable": True, "endpoints": []},
+    )
+    assert result["status"] == "done"
+    assert result["degraded"] == []
