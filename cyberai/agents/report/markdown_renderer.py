@@ -13,6 +13,59 @@ SEVERITY_EMOJI = {
 }
 
 
+# Beyond this, a value is a wall of text in the middle of a finding rather
+# than something read at a glance; the full copy stays in the JSON export.
+_INLINE_LIMIT = 160
+_BLOCK_LIMIT = 1200
+# Enough to see the shape of a list without scrolling past the next finding.
+_LIST_LIMIT = 15
+
+
+def _render_value(key: str, value: object) -> list[str]:
+    """One field of structured data: inline when short, fenced when not."""
+    text = str(value)
+    if len(text) <= _INLINE_LIMIT and "\n" not in text:
+        return [f"**{key}:** `{text}`  "]
+    return ["", f"**{key}:**", "", "```", text[:_BLOCK_LIMIT], "```", ""]
+
+
+def _render_data(data: object) -> list[str]:
+    """Structured finding data, as fields rather than a printed dictionary.
+
+    A dict rendered with str() arrives as one long line of Python repr, quotes
+    escaped and newlines literal. The evidence that justifies the finding is
+    in there, and nobody reads it.
+    """
+    if not data:
+        return []
+    if isinstance(data, (list, tuple)):
+        # A list is a set of observations, not one field repeated: labelling
+        # each entry turns eight endpoints into eight headings called "Data".
+        items = [str(x) for x in data if x not in (None, "", [], {})]
+        if not items:
+            return []
+        if all(len(x) <= _INLINE_LIMIT and "\n" not in x for x in items):
+            shown = items[:_LIST_LIMIT]
+            rendered = [f"- `{x}`" for x in shown]
+            if len(items) > _LIST_LIMIT:
+                # A scan against a tarpit returns hundreds of ports. Printing
+                # them all buries every real finding below the fold; the full
+                # list is in the JSON export, which is where a tool reads it.
+                rendered.append(f"- *… and {len(items) - _LIST_LIMIT} more*")
+            return rendered + [""]
+        return ["", "```", "\n".join(items)[:_BLOCK_LIMIT], "```", ""]
+    if not isinstance(data, dict):
+        return _render_value("Data", data)
+    lines: list[str] = []
+    for key, value in data.items():
+        if value in (None, "", [], {}):
+            continue
+        lines += _render_value(str(key).replace("_", " ").capitalize(), value)
+    if lines and not lines[-1].startswith("```") and lines[-1] != "":
+        lines.append("")
+    return lines
+
+
 def render_markdown(session: PentestSession) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
@@ -82,8 +135,11 @@ def render_markdown(session: PentestSession) -> str:
                 lines.append(f"**CVE:** `{finding.cve}`")
                 lines.append("")
             if finding.data:
-                lines.append(f"**Data:** `{finding.data}`")
-                lines.append("")
+                lines += _render_data(finding.data)
+            # Evidence is what makes a finding checkable, and it was reaching
+            # the JSON export but never the page a human opens.
+            elif finding.evidence:
+                lines += _render_data(finding.evidence)
             lines += ["---", ""]
 
     lines += [
