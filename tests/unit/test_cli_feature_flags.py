@@ -124,3 +124,61 @@ def test_target_defaults_to_empty_and_changes_nothing():
     _apply_feature_overrides(config)
     for attr in WEB_PHASE_ATTRS:
         assert getattr(config, attr) is False, attr
+
+
+def _summary_line(phases, tmp_path, monkeypatch):
+    """Run scan against a session with the given phase outcomes; return output."""
+    from unittest.mock import patch
+
+    from cyberai.core.scan_session import ScanPhase, ScanSession, _now
+
+    monkeypatch.chdir(tmp_path)
+    session = ScanSession(target="t.local")
+    for name, success, data in phases:
+        session.record_phase(ScanPhase(name), success=success, started=_now(), data=data)
+
+    with patch("cyberai.__main__.Orchestrator") as orch:
+        orch.return_value.run.return_value = session
+        orch.return_value.cost_tracker = None
+        return CliRunner().invoke(scan, ["t.local"]).output
+
+
+def test_a_clean_run_keeps_the_checkmark(tmp_path, monkeypatch):
+    out = _summary_line(
+        [("recon", True, {"status": "done", "degraded": []}), ("exploit", True, {})],
+        tmp_path,
+        monkeypatch,
+    )
+    assert "Done" in out
+    assert "Partial" not in out
+    assert "Incomplete" not in out
+
+
+def test_a_phase_that_could_not_look_reports_partial(tmp_path, monkeypatch):
+    """A host that was never there must not read as a completed scan."""
+    out = _summary_line(
+        [
+            ("recon", True, {"status": "degraded", "degraded": ["web_surface"]}),
+            ("exploit", True, {}),
+        ],
+        tmp_path,
+        monkeypatch,
+    )
+    assert "Partial" in out
+    assert "recon/web_surface" in out
+    assert "Done" not in out
+
+
+def test_a_failed_phase_outranks_a_degraded_one(tmp_path, monkeypatch):
+    """Reporting a failed run as merely partial would be the softer lie."""
+    out = _summary_line(
+        [
+            ("recon", True, {"status": "degraded", "degraded": ["nmap"]}),
+            ("exploit", False, {}),
+        ],
+        tmp_path,
+        monkeypatch,
+    )
+    assert "Incomplete" in out
+    assert "exploit" in out
+    assert "Partial" not in out

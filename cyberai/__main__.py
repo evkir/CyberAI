@@ -258,7 +258,32 @@ def scan(
     from cyberai.cli.replay import save_session
 
     saved = save_session(session, config.output_dir)
-    console.print(f"\n[green]✓[/green] Done. Findings: {len(session.findings)}")
+    # A checkmark over a failed run reads as "we looked and this is what is
+    # there". The findings line is identical either way, so the mark is the
+    # only thing telling the reader whether the pipeline actually ran.
+    failed = [p.phase.value for p in session.phases if not p.success]
+    # A phase that ran but could not look is not a failure -- the pipeline
+    # deliberately carries on when nmap is missing or a host never answered --
+    # yet it must not be reported as a completed scan either.
+    degraded = sorted(
+        {
+            f"{p.phase.value}/{part}"
+            for p in session.phases
+            for part in ((p.data or {}).get("degraded") or [])
+        }
+    )
+    if failed:
+        console.print(
+            f"\n[red]x[/red] Incomplete. Findings: {len(session.findings)} "
+            f"(failed: {', '.join(failed)})"
+        )
+    elif degraded:
+        console.print(
+            f"\n[yellow]![/yellow] Partial. Findings: {len(session.findings)} "
+            f"(could not check: {', '.join(degraded)})"
+        )
+    else:
+        console.print(f"\n[green]✓[/green] Done. Findings: {len(session.findings)}")
     plan_line = _plan_summary(session.kb.get("plan"))
     if plan_line:
         console.print(f"[dim]{plan_line}[/dim]")

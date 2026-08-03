@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
@@ -166,7 +166,23 @@ class ReconAgent(BaseAgent):
         )
         self.kb.set("recon.result", recon_result.model_dump(), agent=self.AGENT_NAME)
 
-        return {"status": "done", "kb_keys": list(results.keys()), "ports": ports}
+        # "done" once meant "the method reached its end", which it always did:
+        # nmap reporting that it is not installed, and a web target that never
+        # answered, both produced the same word as a scan that worked. A phase
+        # that could not look is not a phase that looked and found nothing.
+        degraded: List[str] = []
+        if isinstance(nmap_result, dict) and nmap_result.get("error"):
+            degraded.append("nmap")
+        web = results.get("recon.web_surface")
+        if isinstance(web, dict) and not web.get("reachable", True):
+            degraded.append("web_surface")
+
+        return {
+            "status": "degraded" if degraded else "done",
+            "degraded": degraded,
+            "kb_keys": list(results.keys()),
+            "ports": ports,
+        }
 
     def _run_web_recon(self, target: str) -> Dict[str, Any]:
         """Crawl the web target and record the injectable surface it exposes.
