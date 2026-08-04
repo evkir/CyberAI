@@ -153,10 +153,35 @@ class Orchestrator:
             session.fail(f"Failed phases: {failed}")
             console.print(f"[bold red]✗ Pipeline finished with errors: {failed}[/bold red]")
 
+        self._record_llm_usage(session)
         log.info(f"Pipeline done — state={session.state.value}")
         return session
 
     # ── phase execution ───────────────────────────────────────────────
+
+    def _record_llm_usage(self, session: ScanSession) -> None:
+        """Persist LLM usage into the KB so session exports carry it.
+
+        `client_built` separates "the model was never asked" from "the model
+        was asked and returned nothing" — different facts, different fixes.
+        """
+        from cyberai.core.pricing import total_cost
+
+        tracker = self.cost_tracker
+        session.kb.set(
+            "llm.usage",
+            {
+                "provider": self.config.llm.provider,
+                "model": self.config.llm.model,
+                "client_built": self._llm is not None,
+                "calls": tracker.call_count,
+                "input_tokens": sum(c.input_tokens for c in tracker.calls),
+                "output_tokens": sum(c.output_tokens for c in tracker.calls),
+                "cost_usd": round(total_cost(tracker), 6),
+                "by_agent": sorted({c.agent for c in tracker.calls}),
+            },
+            agent="orchestrator",
+        )
 
     def _run_phase(self, session: ScanSession, phase: ScanPhase) -> None:
         console.print(f"\n[bold red]▶ {phase.value.upper()}[/bold red]")
