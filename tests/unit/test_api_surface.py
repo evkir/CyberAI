@@ -497,3 +497,35 @@ def test_probing_stops_at_the_request_budget():
     routes = [_route("http://t/a%d" % i) for i in range(10)]
     probe_route_params(routes, fetch, max_probes=6)
     assert len(calls) == 6
+
+
+_PROBE_SHELL = '<html><body><script src="/main.js"></script></body></html>'
+
+
+def test_probing_moves_a_reading_route_out_of_routes():
+    pages = {
+        "http://t/main.js": (200, 'fetch("/api/Items"); fetch("/api/Logs");'),
+        "http://t/api/Items": (200, "all"),
+        "http://t/api/Items?q=1": (200, "filtered"),
+        "http://t/api/Logs": (200, "log"),
+        "http://t/api/Logs?q=1": (200, "log"),
+        "http://t/api/Logs?id=1": (200, "log"),
+        "http://t/api/Logs?page=1": (200, "log"),
+        "http://t/api/Logs?name=1": (200, "log"),
+    }
+    result = discover_api_surface(
+        "http://t", _responses(pages), html=_PROBE_SHELL, probe_routes=True
+    )
+    assert [(e["url"], e["params"]) for e in result["endpoints"]] == [("http://t/api/Items", ["q"])]
+    assert [r["url"] for r in result["routes"]] == ["http://t/api/Logs"]
+
+
+def test_routes_are_left_alone_unless_probing_is_asked_for():
+    pages = {
+        "http://t/main.js": (200, 'fetch("/api/Items");'),
+        "http://t/api/Items": (200, "all"),
+        "http://t/api/Items?q=1": (200, "filtered"),
+    }
+    result = discover_api_surface("http://t", _responses(pages), html=_PROBE_SHELL)
+    assert result["endpoints"] == []
+    assert [r["url"] for r in result["routes"]] == ["http://t/api/Items"]

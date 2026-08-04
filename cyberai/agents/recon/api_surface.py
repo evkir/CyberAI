@@ -724,6 +724,8 @@ def discover_api_surface(
     html: str = "",
     page_url: Optional[str] = None,
     probe_conventions: bool = True,
+    probe_routes: bool = False,
+    max_route_probes: int = 300,
 ) -> dict[str, Any]:
     """Collect the API surface a target publishes, from cheapest source first.
 
@@ -735,6 +737,13 @@ def discover_api_surface(
     parameters and are what exploitation can act on; routes are paths that
     exist with nothing to inject, kept separate so a report can name them
     without exploitation wasting requests on them.
+
+    `probe_routes` asks each route whether it reads a parameter it never
+    declared, and moves the ones that do into `endpoints`. It is off by
+    default because it costs a request per route to establish a negative:
+    against a REST layer that reads undeclared filters it found four more
+    injectable endpoints, and against an API that declares everything it
+    finds nothing and spends the budget saying so.
     """
     spec = fetch_openapi(base, fetch)
     collected: list[dict[str, Any]] = list(spec["endpoints"])
@@ -767,6 +776,13 @@ def discover_api_surface(
 
     endpoints = [e for e in merged.values() if e["params"]]
     routes = [e for e in merged.values() if not e["params"]]
+
+    if probe_routes and routes:
+        promoted = probe_route_params(routes, fetch, max_probes=max_route_probes)
+        moved = {(e["url"], e["method"]) for e in promoted}
+        routes = [r for r in routes if (r["url"], r["method"]) not in moved]
+        endpoints.extend(promoted)
+
     return {
         "endpoints": endpoints,
         "routes": routes,
