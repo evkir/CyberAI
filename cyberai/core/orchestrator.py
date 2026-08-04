@@ -159,6 +159,24 @@ class Orchestrator:
 
     # ── phase execution ───────────────────────────────────────────────
 
+    def _llm_zero_reason(self) -> Optional[str]:
+        """Why no LLM call happened, or None when at least one did.
+
+        A bare count of zero reads as "the model had nothing to add", which
+        is indistinguishable from a provider that could never have been
+        reached. Name the cause instead of leaving the reader to guess.
+        """
+        if self.cost_tracker.call_count:
+            return None
+        if self.dry_run:
+            return "dry_run"
+        provider = self.config.llm.provider
+        if provider in ("openai", "anthropic") and not self.config.llm.api_key:
+            return f"no_api_key_for_{provider}"
+        if self._llm is None:
+            return "no_phase_requested_an_llm"
+        return "client_built_but_unused"
+
     def _record_llm_usage(self, session: ScanSession) -> None:
         """Persist LLM usage into the KB so session exports carry it.
 
@@ -179,6 +197,7 @@ class Orchestrator:
                 "output_tokens": sum(c.output_tokens for c in tracker.calls),
                 "cost_usd": round(total_cost(tracker), 6),
                 "by_agent": sorted({c.agent for c in tracker.calls}),
+                "zero_reason": self._llm_zero_reason(),
             },
             agent="orchestrator",
         )
