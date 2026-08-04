@@ -36,6 +36,14 @@ def test_local_provider_needs_no_key_and_blames_the_pipeline():
     assert orch._llm_zero_reason() == "no_phase_requested_an_llm"
 
 
+def test_a_built_client_that_never_ran_is_named():
+    """The branch every live web scan actually takes: each agent is handed a
+    client at construction time, so one exists even when no phase calls it."""
+    orch = Orchestrator(_config("ollama"), dry_run=False)
+    assert orch.llm is not None
+    assert orch._llm_zero_reason() == "client_built_but_unused"
+
+
 def test_a_recorded_call_clears_the_reason():
     orch = Orchestrator(_config("ollama"), dry_run=False)
     orch.cost_tracker.add("exploit", "qwen", input_tokens=10, output_tokens=5)
