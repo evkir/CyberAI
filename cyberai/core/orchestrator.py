@@ -153,10 +153,54 @@ class Orchestrator:
             session.fail(f"Failed phases: {failed}")
             console.print(f"[bold red]✗ Pipeline finished with errors: {failed}[/bold red]")
 
+        self._record_llm_usage(session)
         log.info(f"Pipeline done — state={session.state.value}")
         return session
 
     # ── phase execution ───────────────────────────────────────────────
+
+    def _llm_zero_reason(self) -> Optional[str]:
+        """Why no LLM call happened, or None when at least one did.
+
+        A bare count of zero reads as "the model had nothing to add", which
+        is indistinguishable from a provider that could never have been
+        reached. Name the cause instead of leaving the reader to guess.
+        """
+        if self.cost_tracker.call_count:
+            return None
+        if self.dry_run:
+            return "dry_run"
+        provider = self.config.llm.provider
+        if provider in ("openai", "anthropic") and not self.config.llm.api_key:
+            return f"no_api_key_for_{provider}"
+        if self._llm is None:
+            return "no_phase_requested_an_llm"
+        return "client_built_but_unused"
+
+    def _record_llm_usage(self, session: ScanSession) -> None:
+        """Persist LLM usage into the KB so session exports carry it.
+
+        `client_built` separates "the model was never asked" from "the model
+        was asked and returned nothing" — different facts, different fixes.
+        """
+        from cyberai.core.pricing import total_cost
+
+        tracker = self.cost_tracker
+        session.kb.set(
+            "llm.usage",
+            {
+                "provider": self.config.llm.provider,
+                "model": self.config.llm.model,
+                "client_built": self._llm is not None,
+                "calls": tracker.call_count,
+                "input_tokens": sum(c.input_tokens for c in tracker.calls),
+                "output_tokens": sum(c.output_tokens for c in tracker.calls),
+                "cost_usd": round(total_cost(tracker), 6),
+                "by_agent": sorted({c.agent for c in tracker.calls}),
+                "zero_reason": self._llm_zero_reason(),
+            },
+            agent="orchestrator",
+        )
 
     def _run_phase(self, session: ScanSession, phase: ScanPhase) -> None:
         console.print(f"\n[bold red]▶ {phase.value.upper()}[/bold red]")

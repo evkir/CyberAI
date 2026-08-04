@@ -104,6 +104,11 @@ class CyberAIConfig:
     max_cost_usd: float = 0.0
     # Flag-gated: run the nuclei template engine in ExploitAgent.
     use_nuclei: bool = False
+    # Flag-gated: let the model pick and order exploit tools via native tool
+    # calling, instead of the deterministic chain builder.
+    use_native_tools: bool = False
+    # Flag-gated: LLM writes the executive section of the report.
+    use_llm_summary: bool = False
     # Flag-gated: LLM-as-Judge validates the report vs KB evidence.
     use_judge: bool = False
     # Flag-gated: on a phase failure, ask the critic whether to re-run it once.
@@ -181,6 +186,8 @@ class CyberAIConfig:
             exploit_memory_path=os.getenv("CYBERAI_EXPLOIT_MEMORY_PATH") or None,
             lab_machines_dir=os.getenv("CYBERAI_LAB_MACHINES_DIR") or None,
             use_nuclei=_env_bool("CYBERAI_USE_NUCLEI", False),
+            use_native_tools=_env_bool("CYBERAI_USE_NATIVE_TOOLS", False),
+            use_llm_summary=_env_bool("CYBERAI_USE_LLM_SUMMARY", False),
             use_judge=_env_bool("CYBERAI_USE_JUDGE", False),
             enable_replan=_env_bool("CYBERAI_ENABLE_REPLAN", False),
             enable_planner=_env_bool("CYBERAI_ENABLE_PLANNER", False),
