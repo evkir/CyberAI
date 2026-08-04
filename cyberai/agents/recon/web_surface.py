@@ -144,6 +144,7 @@ def discover_surface(
     timeout: float = DEFAULT_TIMEOUT,
     max_pages: int = MAX_PAGES,
     api_discovery: bool = False,
+    probe_routes: bool = False,
 ) -> dict[str, Any]:
     """Walk a web target and return its injectable points.
 
@@ -156,6 +157,10 @@ def discover_surface(
     spec and the JS bundles a single-page app ships. That path exists because
     an SPA serves an empty shell: the crawler above finds nothing to follow and
     reports no surface on a target that has a full API behind it.
+
+    `probe_routes` additionally asks each discovered route whether it reads a
+    parameter it never declared. It spends a request per route to answer that,
+    so it rides on `api_discovery` rather than running on its own.
     """
     base = normalize_base(target)
     fetch = fetcher or _default_fetcher(timeout)
@@ -257,7 +262,9 @@ def discover_surface(
     routes: list[dict[str, Any]] = []
     spec_url: Optional[str] = None
     if api_discovery:
-        api = discover_api_surface(base, fetch, html=root_html, page_url=base + "/")
+        api = discover_api_surface(
+            base, fetch, html=root_html, page_url=base + "/", probe_routes=probe_routes
+        )
         for endpoint in api["endpoints"]:
             _record(
                 endpoint["url"],

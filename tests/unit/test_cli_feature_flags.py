@@ -20,6 +20,7 @@ FLAGS = [
     ("web_recon", "use_web_recon", "CYBERAI_USE_WEB_RECON"),
     ("web_exploit", "use_web_exploit", "CYBERAI_USE_WEB_EXPLOIT"),
     ("api_discovery", "use_api_discovery", "CYBERAI_USE_API_DISCOVERY"),
+    ("probe_routes", "use_route_probing", "CYBERAI_USE_ROUTE_PROBING"),
     ("plan_web_order", "use_plan_web_order", "CYBERAI_USE_PLAN_WEB_ORDER"),
     ("planned_redteam", "use_planned_redteam", "CYBERAI_USE_PLANNED_REDTEAM"),
 ]
@@ -107,6 +108,14 @@ def test_non_url_target_leaves_the_web_phase_alone(target):
     _apply_feature_overrides(config, target=target)
     for attr in WEB_PHASE_ATTRS:
         assert getattr(config, attr) is False, attr
+
+
+@pytest.mark.parametrize("target", ["http://t:3000", "https://t", "example.com"])
+def test_a_url_target_does_not_buy_route_probing(target):
+    """Probing spends a request per route; no target shape opts into that."""
+    config = CyberAIConfig()
+    _apply_feature_overrides(config, target=target)
+    assert config.use_route_probing is False
 
 
 def test_explicit_flag_still_beats_the_url_default():

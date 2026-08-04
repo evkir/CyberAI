@@ -61,6 +61,7 @@ def _apply_feature_overrides(
     web_recon: bool | None = None,
     web_exploit: bool | None = None,
     api_discovery: bool | None = None,
+    probe_routes: bool | None = None,
     plan_web_order: bool | None = None,
     planned_redteam: bool | None = None,
 ) -> CyberAIConfig:
@@ -100,6 +101,8 @@ def _apply_feature_overrides(
         config.use_web_exploit = web_exploit
     if api_discovery is not None:
         config.use_api_discovery = api_discovery
+    if probe_routes is not None:
+        config.use_route_probing = probe_routes
     if plan_web_order is not None:
         config.use_plan_web_order = plan_web_order
     if planned_redteam is not None:
@@ -182,6 +185,11 @@ def cli() -> None:
     help="Force reading API specs and JS bundles during web recon on or off",
 )
 @click.option(
+    "--probe-routes/--no-probe-routes",
+    default=None,
+    help="Ask discovered routes whether they read an undeclared parameter",
+)
+@click.option(
     "--plan-web-order/--no-plan-web-order",
     default=None,
     help="Force attacking the endpoints the planner named first on or off",
@@ -209,6 +217,7 @@ def scan(
     web_recon: bool | None,
     web_exploit: bool | None,
     api_discovery: bool | None,
+    probe_routes: bool | None,
     plan_web_order: bool | None,
     planned_redteam: bool | None,
 ) -> None:
@@ -242,6 +251,7 @@ def scan(
         web_recon=web_recon,
         web_exploit=web_exploit,
         api_discovery=api_discovery,
+        probe_routes=probe_routes,
         plan_web_order=plan_web_order,
         planned_redteam=planned_redteam,
     )

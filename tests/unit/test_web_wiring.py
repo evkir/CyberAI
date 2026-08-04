@@ -193,7 +193,7 @@ def test_run_web_recon_runs_without_a_port_scan():
     with patch("cyberai.agents.recon.agent.discover_surface", return_value=_SURFACE) as spy:
         returned = agent._run_web_recon("t.local")
 
-    spy.assert_called_once_with("t.local", api_discovery=False)
+    spy.assert_called_once_with("t.local", api_discovery=False, probe_routes=False)
     assert returned == _SURFACE
     assert session.kb.get("recon.web_surface") == _SURFACE
 
