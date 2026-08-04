@@ -529,3 +529,14 @@ def test_routes_are_left_alone_unless_probing_is_asked_for():
     result = discover_api_surface("http://t", _responses(pages), html=_PROBE_SHELL)
     assert result["endpoints"] == []
     assert [r["url"] for r in result["routes"]] == ["http://t/api/Items"]
+
+
+def test_a_reply_missing_its_body_is_not_an_answer():
+    """A dict without a usable body is no more comparable than no reply."""
+
+    def fetch(url):
+        if "?" in url:
+            return {"status": 200, "headers": {}, "url": url}
+        return {"status": 200, "headers": {}, "body": "all", "url": url}
+
+    assert probe_route_params([_route("http://t/a")], fetch) == []
