@@ -9,6 +9,7 @@ from cyberai.agents.recon.api_surface import (
     fetch_js_routes,
     fetch_openapi,
     parse_openapi,
+    probe_route_params,
     probe_well_known,
     routes_from_javascript,
     script_urls,
@@ -377,3 +378,122 @@ def test_path_parameter_precedes_declared_parameters():
         }
     }
     assert parse_openapi(spec, "http://t")[0]["params"] == ["uid", "shared", "own"]
+
+
+def _responses(mapping):
+    """Fake fetcher: url -> (status, body). An unmapped url answers 404."""
+
+    def fetch(url):
+        status, body = mapping.get(url, (404, ""))
+        return {"status": status, "headers": {}, "body": body, "url": url}
+
+    return fetch
+
+
+def _route(url, method="GET"):
+    return {"url": url, "method": method, "params": [], "source": "js"}
+
+
+def test_a_route_that_reads_a_synthesized_name_becomes_an_endpoint():
+    fetch = _responses(
+        {"http://t/api/Items": (200, "all"), "http://t/api/Items?q=1": (200, "filtered")}
+    )
+    promoted = probe_route_params([_route("http://t/api/Items")], fetch)
+    assert [(e["url"], e["params"], e["source"]) for e in promoted] == [
+        ("http://t/api/Items", ["q"], "probed")
+    ]
+
+
+def test_a_route_that_ignores_every_name_stays_a_route():
+    same = (200, "all")
+    fetch = _responses(
+        {
+            "http://t/api/Items": same,
+            "http://t/api/Items?q=1": same,
+            "http://t/api/Items?id=1": same,
+            "http://t/api/Items?page=1": same,
+            "http://t/api/Items?name=1": same,
+        }
+    )
+    assert probe_route_params([_route("http://t/api/Items")], fetch) == []
+
+
+def test_a_parameter_that_breaks_the_route_counts_as_read():
+    fetch = _responses(
+        {"http://t/api/Items": (200, "all"), "http://t/api/Items?q=1": (500, "SQLITE_ERROR")}
+    )
+    assert [e["params"] for e in probe_route_params([_route("http://t/api/Items")], fetch)] == [
+        ["q"]
+    ]
+
+
+def test_a_route_that_answers_itself_differently_is_not_measurable():
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 200, "headers": {}, "body": "nonce-%d" % len(calls), "url": url}
+
+    assert probe_route_params([_route("http://t/rest/captcha")], fetch) == []
+    assert len(calls) == 3
+
+
+def test_a_route_that_already_carries_a_query_gets_an_ampersand():
+    fetch = _responses(
+        {"http://t/s?lang=en": (200, "all"), "http://t/s?lang=en&q=1": (200, "filtered")}
+    )
+    assert [e["params"] for e in probe_route_params([_route("http://t/s?lang=en")], fetch)] == [
+        ["q"]
+    ]
+
+
+def test_a_route_behind_a_refusal_costs_one_request_and_no_more():
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 401, "headers": {}, "body": "denied", "url": url}
+
+    assert probe_route_params([_route("http://t/api/Users")], fetch) == []
+    assert calls == ["http://t/api/Users"]
+
+
+def test_placeholder_and_state_changing_routes_are_left_alone():
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 200, "headers": {}, "body": "x", "url": url}
+
+    routes = [
+        _route("http://t/api/Items/{id}"),
+        _route("http://t/api/Items", method="POST"),
+        _route(""),
+    ]
+    assert probe_route_params(routes, fetch) == []
+    assert calls == []
+
+
+def test_a_dead_target_promotes_nothing():
+    assert probe_route_params([_route("http://t/a")], lambda url: None) == []
+
+
+def test_a_probe_that_gets_no_answer_is_not_a_reaction():
+    def fetch(url):
+        if url == "http://t/a":
+            return {"status": 200, "headers": {}, "body": "all", "url": url}
+        return None
+
+    assert probe_route_params([_route("http://t/a")], fetch) == []
+
+
+def test_probing_stops_at_the_request_budget():
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return {"status": 200, "headers": {}, "body": "same", "url": url}
+
+    routes = [_route("http://t/a%d" % i) for i in range(10)]
+    probe_route_params(routes, fetch, max_probes=6)
+    assert len(calls) == 6

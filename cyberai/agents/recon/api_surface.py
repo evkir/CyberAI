@@ -6,9 +6,12 @@ OpenAPI document, in the route table compiled into a JS bundle, or behind a
 handful of conventional paths. This module reads those sources and returns the
 endpoint shape `web_surface` already produces, so exploitation needs no change.
 
-Everything here is read from something the target itself published; no route
-and no parameter name is invented. An operation whose path still holds a
-template placeholder is skipped rather than filled with a guessed value.
+Nothing here is asserted without the target's own answer. A route or a
+parameter name may be synthesized, but a synthesized name enters the endpoint
+list only once the target answered it differently from its own baseline: the
+guess is what we send, never what we report. An operation whose path still
+holds a template placeholder is skipped rather than filled with a guessed
+value.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ import json
 import re
 from html.parser import HTMLParser
 from typing import Any, Callable, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 # Same contract as `web_surface.FetchFn`: URL -> response dict or None.
 FetchFn = Callable[[str], Optional[dict[str, Any]]]
@@ -623,6 +626,96 @@ def probe_well_known(
         if status < 400 or status in _PRESENT_STATUSES:
             found.append({"url": url, "method": "GET", "params": [], "source": "well-known"})
     return found
+
+
+# Parameter names a route may read without ever declaring them, ordered by how
+# often each drew a different answer from a measured target. Names that drew
+# nothing anywhere (search, user, file) are left out: each costs one request
+# per route to establish nothing.
+SYNTHETIC_PARAM_NAMES: tuple[str, ...] = ("q", "id", "page", "name")
+
+# The probe asks whether a value is read at all, not whether it is dangerous,
+# so it carries nothing hostile.
+_PROBE_VALUE = "1"
+
+
+def _with_param(url: str, name: str) -> str:
+    """`url` carrying one more query argument, whatever it already carries."""
+    separator = "&" if urlparse(url).query else "?"
+    return url + separator + urlencode({name: _PROBE_VALUE})
+
+
+def _answer(resp: Optional[dict[str, Any]]) -> Optional[tuple[int, str]]:
+    """(status, body) of a reply we can compare, or None if there was none."""
+    if not isinstance(resp, dict):
+        return None
+    status = resp.get("status")
+    body = resp.get("body")
+    if not isinstance(status, int) or not isinstance(body, str):
+        return None
+    return (status, body)
+
+
+def probe_route_params(
+    routes: list[dict[str, Any]],
+    fetch: FetchFn,
+    names: tuple[str, ...] = SYNTHETIC_PARAM_NAMES,
+    max_probes: int = 300,
+) -> list[dict[str, Any]]:
+    """Routes that read a parameter they never declared, carrying that name.
+
+    A route with nothing to inject is a dead end for exploitation, yet a REST
+    layer commonly accepts a filter argument its own documents omit. Sending
+    one and comparing the answer against the route's baseline separates the
+    two: the name is synthesized, the evidence that it is read is not.
+
+    Status counts as part of the answer. A parameter that turns a 200 into a
+    500 is being read -- that is the shape of an injection reaching a query --
+    and comparing bodies alone would file it as ignored.
+
+    Only a route that answers 200 is probed. Behind a 401 or a 500 the reply
+    is the same refusal whatever we append, so the comparison proves nothing
+    and spends the budget to do so.
+
+    A route whose two baselines differ answers identical requests differently
+    -- a captcha, a timestamp, a counter -- and cannot be measured this way,
+    so it is dropped rather than credited with a difference we did not cause.
+    That second baseline is spent only once a difference has already appeared,
+    which on a real target is a handful of routes rather than every one.
+
+    Answers are compared as the fetcher returns them, truncated at its own
+    limit; a route differing only past that limit reads as inert. Cost on a
+    surface the size of Juice Shop measured around 255 requests, which is why
+    this budget is separate from the one exploitation spends.
+    """
+    promoted: list[dict[str, Any]] = []
+    probes = 0
+    for route in routes:
+        if probes >= max_probes:
+            break
+        url = route.get("url", "")
+        if not url or (route.get("method") or "GET").upper() != "GET" or "{" in url:
+            continue
+        probes += 1
+        baseline = _answer(fetch(url))
+        if baseline is None or baseline[0] != 200:
+            continue
+        for name in names:
+            if probes >= max_probes:
+                break
+            probes += 1
+            probed = _answer(fetch(_with_param(url, name)))
+            if probed is None or probed == baseline:
+                continue
+            probes += 1
+            if _answer(fetch(url)) != baseline:
+                break
+            found = dict(route)
+            found["params"] = [name]
+            found["source"] = "probed"
+            promoted.append(found)
+            break
+    return promoted
 
 
 def discover_api_surface(
