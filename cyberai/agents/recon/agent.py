@@ -193,7 +193,9 @@ class ReconAgent(BaseAgent):
         """
         self._check_iteration_limit()
         surface = discover_surface(
-            target, api_discovery=getattr(self.config, "use_api_discovery", False)
+            target,
+            api_discovery=getattr(self.config, "use_api_discovery", False),
+            probe_routes=getattr(self.config, "use_route_probing", False),
         )
         self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
         self._log("web_surface complete", surface)

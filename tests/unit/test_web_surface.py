@@ -222,3 +222,42 @@ def test_html_endpoints_report_an_empty_path_parameter_list():
     assert surface["endpoints"]
     for endpoint in surface["endpoints"]:
         assert endpoint["path_params"] == []
+
+
+def _probe_pages(mapping):
+    def fetch(url):
+        status, body = mapping.get(url, (404, ""))
+        return {"status": status, "headers": {}, "body": body, "url": url}
+
+    return fetch
+
+
+_PROBE_SHELL = '<html><body><script src="/main.js"></script></body></html>'
+
+
+def test_probing_promotes_a_reading_route_into_endpoints():
+    fetch = _probe_pages(
+        {
+            "http://t/": (200, _PROBE_SHELL),
+            "http://t/main.js": (200, 'fetch("/api/Items");'),
+            "http://t/api/Items": (200, "all"),
+            "http://t/api/Items?q=1": (200, "filtered"),
+        }
+    )
+    result = discover_surface("http://t", fetch, api_discovery=True, probe_routes=True)
+    assert [(e["url"], e["params"]) for e in result["endpoints"]] == [("http://t/api/Items", ["q"])]
+    assert result["routes"] == []
+
+
+def test_route_probing_is_off_unless_asked_for():
+    fetch = _probe_pages(
+        {
+            "http://t/": (200, _PROBE_SHELL),
+            "http://t/main.js": (200, 'fetch("/api/Items");'),
+            "http://t/api/Items": (200, "all"),
+            "http://t/api/Items?q=1": (200, "filtered"),
+        }
+    )
+    result = discover_surface("http://t", fetch, api_discovery=True)
+    assert result["endpoints"] == []
+    assert [r["url"] for r in result["routes"]] == ["http://t/api/Items"]
