@@ -120,6 +120,10 @@ class CyberAIConfig:
     use_web_exploit: bool = False
     # Flag-gated: read spec and JS bundles when the HTML shell exposes nothing.
     use_api_discovery: bool = False
+    # Flag-gated: ask discovered routes whether they read an undeclared
+    # parameter. Costs a request per route to establish a negative, so it
+    # stays explicit even when api discovery is on.
+    use_route_probing: bool = False
     # Flag-gated: attack the endpoints the planner named before the rest.
     use_plan_web_order: bool = False
     # Flag-gated: fuzz the LLM channels the planner named, in the exploit phase.
@@ -185,6 +189,7 @@ class CyberAIConfig:
             use_web_recon=_env_bool("CYBERAI_USE_WEB_RECON", False),
             use_web_exploit=_env_bool("CYBERAI_USE_WEB_EXPLOIT", False),
             use_api_discovery=_env_bool("CYBERAI_USE_API_DISCOVERY", False),
+            use_route_probing=_env_bool("CYBERAI_USE_ROUTE_PROBING", False),
             use_plan_web_order=_env_bool("CYBERAI_USE_PLAN_WEB_ORDER", False),
             use_planned_redteam=_env_bool("CYBERAI_USE_PLANNED_REDTEAM", False),
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
