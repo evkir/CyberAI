@@ -684,7 +684,13 @@ def probe_route_params(
     which on a real target is a handful of routes rather than every one.
 
     Answers are compared as the fetcher returns them, truncated at its own
-    limit; a route differing only past that limit reads as inert. Cost on a
+    limit; a route differing only past that limit reads as inert.
+
+    Reading a parameter is not the same as being vulnerable through it. On a
+    measured target this promoted four routes whose REST layer filters on an
+    undeclared name, and every one of them answered a quoted value with a
+    normal page: the layer parameterises its queries. The gain is a surface
+    exploitation can now reach, not a finding. Cost on a
     surface the size of Juice Shop measured around 255 requests, which is why
     this budget is separate from the one exploitation spends.
     """
