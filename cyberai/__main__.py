@@ -64,6 +64,8 @@ def _apply_feature_overrides(
     probe_routes: bool | None = None,
     plan_web_order: bool | None = None,
     planned_redteam: bool | None = None,
+    native_tools: bool | None = None,
+    llm_summary: bool | None = None,
 ) -> CyberAIConfig:
     """Apply CLI feature-flag overrides onto a config built from the env.
 
@@ -107,6 +109,10 @@ def _apply_feature_overrides(
         config.use_plan_web_order = plan_web_order
     if planned_redteam is not None:
         config.use_planned_redteam = planned_redteam
+    if native_tools is not None:
+        config.use_native_tools = native_tools
+    if llm_summary is not None:
+        config.use_llm_summary = llm_summary
     return config
 
 
@@ -199,6 +205,16 @@ def cli() -> None:
     default=None,
     help="Force fuzzing the LLM channels the planner named on or off",
 )
+@click.option(
+    "--native-tools/--no-native-tools",
+    default=None,
+    help="Force letting the model pick and order exploit tools on or off",
+)
+@click.option(
+    "--llm-summary/--no-llm-summary",
+    default=None,
+    help="Force the LLM-written executive report section on or off",
+)
 def scan(
     target: str,
     verbose: bool,
@@ -220,6 +236,8 @@ def scan(
     probe_routes: bool | None,
     plan_web_order: bool | None,
     planned_redteam: bool | None,
+    native_tools: bool | None,
+    llm_summary: bool | None,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -254,6 +272,8 @@ def scan(
         probe_routes=probe_routes,
         plan_web_order=plan_web_order,
         planned_redteam=planned_redteam,
+        native_tools=native_tools,
+        llm_summary=llm_summary,
     )
 
     if max_rps:
