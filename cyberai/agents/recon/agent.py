@@ -146,7 +146,32 @@ class ReconAgent(BaseAgent):
 
         # Surface open ports as an informational finding
         ports = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
-        if ports:
+        mass_open_scan = (
+            bool(nmap_result.get("mass_open")) if isinstance(nmap_result, dict) else False
+        )
+        if ports and mass_open_scan:
+            # A fake-ip proxy, tunnel, or tarpit answered every probe, so the
+            # port list is noise and version probing was skipped upstream.
+            # Publishing "Open ports on <target>" here would hand the report
+            # and the LLM hundreds of phantom ports as a real attack surface.
+            open_count = nmap_result.get("open_count", len(ports))
+            self.session.add_finding(
+                severity=Severity.INFO,
+                title="Port data unreliable — target behind proxy/tunnel",
+                description=(
+                    f"nmap reported {open_count} open ports on {target}, implausible "
+                    "for a real host and characteristic of a fake-ip proxy, tunnel, "
+                    "or tarpit answering every probe. Version probing was skipped; "
+                    "this port list must not be read as an attack surface."
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[
+                    f"open_ports={open_count}",
+                    "mass-open proxy/tunnel/tarpit signature",
+                ],
+            )
+        elif ports:
             self.session.add_finding(
                 severity=Severity.INFO,
                 title=f"Open ports on {target}",

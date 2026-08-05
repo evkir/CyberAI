@@ -380,7 +380,8 @@ def test_out_of_range_cve_dropped_entirely():
 
 def test_v2_mass_open_skips_cve_lookup_with_info_finding():
     """A mass-open recon result (proxy/tunnel/tarpit) must skip the CVE spray
-    and surface a single honest INFO finding instead."""
+    and report the skip through its return value only — recon already owns
+    the user-facing finding about the untrustworthy port data."""
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",
@@ -396,4 +397,6 @@ def test_v2_mass_open_skips_cve_lookup_with_info_finding():
     mock_search.assert_not_called()
     assert result["status"] == "skipped" and result["reason"] == "mass_open"
     assert result["open_ports"] == 781
-    assert any(f.severity == Severity.INFO and "proxy/tunnel" in f.title for f in session.findings)
+    # The finding belongs to recon, which owns the port data; intel must not
+    # state the same fact a second time in the same report.
+    assert session.findings == []
