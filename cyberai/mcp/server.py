@@ -1,9 +1,15 @@
 """CyberAI MCP server — exposes recon/intel capabilities as MCP tools.
 
-Uses the official mcp Python SDK (low-level Server API). Tools are defined in
-cyberai.mcp.tools as a registry of (Tool spec, sync handler) pairs; this module
-wires them into the MCP list_tools / call_tool handlers and serves over stdio
-so MCP clients (Claude Desktop, Cursor) can drive CyberAI.
+Uses the official mcp Python SDK. Tools are defined in cyberai.mcp.tools as a
+registry of (Tool spec, sync handler) pairs; this module wires them into the
+MCP list_tools / call_tool handlers and serves over stdio so MCP clients
+(Claude Desktop, Cursor) can drive CyberAI.
+
+SDK 2.0 dropped the @server.list_tools() decorators in favour of handlers
+passed to the constructor, with a request context and a Result wrapper. The
+plain list_tools() / call_tool() functions stay the shape they always were --
+they are the tested unit -- and thin adapters bridge them to whichever
+registration style the installed SDK expects.
 """
 
 from __future__ import annotations
@@ -20,10 +26,7 @@ from cyberai.mcp.tools import TOOL_REGISTRY
 SERVER_NAME = "cyberai"
 SERVER_VERSION = "0.4.0"
 
-server: Server = Server(SERVER_NAME, version=SERVER_VERSION)
 
-
-@server.list_tools()
 async def list_tools() -> List[Tool]:
     """Advertise all registered CyberAI tools."""
     return [
@@ -36,7 +39,6 @@ async def list_tools() -> List[Tool]:
     ]
 
 
-@server.call_tool()
 async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
     """Dispatch a tool call to its registered sync handler.
 
@@ -57,6 +59,34 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             )
         ]
     return [TextContent(type="text", text=json.dumps(result, default=str))]
+
+
+def _build_server() -> Server:
+    """Register the handlers the way the installed SDK accepts."""
+    if hasattr(Server, "list_tools"):  # mcp 1.x: decorator registration
+        srv: Server = Server(SERVER_NAME, version=SERVER_VERSION)
+        srv.list_tools()(list_tools)
+        srv.call_tool()(call_tool)
+        return srv
+
+    from mcp import types
+
+    async def _on_list_tools(ctx: Any, params: Any) -> Any:
+        return types.ListToolsResult(tools=await list_tools())
+
+    async def _on_call_tool(ctx: Any, params: Any) -> Any:
+        content = await call_tool(params.name, dict(params.arguments or {}))
+        return types.CallToolResult(content=list(content))
+
+    return Server(
+        SERVER_NAME,
+        version=SERVER_VERSION,
+        on_list_tools=_on_list_tools,
+        on_call_tool=_on_call_tool,
+    )
+
+
+server: Server = _build_server()
 
 
 async def run_stdio() -> None:

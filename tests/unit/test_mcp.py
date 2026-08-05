@@ -36,7 +36,8 @@ def test_list_tools_returns_mcp_tools():
     names = {t.name for t in tools}
     assert "nmap_scan" in names and "cve_search" in names
     # every advertised tool carries a non-empty input schema
-    assert all(t.inputSchema for t in tools)
+    # mcp 2.0 renamed the attribute; the wire/alias name stays inputSchema.
+    assert all(t.model_dump(by_alias=True)["inputSchema"] for t in tools)
 
 
 # ── call_tool dispatch ────────────────────────────────────────────────
