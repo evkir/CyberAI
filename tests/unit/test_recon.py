@@ -197,3 +197,58 @@ def test_a_reachable_web_target_is_not_named():
     )
     assert result["status"] == "done"
     assert result["degraded"] == []
+
+
+class TestMassOpenFinding:
+    """A mass-open nmap result (fake-ip proxy / tunnel / tarpit) must never be
+    published as "Open ports on <target>". A live run against a VPN'd host had
+    recon assert 781 open ports as real attack surface; the model then wrote
+    "indicative of a proxy or tunnel" and recommended closing unused ports —
+    a recommendation built entirely on phantom data."""
+
+    @staticmethod
+    def _run(nmap_result):
+        from unittest.mock import MagicMock, patch
+
+        from cyberai.agents.recon.agent import ReconAgent
+        from cyberai.core.config import CyberAIConfig
+        from cyberai.core.scan_session import ScanSession
+
+        session = ScanSession(target="t.local")
+        agent = ReconAgent(CyberAIConfig(), session, MagicMock(), MagicMock())
+        with (
+            patch("cyberai.agents.recon.agent.run_nmap", return_value=nmap_result),
+            patch("cyberai.agents.recon.agent.run_whois", return_value={}),
+            patch("cyberai.agents.recon.agent.run_dns", return_value={}),
+            patch("cyberai.agents.recon.agent.enumerate_subdomains", return_value={}),
+            patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
+        ):
+            agent.run("t.local")
+        return session
+
+    def test_mass_open_scan_publishes_unreliability_not_attack_surface(self):
+        ports = [
+            {"port": n, "protocol": "tcp", "service": "unknown", "state": "open"}
+            for n in range(1, 782)
+        ]
+        session = self._run(
+            {"target": "t.local", "ports": ports, "mass_open": True, "open_count": 781}
+        )
+
+        port_findings = [f for f in session.findings if "port" in f.title.lower()]
+        assert len(port_findings) == 1
+        finding = port_findings[0]
+        assert "Open ports on" not in finding.title
+        assert "proxy/tunnel" in finding.title
+        assert "781" in finding.description
+        # The phantom port list must not ride into the report as evidence.
+        assert len(finding.evidence) == 2
+
+    def test_normal_scan_still_reports_open_ports(self):
+        ports = [{"port": 22, "protocol": "tcp", "service": "ssh", "state": "open"}]
+        session = self._run({"target": "t.local", "ports": ports, "returncode": 0})
+
+        port_findings = [f for f in session.findings if "port" in f.title.lower()]
+        assert len(port_findings) == 1
+        assert port_findings[0].title == "Open ports on t.local"
+        assert port_findings[0].evidence == [str(ports[0])]
