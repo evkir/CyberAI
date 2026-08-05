@@ -8,6 +8,7 @@ graceful failure path on an unreachable endpoint.
 from __future__ import annotations
 
 import asyncio
+import json
 
 from mcp.shared.memory import create_client_server_memory_streams
 
@@ -74,6 +75,50 @@ def test_probe_graceful_on_unreachable_endpoint():
     assert result.connected is False
     assert result.error is not None
     assert result.tools == []
+
+
+def _call_tool_against_server(name: str, arguments: dict) -> object:
+    """Drive one tool call through the SDK, exercising the server adapter."""
+
+    async def _run() -> object:
+        import anyio
+        from mcp import ClientSession
+
+        async with create_client_server_memory_streams() as (client_streams, server_streams):
+            client_read, client_write = client_streams
+            server_read, server_write = server_streams
+
+            async with anyio.create_task_group() as tg:
+
+                async def _serve() -> None:
+                    await cyberai_mcp_server.run(
+                        server_read,
+                        server_write,
+                        cyberai_mcp_server.create_initialization_options(),
+                        raise_exceptions=True,
+                    )
+
+                tg.start_soon(_serve)
+                async with ClientSession(client_read, client_write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(name, arguments)
+                tg.cancel_scope.cancel()
+                return result
+
+    return asyncio.run(_run())
+
+
+def test_call_tool_reaches_the_handler_through_the_sdk():
+    """The dispatch adapter is only exercised over a real session.
+
+    list_tools alone leaves the call path untested, and a broken adapter
+    fails the way everything else in this migration did: quietly, with an
+    empty or error payload rather than an exception.
+    """
+    result = _call_tool_against_server("mcp_scan", {"endpoint": "http://unreachable.invalid/mcp"})
+    payload = json.loads(result.content[0].text)
+    assert isinstance(payload, dict)
+    assert payload.get("connected") is False
 
 
 def test_dumped_tools_use_protocol_field_names():

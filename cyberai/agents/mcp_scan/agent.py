@@ -27,6 +27,27 @@ from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.mcp.client_probe import probe
 
+
+def _run_coro(coro: Any) -> Any:
+    """Run a coroutine whether or not a loop is already turning.
+
+    This agent is driven both from the CLI (no loop) and from inside the MCP
+    server's own request handler (loop running). asyncio.run raises in the
+    second case, and the handler reports that as the scan result -- an error
+    payload where a capability dump belongs. The probe opens its own streams,
+    so it gets a private loop on a worker thread rather than joining the
+    server's.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
 console = Console()
 
 
@@ -48,7 +69,7 @@ class MCPScanAgent(BaseAgent):
 
     def _probe(self, endpoint: str, transport: Optional[str] = None) -> dict[str, Any]:
         """Run the async probe to completion and return a plain dict."""
-        result = asyncio.run(probe(endpoint, transport))  # type: ignore[arg-type]
+        result = _run_coro(probe(endpoint, transport))  # type: ignore[arg-type]
         return result.to_dict()
 
     def run(self, target: str, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
