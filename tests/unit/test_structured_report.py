@@ -231,3 +231,35 @@ def test_structured_summary_failsafe_returns_none():
     agent.llm.structured_call.side_effect = RuntimeError("api down")
     agent._log = MagicMock()
     assert agent._structured_summary("testhost") is None
+
+
+def test_a_refused_local_call_raises_with_the_server_reply(monkeypatch):
+    """A local model that fails has to say so, loudly enough to diagnose.
+
+    The report agent catches everything from this call, so whatever is raised
+    here is all that reaches the log -- and a section that goes missing
+    because the 3060 ran out of memory looks exactly like one that was never
+    requested. The status and the server's own words carry that difference.
+    """
+    import cyberai.core.llm_client as mod
+
+    class _Resp:
+        status_code = 500
+        text = "model requires more system memory than is available"
+
+        @staticmethod
+        def json():
+            # A failing ollama still answers with a body. Without the status
+            # check the caller reads it as a result and returns nonsense
+            # instead of reporting that nothing was generated.
+            return {"error": "model requires more system memory than is available"}
+
+    monkeypatch.setattr(mod.httpx, "post", lambda url, json=None, timeout=None: _Resp())
+    client = _client("ollama")
+
+    try:
+        client.structured_call([{"role": "user", "content": "x"}], schema=SCHEMA)
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "500" in str(exc)
+        assert "more system memory" in str(exc)
