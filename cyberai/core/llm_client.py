@@ -269,7 +269,8 @@ class LLMClient:
 
         OpenAI: response_format=json_schema. Anthropic: a single forced tool
         whose input_schema is `schema` — the tool_use input IS the structured
-        output. Ollama is unsupported. Caller validates via pydantic.
+        output. Ollama: the schema goes in `format`, which constrains decoding
+        server-side. Caller validates via pydantic.
         """
         if self.config.provider == "openai":
             return self._structured_openai(
@@ -285,8 +286,54 @@ class LLMClient:
                 agent_name,
                 cacheable_system,
             )
+        elif self.config.provider == "ollama":
+            return self._structured_ollama(
+                messages, schema, schema_name, description, system, agent_name
+            )
         else:
             raise ValueError(f"Structured output unsupported for provider: {self.config.provider}")
+
+    @staticmethod
+    def _schema_all_required(schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Copy of `schema` with every declared property marked required.
+
+        Left alone, a schema that requires only one field lets a constrained
+        decoder emit that field and stop. Measured on qwen2.5-coder:14b at
+        temperature 0: severity fell back to its default and impact came back
+        empty, producing a section that parses cleanly and states nothing --
+        and a default severity is not an absent claim, it is a wrong one.
+        """
+        props = schema.get("properties")
+        if not isinstance(props, dict) or not props:
+            return schema
+        widened = dict(schema)
+        widened["required"] = sorted(props.keys())
+        return widened
+
+    def _structured_ollama(
+        self, messages, schema, schema_name, description, system, agent_name="unknown"
+    ):
+        """Structured output on a local model, constrained by the server.
+
+        ollama takes a JSON Schema in `format` and restricts generation to it,
+        so the local path gets the same guarantee as the hosted ones instead of
+        asking the model politely for JSON. This is what makes the air-gapped
+        path complete: previously this provider raised, and the report agent
+        swallowed that into a silently missing section.
+        """
+        url, payload = self._ollama_request(messages, system)
+        payload["format"] = self._schema_all_required(schema)
+        response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
+        if response.status_code != 200:
+            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
+        data = response.json()
+        self._record_usage(
+            agent_name,
+            data.get("model", self.config.model),
+            data.get("prompt_eval_count", 0),
+            data.get("eval_count", 0),
+        )
+        return json.loads(data["message"]["content"])
 
     def _structured_openai(
         self, messages, schema, schema_name, description, system, agent_name="unknown"
