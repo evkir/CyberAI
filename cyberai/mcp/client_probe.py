@@ -21,7 +21,11 @@ from typing import Any, Literal
 
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.client.sse import sse_client
-from mcp.client.streamable_http import streamablehttp_client
+
+try:  # mcp >= 2.0 renamed the symbol; both spellings behave identically.
+    from mcp.client.streamable_http import streamable_http_client as streamablehttp_client
+except ImportError:  # pragma: no cover - exercised only on mcp 1.x
+    from mcp.client.streamable_http import streamablehttp_client
 
 Transport = Literal["stdio", "sse", "http"]
 
@@ -86,6 +90,22 @@ async def _open_streams(endpoint: str, transport: Transport) -> AsyncIterator[tu
             yield read, write
 
 
+async def _list_page(list_fn: Callable[..., Awaitable[Any]], cursor: str | None) -> Any:
+    """Request one page, whichever pagination signature the SDK exposes.
+
+    mcp 2.0 moved the cursor into a params object. Getting this wrong raises
+    TypeError, which the caller swallows as "capability unsupported" -- so a
+    signature change reads as an empty server rather than a broken client.
+    """
+    try:
+        from mcp import types
+
+        params = types.PaginatedRequestParams(cursor=cursor) if cursor else None
+        return await list_fn(params=params)
+    except TypeError:  # pragma: no cover - exercised only on mcp 1.x
+        return await list_fn(cursor=cursor)
+
+
 async def _dump(
     list_fn: Callable[..., Awaitable[Any]],
     attr: str,
@@ -99,14 +119,17 @@ async def _dump(
     cursor: str | None = None
     try:
         while True:
-            result = await list_fn(cursor=cursor)
+            result = await _list_page(list_fn, cursor)
             items.extend(getattr(result, attr))
-            cursor = result.nextCursor
+            cursor = getattr(result, "next_cursor", None) or getattr(result, "nextCursor", None)
             if not cursor:
                 break
     except Exception:  # noqa: BLE001 — capability simply unsupported by target
         return []
-    return [item.model_dump(mode="json", exclude_none=True) for item in items]
+    # by_alias keeps the wire names (inputSchema, not input_schema): every
+    # consumer downstream -- poisoning, overprivilege -- keys off the protocol
+    # spelling, and mcp 2.0 renamed the python attributes underneath them.
+    return [item.model_dump(mode="json", by_alias=True, exclude_none=True) for item in items]
 
 
 async def inventory(session: ClientSession) -> dict[str, list[dict[str, Any]]]:
