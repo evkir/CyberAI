@@ -67,6 +67,11 @@ class ReportAgent(BaseAgent):
             section = self._structured_summary(target)
             if section is not None:
                 self.kb.set("report.section", section.model_dump(), agent=self.AGENT_NAME)
+                # Written before the judge runs, so the judge scores the same
+                # document the operator receives rather than an earlier draft.
+                md_content = self._append_section(md_content, section)
+                with open(md_path, "w") as f:
+                    f.write(md_content)
 
         # Flag-gated: LLM-as-Judge cross-checks the report against KB evidence.
         verdict_dump = None
@@ -96,6 +101,41 @@ class ReportAgent(BaseAgent):
         if verdict_dump is not None:
             result["judge_verdict"] = verdict_dump
         return result
+
+    def _append_section(self, md: str, section: ReportSection) -> str:
+        """Append the LLM executive section as Markdown.
+
+        Without this the section was written to the knowledge base and
+        nowhere else: the call was paid for, the tokens were spent, and the
+        document the operator opens never showed it.
+        """
+        lines = [
+            md,
+            "",
+            "---",
+            "",
+            "## 🤖 Executive Section (LLM)",
+            "",
+            f"**{section.title}**  ",
+            f"**Severity:** {section.severity}  ",
+        ]
+        if section.impact:
+            lines.append("")
+            lines.append(f"**Impact:** {section.impact}")
+        if section.findings:
+            lines.append("")
+            lines.append("**Key findings:**")
+            lines.append("")
+            for item in section.findings:
+                lines.append(f"- {item}")
+        if section.recommendations:
+            lines.append("")
+            lines.append("**Recommendations:**")
+            lines.append("")
+            for item in section.recommendations:
+                lines.append(f"- {item}")
+        lines.append("")
+        return "\n".join(lines)
 
     def _append_verdict(self, md: str, verdict) -> str:
         """Append the judge verdict as a Markdown section to the report."""

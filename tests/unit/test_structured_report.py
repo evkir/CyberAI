@@ -144,13 +144,52 @@ def test_structured_call_anthropic(monkeypatch):
     assert kwargs["tool_choice"] == {"type": "tool", "name": "rs"}
 
 
-def test_structured_call_ollama_unsupported():
+def test_structured_call_ollama_uses_schema_constrained_decoding(monkeypatch):
+    """The local provider now answers structured calls instead of raising."""
+    import cyberai.core.llm_client as mod
+
+    captured = {}
+
+    class _Resp:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {
+                "model": "qwen2.5-coder:14b",
+                "message": {"content": '{"severity": "HIGH"}'},
+                "prompt_eval_count": 11,
+                "eval_count": 7,
+            }
+
+    def _post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["payload"] = json
+        return _Resp()
+
+    monkeypatch.setattr(mod.httpx, "post", _post)
     client = _client("ollama")
-    try:
-        client.structured_call([], schema=SCHEMA)
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
+    out = client.structured_call([{"role": "user", "content": "x"}], schema=SCHEMA)
+
+    assert out["severity"] == "HIGH"
+    # The schema travels in `format`; that is what constrains the decoder.
+    assert captured["payload"]["format"]["properties"] == SCHEMA["properties"]
+
+
+def test_ollama_structured_schema_requires_every_property():
+    """A one-field `required` lets the decoder stop early and say nothing."""
+    client = _client("ollama")
+    widened = client._schema_all_required(
+        {"type": "object", "properties": {"a": {}, "b": {}}, "required": ["a"]}
+    )
+    assert widened["required"] == ["a", "b"]
+
+
+def test_schema_without_properties_is_passed_through():
+    """Nothing to widen: a schema that declares no properties is untouched."""
+    client = _client("ollama")
+    schema = {"type": "string"}
+    assert client._schema_all_required(schema) is schema
 
 
 # ── ReportAgent._structured_summary (mocked) ──────────────────────────
