@@ -7,6 +7,7 @@ from cyberai.agents.report.html_renderer import (
     _render_chain,
     _escape,
     _detail_rows,
+    _DETAIL_LIMIT,
 )
 
 SESSION = {
@@ -240,3 +241,55 @@ def test_detail_rows_emits_nothing_for_empty_payloads(empty):
     and has to be pinned here. Without it an empty string renders <pre></pre>.
     """
     assert _detail_rows(empty) == ""
+
+
+def test_detail_rows_drops_blanks_before_the_cap_not_after():
+    """The filter runs before the slice, so blanks cannot consume the budget.
+
+    Dropping it looks harmless on an all-blank list, because each entry
+    recurses into the empty guard and yields nothing either way. It stops
+    being harmless once blanks outnumber the cap: the real entry is then
+    sliced away and the proof leaves the report.
+    """
+    payload = [{} for _ in range(_DETAIL_LIMIT)] + [{"proof": "SQLITE_ERROR"}]
+    assert "SQLITE_ERROR" in _detail_rows(payload)
+
+
+def test_detail_rows_skips_a_list_of_empty_entries():
+    assert _detail_rows([{}, "", None, []]) == ""
+
+
+def test_detail_rows_skips_blank_values_inside_a_dict():
+    payload = {"url": "http://t/x", "payload": "", "proof": None, "transport": []}
+    rows = _detail_rows(payload)
+    assert "<td>Url</td>" in rows
+    assert "<td>Payload</td>" not in rows
+    assert "<td>Proof</td>" not in rows
+    assert "<td>Transport</td>" not in rows
+
+
+def test_detail_rows_skips_a_dict_of_blank_values():
+    assert _detail_rows({"payload": "", "proof": None}) == ""
+
+
+def test_detail_rows_renders_a_scalar_as_a_block():
+    """Recon findings store a plain string, not a mapping."""
+    assert _detail_rows("22/tcp open ssh") == "<pre>22/tcp open ssh</pre>"
+
+
+def test_finding_cve_and_low_confidence_reach_the_page(tmp_path):
+    output = str(tmp_path / "meta.html")
+    finding = _finding(cve="CVE-2021-44228")
+    finding.confidence = 0.4
+    render_html_report(SESSION, KB, output_path=output, findings=[finding])
+    content = Path(output).read_text()
+    assert "CVE-2021-44228" in content
+    assert "40%" in content
+
+
+def test_finding_without_cve_or_doubt_says_neither(tmp_path):
+    output = str(tmp_path / "meta_bare.html")
+    render_html_report(SESSION, KB, output_path=output, findings=[_finding()])
+    content = Path(output).read_text()
+    assert "<strong>CVE:</strong>" not in content
+    assert "<strong>Confidence:</strong>" not in content
