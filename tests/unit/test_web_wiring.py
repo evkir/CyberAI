@@ -221,3 +221,24 @@ def test_recon_reports_bare_routes_when_nothing_is_injectable(recon_patches):
     assert len(route_findings) == 1
     assert route_findings[0].severity is Severity.INFO
     assert any("/health" in str(e) for e in route_findings[0].evidence)
+
+
+def test_a_walked_web_target_does_not_report_having_no_data():
+    """ "No CVE data available" over a completed HTTP walk describes another run.
+
+    A bespoke web application has no CVE by construction; that is the case the
+    CVE path cannot reach, and the web phase answered it.
+    """
+    agent, session = _exploit_agent(use_web_exploit=True)
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+    with patch("cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()):
+        result = agent.run("t.local")
+    assert result["ai_analysis"] != "No CVE data available."
+    assert "HTTP surface was walked" in result["ai_analysis"]
+
+
+def test_a_target_with_nothing_at_all_still_reports_no_data():
+    """No CVE and no web phase is the case the old wording was written for."""
+    agent, _ = _exploit_agent()
+    result = agent.run("t.local")
+    assert result["ai_analysis"] == "No CVE data available."
