@@ -5,7 +5,7 @@ HTML report renderer — converts KB data into a styled HTML report.
 from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 TEMPLATE_PATH = Path(__file__).parent / "templates" / "report.html"
 
@@ -22,6 +22,7 @@ def render_html_report(
     session_summary: Dict[str, Any],
     kb: Dict[str, Any],
     output_path: str = "report.html",
+    findings: Optional[List[Any]] = None,
 ) -> str:
     """
     Render full HTML report from session summary + KB data.
@@ -43,6 +44,10 @@ def render_html_report(
         "{attack_paths_html}": _render_attack_paths(attack_paths),
         "{chain_html}": _render_chain(chain),
         "{ai_analysis}": _escape(ai_analysis),
+        # Last on purpose: substitution walks the whole template once per key,
+        # so a finding whose text contains a placeholder name cannot be
+        # rewritten by a later pass.
+        "{findings_html}": _render_findings(findings or []),
     }
     html = template
     for key, val in replacements.items():
@@ -126,6 +131,46 @@ def _render_chain(chain: Dict) -> str:
 
     summary = chain.get("summary", "")
     return f'<p style="color:#88cc88">Chain: {_escape(summary)}</p>' + "".join(parts)
+
+
+def _severity_name(finding: Any) -> str:
+    sev = getattr(finding, "severity", "")
+    return str(getattr(sev, "value", sev)).upper()
+
+
+def _render_findings(findings: List[Any]) -> str:
+    """The findings themselves, which this report never carried.
+
+    Phases, attack paths and the AI paragraph were rendered; a confirmed SQLi
+    reached the JSON export and the Markdown and stopped there. The page a
+    human opens is the one that has to name it.
+    """
+    if not findings:
+        return "<p>No findings recorded.</p>"
+
+    parts = []
+    for index, finding in enumerate(findings, 1):
+        sev = _severity_name(finding)
+        cls = SEVERITY_CLASS.get(sev, "low")
+        meta = [f"<strong>Agent:</strong> {_escape(getattr(finding, 'agent', ''))}"]
+        target = getattr(finding, "target", None)
+        if target:
+            meta.append(f"<strong>Target:</strong> {_escape(target)}")
+        cve = getattr(finding, "cve", None)
+        if cve:
+            meta.append(f"<strong>CVE:</strong> {_escape(cve)}")
+        confidence = getattr(finding, "confidence", 1.0)
+        if confidence < 1.0:
+            meta.append(f"<strong>Confidence:</strong> {confidence:.0%}")
+        parts.append(
+            f'<div class="phase">'
+            f"<h3>{index}. {_escape(getattr(finding, 'title', ''))} "
+            f"<span class='{cls}'>[{sev}]</span></h3>"
+            f"<p>{_escape(getattr(finding, 'description', ''))}</p>"
+            f"<p><small>{' | '.join(meta)}</small></p>"
+            f"</div>"
+        )
+    return "\n".join(parts)
 
 
 # ── kb helpers ────────────────────────────────────────────────────────

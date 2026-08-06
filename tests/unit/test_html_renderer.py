@@ -114,3 +114,59 @@ def test_render_html_report_escapes_xss(tmp_path):
     render_html_report(session, KB, output_path=output)
     content = Path(output).read_text()
     assert "<script>" not in content
+
+
+def _finding(**over):
+    from cyberai.core.scan_session import Finding, Severity
+
+    base = dict(
+        id=1,
+        severity=Severity.HIGH,
+        title="SQL injection in q",
+        description="A single quote breaks the query.",
+        timestamp="2026-08-06T00:00:00Z",
+        agent="exploit",
+        target="http://127.0.0.1:3000/rest/products/search",
+    )
+    base.update(over)
+    return Finding(**base)
+
+
+def test_findings_reach_the_html_file(tmp_path):
+    output = str(tmp_path / "findings.html")
+    render_html_report(SESSION, KB, output_path=output, findings=[_finding()])
+    content = Path(output).read_text()
+    assert "SQL injection in q" in content
+    assert "A single quote breaks the query." in content
+    assert "rest/products/search" in content
+
+
+def test_findings_placeholder_never_survives(tmp_path):
+    output = str(tmp_path / "empty.html")
+    render_html_report(SESSION, KB, output_path=output)
+    content = Path(output).read_text()
+    assert "{findings_html}" not in content
+    assert "No findings recorded." in content
+
+
+def test_finding_severity_drives_the_class(tmp_path):
+    from cyberai.core.scan_session import Severity
+
+    output = str(tmp_path / "sev.html")
+    render_html_report(
+        SESSION, KB, output_path=output, findings=[_finding(severity=Severity.CRITICAL)]
+    )
+    content = Path(output).read_text()
+    # The attack-paths table also emits class='critical', so matching the class
+    # alone stays green with the findings block gone. Brackets are the finding.
+    assert "[CRITICAL]" in content
+
+
+def test_finding_text_is_escaped(tmp_path):
+    output = str(tmp_path / "xss_finding.html")
+    render_html_report(
+        SESSION, KB, output_path=output, findings=[_finding(title="<script>alert(1)</script>")]
+    )
+    content = Path(output).read_text()
+    assert "<script>alert(1)</script>" not in content
+    assert "&lt;script&gt;" in content

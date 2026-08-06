@@ -352,7 +352,9 @@ class Orchestrator:
         session.kb_set("report", result)
 
         output = f"report_{session.session_id}.html"
-        render_html_report(session.summary(), session.kb, output_path=output)
+        render_html_report(
+            session.summary(), session.kb, output_path=output, findings=session.findings
+        )
         console.print(f"[dim]HTML report: {output}[/dim]")
         return {**result, "html_report": output}
 
