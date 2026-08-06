@@ -119,3 +119,88 @@ def test_optional_finding_fields_absent_when_unset():
     assert "**Confidence:**" not in md
     assert "**CVE:**" not in md
     assert "**Data:**" not in md
+
+
+def _web_session(report: dict) -> ScanSession:
+    session = ScanSession(target="acme.tld")
+    session.kb.set("exploit.web", report, agent="exploit")
+    return session
+
+
+def test_web_section_names_the_parameters_it_could_not_reach():
+    """A count of ten is not ten addresses.
+
+    The reader who has to finish by hand needs to know which parameter on
+    which endpoint went untested, and that never left the JSON export.
+    """
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 2,
+                "requests_sent": 40,
+                "confirmed": 0,
+                "unauthorized_params": [
+                    {
+                        "url": "http://acme.tld/rest/user",
+                        "parameter": "email",
+                        "method": "POST",
+                        "transport": "json-body",
+                    }
+                ],
+                "inert_params": [
+                    {
+                        "url": "http://acme.tld/reviews",
+                        "parameter": "id",
+                        "method": "GET",
+                        "transport": "query",
+                    }
+                ],
+            }
+        )
+    )
+    assert "## Web Exploitation" in md
+    assert "### Not reached (1)" in md
+    assert "`POST http://acme.tld/rest/user` -- parameter `email` (json-body)" in md
+    assert "### Value not read (1)" in md
+    assert "`GET http://acme.tld/reviews` -- parameter `id` (query)" in md
+
+
+def test_a_run_without_a_web_phase_renders_exactly_as_before():
+    """The section must not announce itself on a network-only scan."""
+    assert "## Web Exploitation" not in render_markdown(_session("recon"))
+
+
+def test_a_long_parameter_list_is_truncated_rather_than_dumped():
+    """Juice Shop returns dozens; a report nobody scrolls is a report nobody reads."""
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 1,
+                "inert_params": [
+                    {
+                        "url": f"http://acme.tld/{i}",
+                        "parameter": "q",
+                        "method": "GET",
+                        "transport": "query",
+                    }
+                    for i in range(20)
+                ],
+            }
+        )
+    )
+    assert "http://acme.tld/14" in md
+    assert "http://acme.tld/15" not in md
+    assert "and 5 more" in md
+
+
+def test_an_unreadable_web_entry_produces_no_section_and_no_crash():
+    """A restored snapshot can put anything under that key.
+
+    Rendering a heading over a value nobody could parse claims the HTTP
+    surface was walked, which is the lie this section exists to avoid.
+    """
+    session = ScanSession(target="acme.tld")
+    session.kb.set("exploit.web", "endpoints_tested=2", agent="exploit")
+    md = render_markdown(session)
+    assert "## Web Exploitation" not in md
+    assert "endpoints_tested" not in md

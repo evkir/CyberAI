@@ -66,6 +66,74 @@ def _render_data(data: object) -> list[str]:
     return lines
 
 
+def _param_lines(entries: object) -> list[str]:
+    """One line per parameter: where it is, what it is called, how it travels."""
+    if not isinstance(entries, list):
+        return []
+    lines: list[str] = []
+    for item in entries[:_LIST_LIMIT]:
+        if not isinstance(item, dict):
+            continue
+        method = item.get("method", "")
+        url = item.get("url", "")
+        param = item.get("parameter", "")
+        transport = item.get("transport", "")
+        lines.append(f"- `{method} {url}` -- parameter `{param}` ({transport})")
+    if len(entries) > _LIST_LIMIT:
+        lines.append(f"- *... and {len(entries) - _LIST_LIMIT} more*")
+    return lines
+
+
+def _render_web_exploitation(session: PentestSession) -> list[str]:
+    """What the web phase touched, and what it could not answer for.
+
+    The counts reached the JSON export and stopped there, so the page a human
+    opens said nothing about the HTTP surface at all -- not even that it had
+    been walked. A parameter left untested is a job for someone, and a number
+    is not an address.
+    """
+    kb = getattr(session, "kb", None)
+    report = kb.get("exploit.web") if kb is not None else None
+    if not isinstance(report, dict):
+        # No web phase ran, or the key holds something this cannot read. Either
+        # way the section would assert a walk that did not happen.
+        return []
+    unauthorized = report.get("unauthorized_params") or []
+    inert = report.get("inert_params") or []
+    tested = report.get("endpoints_tested", 0)
+    if not (tested or unauthorized or inert):
+        return []
+
+    sent = report.get("requests_sent", 0)
+    confirmed = report.get("confirmed", 0)
+    lines = [
+        "## Web Exploitation",
+        "",
+        f"Endpoints tested: {tested} | Requests sent: {sent} | Confirmed: {confirmed}",
+        "",
+    ]
+    if unauthorized:
+        lines += [
+            f"### Not reached ({len(unauthorized)})",
+            "",
+            "The target refused these rather than answering them. They were not "
+            "tested; reporting them as clean would claim a check that never happened.",
+            "",
+        ]
+        lines += _param_lines(unauthorized) + [""]
+    if inert:
+        lines += [
+            f"### Value not read ({len(inert)})",
+            "",
+            "Every payload of the first class drew an identical response, so the "
+            "value is not reaching anything. A blind vector looks the same from "
+            "here; these are the candidates for an out-of-band re-check.",
+            "",
+        ]
+        lines += _param_lines(inert) + [""]
+    return lines + ["---", ""]
+
+
 def render_markdown(session: PentestSession) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
@@ -141,6 +209,8 @@ def render_markdown(session: PentestSession) -> str:
             elif finding.evidence:
                 lines += _render_data(finding.evidence)
             lines += ["---", ""]
+
+    lines += _render_web_exploitation(session)
 
     lines += [
         "## Summary",
