@@ -138,6 +138,38 @@ def _severity_name(finding: Any) -> str:
     return str(getattr(sev, "value", sev)).upper()
 
 
+_DETAIL_LIMIT = 8
+_VALUE_LIMIT = 600
+
+
+def _detail_rows(payload: Any) -> str:
+    """Finding details as fields, not as a printed Python object.
+
+    The web exploit path stores one dict in both data and evidence, and a
+    list of dicts stringified is a repr on one line: quotes escaped, the
+    proof buried mid-string. Measured on a real finding, the snippet that
+    justifies the report was past the fold of an unreadable line.
+    """
+    if not payload:
+        return ""
+    if isinstance(payload, (list, tuple)):
+        items = [x for x in payload if x not in (None, "", [], {})]
+        if not items:
+            return ""
+        return "".join(_detail_rows(x) for x in items[:_DETAIL_LIMIT])
+    if not isinstance(payload, dict):
+        return f"<pre>{_escape(str(payload)[:_VALUE_LIMIT])}</pre>"
+    rows = []
+    for key, value in payload.items():
+        if value in (None, "", [], {}):
+            continue
+        label = _escape(str(key).replace("_", " ").capitalize())
+        rows.append(f"<tr><td>{label}</td><td>{_escape(str(value)[:_VALUE_LIMIT])}</td></tr>")
+    if not rows:
+        return ""
+    return "<table class='cve-table'>" + "".join(rows) + "</table>"
+
+
 def _render_findings(findings: List[Any]) -> str:
     """The findings themselves, which this report never carried.
 
@@ -168,6 +200,9 @@ def _render_findings(findings: List[Any]) -> str:
             f"<span class='{cls}'>[{sev}]</span></h3>"
             f"<p>{_escape(getattr(finding, 'description', ''))}</p>"
             f"<p><small>{' | '.join(meta)}</small></p>"
+            # data and evidence hold the same dict on a web finding; rendering
+            # both prints the proof twice.
+            f"{_detail_rows(getattr(finding, 'data', None) or getattr(finding, 'evidence', None))}"
             f"</div>"
         )
     return "\n".join(parts)

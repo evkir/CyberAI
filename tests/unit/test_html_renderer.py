@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 from cyberai.agents.report.html_renderer import (
     render_html_report,
@@ -5,6 +6,7 @@ from cyberai.agents.report.html_renderer import (
     _render_attack_paths,
     _render_chain,
     _escape,
+    _detail_rows,
 )
 
 SESSION = {
@@ -170,3 +172,71 @@ def test_finding_text_is_escaped(tmp_path):
     content = Path(output).read_text()
     assert "<script>alert(1)</script>" not in content
     assert "&lt;script&gt;" in content
+
+
+WEB_EVIDENCE = {
+    "vuln_class": "sqli",
+    "url": "http://127.0.0.1:3000/rest/products/search",
+    "method": "GET",
+    "parameter": "q",
+    "payload": "apple'",
+    "proof": "SQLITE_ERROR surfaced",
+    "evidence": "SQLITE_ERROR: unrecognized token",
+}
+
+
+def test_evidence_reaches_the_html_file(tmp_path):
+    output = str(tmp_path / "ev.html")
+    render_html_report(
+        SESSION, KB, output_path=output, findings=[_finding(evidence=[WEB_EVIDENCE])]
+    )
+    content = Path(output).read_text()
+    assert "SQLITE_ERROR: unrecognized token" in content
+    assert "apple&#x27;" in content or "apple'" in content
+
+
+def test_evidence_is_rendered_as_fields_not_as_a_repr(tmp_path):
+    output = str(tmp_path / "ev_fields.html")
+    render_html_report(
+        SESSION, KB, output_path=output, findings=[_finding(evidence=[WEB_EVIDENCE])]
+    )
+    content = Path(output).read_text()
+    # The repr of the dict would carry both the brace and the quoted key.
+    assert "{&#x27;url&#x27;" not in content
+    assert "{'url'" not in content
+    assert "<td>Vuln class</td>" in content
+
+
+def test_data_wins_over_evidence_so_the_proof_prints_once(tmp_path):
+    output = str(tmp_path / "once.html")
+    render_html_report(
+        SESSION,
+        KB,
+        output_path=output,
+        findings=[_finding(data=WEB_EVIDENCE, evidence=[WEB_EVIDENCE])],
+    )
+    content = Path(output).read_text()
+    assert content.count("SQLITE_ERROR: unrecognized token") == 1
+
+
+@pytest.mark.parametrize("empty", [None, [], {}, ""])
+def test_finding_without_details_renders_no_table(tmp_path, empty):
+    """add_finding stores `evidence or []`, so a finding with no structured
+    data is the common case and must not print an empty table."""
+    output = str(tmp_path / f"bare_{type(empty).__name__}.html")
+    render_html_report(
+        SESSION, KB, output_path=output, findings=[_finding(data=empty, evidence=empty or [])]
+    )
+    content = Path(output).read_text()
+    assert "<td>Vuln class</td>" not in content
+    assert "<table class='cve-table'></table>" not in content
+    assert "SQL injection in q" in content
+
+
+@pytest.mark.parametrize("empty", ["", {}, [], None])
+def test_detail_rows_emits_nothing_for_empty_payloads(empty):
+    """The renderer's `data or evidence` collapses every empty form to a list
+    before this is called, so the guard is unreachable from the report path
+    and has to be pinned here. Without it an empty string renders <pre></pre>.
+    """
+    assert _detail_rows(empty) == ""
