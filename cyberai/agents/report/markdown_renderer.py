@@ -82,6 +82,22 @@ def _param_lines(entries: list) -> list[str]:
     return lines
 
 
+def _endpoint_lines(entries: list) -> list[str]:
+    """One line per endpoint: the verb and the address, nothing else.
+
+    Separate from `_param_lines` because an endpoint has no parameter and no
+    transport, and reusing that shape would print empty backticks for both.
+    """
+    lines: list[str] = []
+    for item in entries[:_LIST_LIMIT]:
+        if not isinstance(item, dict):
+            continue
+        lines.append(f"- `{item.get('method', '')} {item.get('url', '')}`")
+    if len(entries) > _LIST_LIMIT:
+        lines.append(f"- *... and {len(entries) - _LIST_LIMIT} more*")
+    return lines
+
+
 def _render_web_exploitation(session: PentestSession) -> list[str]:
     """What the web phase touched, and what it could not answer for.
 
@@ -98,13 +114,15 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
         return []
     unauthorized = report.get("unauthorized_params")
     inert = report.get("inert_params")
+    destructive = report.get("destructive_endpoints")
     # Validated here rather than in the renderer below, because the heading
     # counts these before anything is rendered: a string would arrive as its
     # own length and report five untested parameters that do not exist.
     unauthorized = unauthorized if isinstance(unauthorized, list) else []
     inert = inert if isinstance(inert, list) else []
+    destructive = destructive if isinstance(destructive, list) else []
     tested = report.get("endpoints_tested", 0)
-    if not (tested or unauthorized or inert):
+    if not (tested or unauthorized or inert or destructive):
         return []
 
     sent = report.get("requests_sent", 0)
@@ -134,6 +152,16 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
             "",
         ]
         lines += _param_lines(inert) + [""]
+    if destructive:
+        lines += [
+            f"### Skipped as state-changing ({len(destructive)})",
+            "",
+            "Left alone because the verb changes state on the target. This is "
+            "not evidence of anything: they were never tested. Re-run with "
+            "--allow-destructive to include them.",
+            "",
+        ]
+        lines += _endpoint_lines(destructive) + [""]
     return lines + ["---", ""]
 
 

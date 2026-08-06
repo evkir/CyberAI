@@ -247,3 +247,56 @@ def test_an_entry_that_is_not_a_parameter_is_skipped_not_rendered():
     # the reader has to stop and decode, and it is not a parameter.
     assert "- `` -- parameter `` ()" not in md
     assert len([ln for ln in md.splitlines() if ln.startswith("- `")]) == 1
+
+
+def test_the_section_names_the_endpoints_it_refused_to_touch():
+    """A count of one says something was left alone, not what."""
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 2,
+                "destructive_endpoints": [
+                    {"url": "http://acme.tld/users/{id}", "method": "DELETE"}
+                ],
+            }
+        )
+    )
+    assert "### Skipped as state-changing (1)" in md
+    assert "`DELETE http://acme.tld/users/{id}`" in md
+    assert "--allow-destructive" in md
+
+
+def test_a_run_that_only_skipped_things_still_gets_a_section():
+    """Nothing tested is itself the report: every verb changed state.
+
+    The early return counts what there is to say, and a skipped endpoint is
+    something to say.
+    """
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 0,
+                "destructive_endpoints": [
+                    {"url": "http://acme.tld/users/{id}", "method": "DELETE"}
+                ],
+            }
+        )
+    )
+    assert "## Web Exploitation" in md
+    assert "`DELETE http://acme.tld/users/{id}`" in md
+
+
+def test_a_skipped_endpoint_line_carries_no_empty_parameter_field():
+    """An endpoint has no parameter; printing empty backticks invents one."""
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 1,
+                "destructive_endpoints": [
+                    {"url": "http://acme.tld/users/{id}", "method": "DELETE"}
+                ],
+            }
+        )
+    )
+    assert "parameter ``" not in md
+    assert "()" not in md
