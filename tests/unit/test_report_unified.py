@@ -204,3 +204,46 @@ def test_an_unreadable_web_entry_produces_no_section_and_no_crash():
     md = render_markdown(session)
     assert "## Web Exploitation" not in md
     assert "endpoints_tested" not in md
+
+
+def test_a_web_report_with_nothing_in_it_gets_no_section():
+    """A phase that walked nothing has nothing to say about the surface."""
+    md = render_markdown(_web_session({"confirmed": 0, "endpoints_tested": 0}))
+    assert "## Web Exploitation" not in md
+
+
+def test_a_string_where_a_list_belongs_does_not_become_a_count():
+    """`len("email")` is five, and five untested parameters would be a lie.
+
+    A restored snapshot is not type-checked, so the heading has to count
+    something it has already established is countable.
+    """
+    md = render_markdown(_web_session({"endpoints_tested": 1, "unauthorized_params": "email"}))
+    assert "Not reached" not in md
+    assert "(5)" not in md
+
+
+def test_an_entry_that_is_not_a_parameter_is_skipped_not_rendered():
+    """One malformed entry must not cost the well-formed ones their line."""
+    md = render_markdown(
+        _web_session(
+            {
+                "endpoints_tested": 1,
+                "inert_params": [
+                    "junk",
+                    {
+                        "url": "http://acme.tld/reviews",
+                        "parameter": "id",
+                        "method": "GET",
+                        "transport": "query",
+                    },
+                ],
+            }
+        )
+    )
+    assert "`GET http://acme.tld/reviews` -- parameter `id` (query)" in md
+    assert "junk" not in md
+    # Skipped, not rendered blank: an entry with nothing in it is a bullet
+    # the reader has to stop and decode, and it is not a parameter.
+    assert "- `` -- parameter `` ()" not in md
+    assert len([ln for ln in md.splitlines() if ln.startswith("- `")]) == 1

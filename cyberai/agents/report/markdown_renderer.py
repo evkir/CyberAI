@@ -66,10 +66,8 @@ def _render_data(data: object) -> list[str]:
     return lines
 
 
-def _param_lines(entries: object) -> list[str]:
+def _param_lines(entries: list) -> list[str]:
     """One line per parameter: where it is, what it is called, how it travels."""
-    if not isinstance(entries, list):
-        return []
     lines: list[str] = []
     for item in entries[:_LIST_LIMIT]:
         if not isinstance(item, dict):
@@ -98,8 +96,13 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
         # No web phase ran, or the key holds something this cannot read. Either
         # way the section would assert a walk that did not happen.
         return []
-    unauthorized = report.get("unauthorized_params") or []
-    inert = report.get("inert_params") or []
+    unauthorized = report.get("unauthorized_params")
+    inert = report.get("inert_params")
+    # Validated here rather than in the renderer below, because the heading
+    # counts these before anything is rendered: a string would arrive as its
+    # own length and report five untested parameters that do not exist.
+    unauthorized = unauthorized if isinstance(unauthorized, list) else []
+    inert = inert if isinstance(inert, list) else []
     tested = report.get("endpoints_tested", 0)
     if not (tested or unauthorized or inert):
         return []
