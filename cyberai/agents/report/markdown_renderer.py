@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from cyberai.core.session import PentestSession, Severity
@@ -66,36 +67,46 @@ def _render_data(data: object) -> list[str]:
     return lines
 
 
-def _param_lines(entries: list) -> list[str]:
-    """One line per parameter: where it is, what it is called, how it travels."""
-    lines: list[str] = []
-    for item in entries[:_LIST_LIMIT]:
-        if not isinstance(item, dict):
-            continue
-        method = item.get("method", "")
-        url = item.get("url", "")
-        param = item.get("parameter", "")
-        transport = item.get("transport", "")
-        lines.append(f"- `{method} {url}` -- parameter `{param}` ({transport})")
-    if len(entries) > _LIST_LIMIT:
-        lines.append(f"- *... and {len(entries) - _LIST_LIMIT} more*")
-    return lines
+def _listed(entries: list, line_for: Callable[[dict], str]) -> list[str]:
+    """Walk a list of records into bullets, capped and free of malformed rows.
 
-
-def _endpoint_lines(entries: list) -> list[str]:
-    """One line per endpoint: the verb and the address, nothing else.
-
-    Separate from `_param_lines` because an endpoint has no parameter and no
-    transport, and reusing that shape would print empty backticks for both.
+    The cap and the skip are the same for every list in this section; only the
+    shape of the line differs. Written once because a second copy of the two
+    boundary branches is a second place to forget one.
     """
     lines: list[str] = []
     for item in entries[:_LIST_LIMIT]:
         if not isinstance(item, dict):
             continue
-        lines.append(f"- `{item.get('method', '')} {item.get('url', '')}`")
+        lines.append(line_for(item))
     if len(entries) > _LIST_LIMIT:
         lines.append(f"- *... and {len(entries) - _LIST_LIMIT} more*")
     return lines
+
+
+def _param_line(item: dict) -> str:
+    """Where the parameter is, what it is called, how it travels."""
+    return (
+        f"- `{item.get('method', '')} {item.get('url', '')}` "
+        f"-- parameter `{item.get('parameter', '')}` ({item.get('transport', '')})"
+    )
+
+
+def _endpoint_line(item: dict) -> str:
+    """The verb and the address, nothing else.
+
+    Kept apart from `_param_line` because an endpoint has no parameter and no
+    transport, and borrowing that shape would print empty backticks for both.
+    """
+    return f"- `{item.get('method', '')} {item.get('url', '')}`"
+
+
+def _param_lines(entries: list) -> list[str]:
+    return _listed(entries, _param_line)
+
+
+def _endpoint_lines(entries: list) -> list[str]:
+    return _listed(entries, _endpoint_line)
 
 
 def _render_web_exploitation(session: PentestSession) -> list[str]:
