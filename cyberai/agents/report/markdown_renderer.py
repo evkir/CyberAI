@@ -158,14 +158,16 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     unauthorized = report.get("unauthorized_params")
     inert = report.get("inert_params")
     destructive = report.get("destructive_endpoints")
+    phantom = report.get("phantom_endpoints")
     # Validated here rather than in the renderer below, because the heading
     # counts these before anything is rendered: a string would arrive as its
     # own length and report five untested parameters that do not exist.
     unauthorized = unauthorized if isinstance(unauthorized, list) else []
     inert = inert if isinstance(inert, list) else []
     destructive = destructive if isinstance(destructive, list) else []
+    phantom = phantom if isinstance(phantom, list) else []
     tested = report.get("endpoints_tested", 0)
-    if not (tested or unauthorized or inert or destructive):
+    if not (tested or unauthorized or inert or destructive or phantom):
         return []
 
     sent = report.get("requests_sent", 0)
@@ -205,6 +207,17 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
             "",
         ]
         lines += _endpoint_lines(destructive) + [""]
+    if phantom:
+        lines += [
+            f"### Not routed ({len(phantom)})",
+            "",
+            "These answered with the page the target returns for any path at "
+            "all, so the route does not exist. Nothing was tested here: "
+            "calling them clean, or calling their parameters unread, would "
+            "claim a check the request never reached.",
+            "",
+        ]
+        lines += _endpoint_lines(phantom) + [""]
     return lines + ["---", ""]
 
 

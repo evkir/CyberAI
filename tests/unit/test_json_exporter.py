@@ -72,3 +72,28 @@ def test_web_exploitation_key_is_present_without_a_web_phase(tmp_path: Path) -> 
     out = export_json(session, str(tmp_path))
     data = json.loads(Path(out).read_text())
     assert data["web_exploitation"] == {}
+
+
+def test_phantom_endpoints_reach_the_json_export(tmp_path: Path) -> None:
+    """The machine-readable path carries the unrouted verdict without a per-key edit.
+
+    The exporter passes `exploit.web` through whole, so a new field arrives on
+    its own. That is a property worth pinning: the previous shape read one key
+    at a time, and every field added to the web phase went missing until
+    someone noticed.
+    """
+    session = ScanSession(target="http://127.0.0.1:3000")
+    session.kb.set(
+        "exploit.web",
+        {
+            "confirmed": 0,
+            "endpoints_tested": 0,
+            "endpoints_phantom": 1,
+            "phantom_endpoints": [{"url": "http://127.0.0.1:3000/reviews", "method": "GET"}],
+        },
+        agent="exploit",
+    )
+    data = json.loads(Path(export_json(session, str(tmp_path))).read_text())
+    web = data["web_exploitation"]
+    assert web["endpoints_phantom"] == 1
+    assert web["phantom_endpoints"] == [{"url": "http://127.0.0.1:3000/reviews", "method": "GET"}]
