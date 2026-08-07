@@ -11,6 +11,7 @@ from cyberai.agents.recon.api_surface import (
     parse_openapi,
     probe_route_params,
     probe_well_known,
+    routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,
 )
@@ -204,6 +205,54 @@ def test_template_literal_becomes_a_path_parameter():
 
 def test_route_without_parameters_is_still_reported():
     assert _routes(_BUNDLE)[("/health", "GET")] == []
+
+
+_CONCAT_BUNDLE = """
+class A{host=this.hostServer+"/rest/user";erase(e){return this.http.post(this.host+"/erasure-request",e)}}
+class B{host=this.hostServer+"/api/Hints";getAll(){return this.http.get(this.host+"/")}}
+class C{host=this.hostServer+"/rest/wallet/balance";get(){return this.http.get(this.host)}put(e){return this.http.put(this.host,{amount:e})}}
+"""
+
+
+def _concat(text):
+    return {(r["path"], r["method"]): r["params"] for r in routes_from_concatenated_base(text)}
+
+
+def test_tail_joins_the_base_declared_for_that_field():
+    """The half-paths are both in the bundle; neither is a route on its own."""
+    assert ("/rest/user/erasure-request", "POST") in _concat(_CONCAT_BUNDLE)
+
+
+def test_a_tail_does_not_join_a_base_from_another_class():
+    """Pairing every base with every tail invents paths no service calls."""
+    assert set(_concat(_CONCAT_BUNDLE)) == {
+        ("/rest/user/erasure-request", "POST"),
+        ("/api/Hints", "GET"),
+        ("/rest/wallet/balance", "GET"),
+        ("/rest/wallet/balance", "PUT"),
+    }
+
+
+def test_base_called_with_no_tail_is_itself_a_route():
+    found = _concat(_CONCAT_BUNDLE)
+    assert ("/api/Hints", "GET") in found
+    assert ("/rest/wallet/balance", "GET") in found
+
+
+def test_verbs_on_one_path_stay_apart():
+    found = _concat(_CONCAT_BUNDLE)
+    assert ("/rest/wallet/balance", "PUT") in found
+    assert found[("/rest/wallet/balance", "PUT")] == ["amount"]
+    assert found[("/rest/wallet/balance", "GET")] == []
+
+
+def test_bundle_without_a_base_declaration_yields_nothing():
+    assert routes_from_concatenated_base('n.post("/a",{t:1});') == []
+
+
+def test_concatenated_routes_are_capped():
+    text = ";".join(f'x=b+"/base{i}";n.get(this.x+"/t")' for i in range(60))
+    assert len(routes_from_concatenated_base(text, max_routes=5)) == 5
 
 
 def test_max_routes_is_capped():

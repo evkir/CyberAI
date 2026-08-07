@@ -565,6 +565,80 @@ def routes_from_javascript(text: str, max_routes: int = MAX_ROUTES) -> list[dict
     return list(routes.values())
 
 
+# A bundled service keeps its base path in a field and appends the rest at the
+# call site: `host=this.hostServer+"/rest/user"` once, then
+# `this.http.post(this.host+"/erasure-request",...)` wherever it is used. The
+# path never exists as one literal, so a literal-only reader sees neither half.
+# On Juice Shop this hides eighteen base paths -- more endpoints than the
+# literal reader finds in total.
+_BASE_DECL = re.compile(
+    r"""([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*[^;{}=]*?\+\s*['"`](/[A-Za-z0-9_\-./]*)['"`]"""
+)
+
+# A call whose target is that field, with or without a tail appended.
+_BASE_CALL = re.compile(
+    r"""\.(get|post|put|patch|delete)\s*\(\s*(?:this\.)?"""
+    r"""([A-Za-z_$][A-Za-z0-9_$]*)"""
+    r"""(?:\s*\+\s*['"`](/[A-Za-z0-9_\-./]*)['"`])?""",
+    re.IGNORECASE,
+)
+
+
+def _base_at(declarations: list[tuple[int, str, str]], field: str, position: int) -> Optional[str]:
+    """The base this call was written under: nearest declaration of the field.
+
+    Bundlers emit a class as one run of text, so the declaration a call means
+    is the last one for that field before it. Pairing every base with every
+    tail instead would invent paths no service ever calls -- ninety guesses
+    where sixteen calls exist.
+    """
+    best: Optional[str] = None
+    for at, name, base in declarations:
+        if at < position and name == field:
+            best = base
+    return best
+
+
+def routes_from_concatenated_base(text: str, max_routes: int = MAX_ROUTES) -> list[dict[str, Any]]:
+    """Request paths a bundle assembles from a field plus a literal tail.
+
+    Reported paths are still guesses: like every synthesized name here, one
+    enters the surface only once the target answers it apart from its own
+    baseline.
+    """
+    declarations = [(m.start(), m.group(1), m.group(2)) for m in _BASE_DECL.finditer(text)]
+    if not declarations:
+        return []
+    routes: dict[tuple[str, str], dict[str, Any]] = {}
+    for match in _BASE_CALL.finditer(text):
+        method, field, tail = match.group(1).upper(), match.group(2), match.group(3)
+        base = _base_at(declarations, field, match.start())
+        if base is None:
+            continue
+        path = base + (tail or "")
+        if path.endswith("/") and len(path) > 1:
+            path = path[:-1]
+        if not _is_route(path):
+            continue
+        window = _call_window(text, match.end())
+        slot = routes.setdefault(
+            (path, method),
+            {
+                "path": path,
+                "method": method,
+                "params": [],
+                "path_params": _path_params(path),
+                "source": "js-route",
+            },
+        )
+        for name in _object_keys(window):
+            if name not in slot["params"]:
+                slot["params"].append(name)
+        if len(routes) >= max_routes:
+            break
+    return list(routes.values())
+
+
 def fetch_js_routes(
     base: str,
     fetch: FetchFn,
