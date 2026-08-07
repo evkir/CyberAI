@@ -70,6 +70,46 @@ def test_the_written_document_names_the_parameter_that_ignored_its_value(tmp_pat
     assert "`GET http://127.0.0.1:3000/reviews` -- parameter `id` (query)" in md
 
 
+_ENUM_REPORT = {
+    "confirmed": 0,
+    "endpoints_tested": 5,
+    "requests_sent": 104,
+    "params_enumerable": 1,
+    "enumerable_params": [
+        {
+            "url": "http://127.0.0.1:5001/users/v1/{username}",
+            "parameter": "username",
+            "method": "GET",
+            "transport": "path",
+            "source": "openapi",
+        }
+    ],
+}
+
+
+def test_the_written_document_names_the_enumerable_identifier(tmp_path):
+    """A count says nothing about which route hands out other people's records."""
+    md = _written_markdown(_agent(tmp_path, _ENUM_REPORT).run("http://127.0.0.1:5001"))
+    assert "### Enumerable identifiers (1)" in md
+    assert (
+        "`GET http://127.0.0.1:5001/users/v1/{username}` -- parameter `username` "
+        "(path, openapi)" in md
+    )
+
+
+def test_a_run_that_found_no_enumerable_identifier_writes_no_heading(tmp_path):
+    """An empty list is not a section; Juice Shop earns none of them."""
+    md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
+    assert "Enumerable identifiers" not in md
+
+
+def test_a_string_where_the_list_belongs_is_not_counted_as_its_length(tmp_path):
+    """`len("abc")` would announce three findings this run never made."""
+    report = dict(WEB_REPORT, enumerable_params="abc")
+    md = _written_markdown(_agent(tmp_path, report).run("http://127.0.0.1:3000"))
+    assert "Enumerable identifiers" not in md
+
+
 def test_a_network_only_run_writes_no_web_section(tmp_path):
     """No web phase, no heading claiming one ran."""
     md = _written_markdown(_agent(tmp_path, None).run("http://127.0.0.1:3000"))
