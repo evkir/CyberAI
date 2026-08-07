@@ -75,6 +75,13 @@ cyberai status          # config and tool availability
 cyberai replay <id>     # re-run a saved session
 ```
 
+**See it on a real target:** a full run against OWASP Juice Shop, committed
+exactly as produced — 14 endpoints found, 13 walked, one SQL injection proven
+by the database error it returned, and the local model's reading of all of it,
+including the 15 parameters that ignored every payload and the 10 that
+refused the caller outright:
+[examples/juice-shop/](examples/juice-shop/)
+
 **Trust-aware in one sentence:** if Nmap reads a malicious SSH banner crafted to
 hijack the LLM context, the orchestrator neutralizes that vector *before* the data
 ever reaches the model.
@@ -148,7 +155,7 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 
 ---
 
-## Quick start
+## Install from source
 
 ```bash
 git clone https://github.com/evkir/CyberAI.git
