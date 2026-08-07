@@ -1,0 +1,377 @@
+{
+  "meta": {
+    "generated": "2026-08-07T11:14:15.448079+00:00",
+    "tool": "CyberAI",
+    "version": "1.4.0"
+  },
+  "session": {
+    "id": "c15755d2",
+    "target": "http://127.0.0.1:3000",
+    "state": "completed",
+    "created_at": "2026-08-07T11:08:49.364050+00:00"
+  },
+  "summary": {
+    "session_id": "c15755d2",
+    "target": "http://127.0.0.1:3000",
+    "state": "completed",
+    "created_at": "2026-08-07T11:08:49.364050+00:00",
+    "started_at": "2026-08-07T11:08:49.364817+00:00",
+    "ended_at": "2026-08-07T11:09:08.563421+00:00",
+    "duration_s": 19.2,
+    "phases": [
+      {
+        "phase": "recon",
+        "success": true,
+        "duration_s": 1.884516,
+        "error": null
+      },
+      {
+        "phase": "intel",
+        "success": true,
+        "duration_s": 0.006727,
+        "error": null
+      },
+      {
+        "phase": "exploit",
+        "success": true,
+        "duration_s": 17.288783,
+        "error": null
+      },
+      {
+        "phase": "report",
+        "success": true,
+        "duration_s": 0.013053,
+        "error": null
+      }
+    ],
+    "findings_total": 3,
+    "severity_breakdown": {
+      "CRITICAL": 0,
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0,
+      "INFO": 2
+    },
+    "errors": [],
+    "kb_keys": [
+      "recon.nmap",
+      "recon.whois",
+      "recon.dns",
+      "recon.subdomains",
+      "recon.llm_endpoints",
+      "recon.web_surface",
+      "recon.result",
+      "recon",
+      "intel",
+      "exploit.web",
+      "exploit",
+      "report.markdown_path",
+      "report.json_path",
+      "report",
+      "llm.usage"
+    ]
+  },
+  "findings": [
+    {
+      "id": 1,
+      "title": "HTTP attack surface on http://127.0.0.1:3000",
+      "severity": "INFO",
+      "description": "Discovered 14 endpoint(s) carrying injectable parameters across the web target.",
+      "target": "http://127.0.0.1:3000",
+      "cve_ids": [],
+      "evidence": [
+        "GET http://127.0.0.1:3000/engine.io (agent, upgrade, jsonp, timestampParam, rememberUpgrade, rejectUnauthorized, perMessageDeflate, threshold)",
+        "GET http://127.0.0.1:3000/rest/basket/{e} (e)",
+        "POST http://127.0.0.1:3000/rest/basket/{e}/checkout (e, couponData, orderDetails)",
+        "PUT http://127.0.0.1:3000/rest/basket/{e}/coupon/{i} (e, i)",
+        "GET http://127.0.0.1:3000/assets/i18n/ (suffix, enforceLoading, useHttpBackend)",
+        "GET http://127.0.0.1:3000/rest/products/search (q)",
+        "GET http://127.0.0.1:3000/rest/user/security-question (email)",
+        "GET http://127.0.0.1:3000/reviews (id)",
+        "GET http://127.0.0.1:3000/file-upload (authToken, allowedMimeType)",
+        "POST http://127.0.0.1:3000/rest/2fa/verify (tmpToken, totpToken)",
+        "POST http://127.0.0.1:3000/rest/2fa/setup (password, setupToken, initialToken)",
+        "POST http://127.0.0.1:3000/rest/2fa/disable (password)",
+        "GET http://127.0.0.1:3000/ftp/order_{orderId}.pdf (orderId)",
+        "GET http://127.0.0.1:3000/ftp/order_{e}.pdf (e)"
+      ],
+      "agent": "recon",
+      "domain": "Network",
+      "timestamp": "2026-08-07T11:08:51.206976+00:00"
+    },
+    {
+      "id": 2,
+      "title": "Port data unreliable \u2014 target behind proxy/tunnel",
+      "severity": "INFO",
+      "description": "nmap reported 781 open ports on http://127.0.0.1:3000, implausible for a real host and characteristic of a fake-ip proxy, tunnel, or tarpit answering every probe. Version probing was skipped; this port list must not be read as an attack surface.",
+      "target": "http://127.0.0.1:3000",
+      "cve_ids": [],
+      "evidence": [
+        "open_ports=781",
+        "mass-open proxy/tunnel/tarpit signature"
+      ],
+      "agent": "recon",
+      "domain": "Network",
+      "timestamp": "2026-08-07T11:08:51.207023+00:00"
+    },
+    {
+      "id": 3,
+      "title": "SQL injection confirmed in parameter 'q'",
+      "severity": "HIGH",
+      "description": "GET http://127.0.0.1:3000/rest/products/search \u2014 parameter 'q' is exploitable. Proof: database reported a SQL parse error, so the value reached the query.",
+      "target": "http://127.0.0.1:3000/rest/products/search",
+      "cve_ids": [],
+      "evidence": [
+        {
+          "vuln_class": "sqli",
+          "severity": "HIGH",
+          "url": "http://127.0.0.1:3000/rest/products/search",
+          "method": "GET",
+          "parameter": "q",
+          "payload": "'",
+          "proof": "database reported a SQL parse error, so the value reached the query",
+          "transport": "query",
+          "evidence": "<html> <head> <meta charset='utf-8'> <title>Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</title> </head> <body> <div id=\"wrapper\"> <h1>OWASP Juice Shop (Express ^4.22.1)</h1> <h2><em>500</em> Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</h2> <ul id=\"stacktrace\"></ul> </div> </body> </html>"
+        }
+      ],
+      "agent": "exploit",
+      "domain": "Network",
+      "timestamp": "2026-08-07T11:08:56.520244+00:00"
+    }
+  ],
+  "findings_by_domain": {
+    "Network": [
+      1,
+      2,
+      3
+    ]
+  },
+  "attack_paths": [],
+  "web_exploitation": {
+    "confirmed": 1,
+    "endpoints_tested": 13,
+    "requests_sent": 236,
+    "budget_exhausted": false,
+    "endpoints_skipped": 0,
+    "endpoints_destructive": 1,
+    "destructive_endpoints": [
+      {
+        "url": "http://127.0.0.1:3000/rest/basket/{e}/coupon/{i}",
+        "method": "PUT"
+      }
+    ],
+    "params_inert": 15,
+    "inert_params": [
+      {
+        "url": "http://127.0.0.1:3000/rest/user/security-question",
+        "parameter": "email",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/reviews",
+        "parameter": "id",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/file-upload",
+        "parameter": "authToken",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/file-upload",
+        "parameter": "allowedMimeType",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/assets/i18n/",
+        "parameter": "suffix",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/assets/i18n/",
+        "parameter": "enforceLoading",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/assets/i18n/",
+        "parameter": "useHttpBackend",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "agent",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "upgrade",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "jsonp",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "timestampParam",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "rememberUpgrade",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "rejectUnauthorized",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "perMessageDeflate",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/engine.io",
+        "parameter": "threshold",
+        "method": "GET",
+        "transport": "query",
+        "source": "js-route"
+      }
+    ],
+    "params_unauthorized": 10,
+    "unauthorized_params": [
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/disable",
+        "parameter": "password",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/setup",
+        "parameter": "password",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/setup",
+        "parameter": "setupToken",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/setup",
+        "parameter": "initialToken",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/basket/{e}",
+        "parameter": "e",
+        "method": "GET",
+        "transport": "path",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/verify",
+        "parameter": "tmpToken",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/2fa/verify",
+        "parameter": "totpToken",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/basket/{e}/checkout",
+        "parameter": "e",
+        "method": "POST",
+        "transport": "path",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/basket/{e}/checkout",
+        "parameter": "couponData",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      },
+      {
+        "url": "http://127.0.0.1:3000/rest/basket/{e}/checkout",
+        "parameter": "orderDetails",
+        "method": "POST",
+        "transport": "query",
+        "source": "js-route"
+      }
+    ],
+    "requests_unreachable": 0,
+    "findings": [
+      {
+        "vuln_class": "sqli",
+        "severity": "HIGH",
+        "url": "http://127.0.0.1:3000/rest/products/search",
+        "method": "GET",
+        "parameter": "q",
+        "payload": "'",
+        "proof": "database reported a SQL parse error, so the value reached the query",
+        "transport": "query",
+        "evidence": "<html> <head> <meta charset='utf-8'> <title>Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</title> </head> <body> <div id=\"wrapper\"> <h1>OWASP Juice Shop (Express ^4.22.1)</h1> <h2><em>500</em> Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</h2> <ul id=\"stacktrace\"></ul> </div> </body> </html>"
+      }
+    ]
+  },
+  "ai_analysis": "The web exploitation report confirms one SQL injection vulnerability (SQLi) with high severity at the endpoint `http://127.0.0.1:3000/rest/products/search?q='`, proven by the evidence of a database-reported SQL parse error. Additionally, there are 10 unauthorized parameters and 15 inert parameters across various endpoints. The presence of unauthorized parameters indicates that these endpoints exist but require proper authentication to interact with them, which is higher-value for further investigation compared to inert parameters. For the human operator, the highest-value next step is to attempt to authenticate and access the endpoints with unauthorized parameters to determine if they can be exploited without proper authorization.",
+  "knowledge_base_keys": [
+    "recon.nmap",
+    "recon.whois",
+    "recon.dns",
+    "recon.subdomains",
+    "recon.llm_endpoints",
+    "recon.web_surface",
+    "recon.result",
+    "recon",
+    "intel",
+    "exploit.web",
+    "exploit",
+    "report.markdown_path",
+    "report.json_path",
+    "report",
+    "llm.usage"
+  ]
+}

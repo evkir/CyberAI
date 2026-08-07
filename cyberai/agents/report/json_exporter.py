@@ -55,6 +55,10 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
         # consumer of this report could not tell a walked surface from an
         # absent one.
         "web_exploitation": session.kb.get("exploit.web") or {},
+        # Present even when empty, unlike the Markdown section which is
+        # omitted when no model was asked. A key that comes and goes is a
+        # break for whoever parses this; "" is an answer, a KeyError is not.
+        "ai_analysis": (session.kb.get("exploit") or {}).get("ai_analysis", ""),
         "knowledge_base_keys": list(session.kb.keys()),
     }
 
