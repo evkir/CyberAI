@@ -53,7 +53,11 @@ def render_html_report(
     for key, val in replacements.items():
         html = html.replace(key, val)
 
-    Path(output_path).write_text(html, encoding="utf-8")
+    out = Path(output_path)
+    # The caller may point anywhere; a writer that cannot create its own
+    # directory works only while some other writer happens to run first.
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html, encoding="utf-8")
     return output_path
 
 

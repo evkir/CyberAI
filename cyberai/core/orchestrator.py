@@ -351,7 +351,10 @@ class Orchestrator:
         result = agent.run(session.target)
         session.kb_set("report", result)
 
-        output = f"report_{session.session_id}.html"
+        # Markdown and JSON go to config.output_dir; HTML used to be written
+        # bare, which put one third of a run's artefacts wherever the command
+        # was launched from.
+        output = f"{self.config.output_dir}/report_{session.session_id}.html"
         render_html_report(
             session.summary(), session.kb, output_path=output, findings=session.findings
         )
