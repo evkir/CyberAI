@@ -802,11 +802,12 @@ def discover_api_surface(
         for name in endpoint["params"]:
             if name not in slot["params"]:
                 slot["params"].append(name)
-        if endpoint.get("body_params"):
-            slot.setdefault("body_params", [])
-            for name in endpoint["body_params"]:
-                if name not in slot["body_params"]:
-                    slot["body_params"].append(name)
+        # Only the spec path fills body_params, and one document cannot declare
+        # the same (path, method) twice, so a second record for this key never
+        # brings any: the branch that merged them was unreachable and its
+        # setdefault guarded against a shape the constructor now rules out.
+        # Measured, not reasoned: a spec and a bundle describing the same POST
+        # produce one record whose body fields come from the spec alone.
 
     endpoints = [e for e in merged.values() if e["params"]]
     routes = [e for e in merged.values() if not e["params"]]
