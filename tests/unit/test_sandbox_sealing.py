@@ -10,6 +10,10 @@ modules to check is a reminder, not a barrier: the first version of this test
 listed three web3 tools and silently missed halmos and aderyn, which read the
 same target-controlled project. Scanning the whole package instead means new
 code that spawns a process fails here by default and has to be reasoned about.
+
+Paths are anchored to this file, not to the working directory: the suite is
+run from a scratch directory so it cannot write into the operator's reports,
+and a cwd-relative package path would make every check below vacuous there.
 """
 
 from __future__ import annotations
@@ -19,7 +23,14 @@ from pathlib import Path
 
 import pytest
 
-_PACKAGE = Path("cyberai")
+_ROOT = Path(__file__).resolve().parents[2]
+_PACKAGE = _ROOT / "cyberai"
+
+
+def _rel(p: Path) -> str:
+    """Repo-relative posix path — stable no matter where pytest is run from."""
+    return p.relative_to(_ROOT).as_posix()
+
 
 # Modules allowed to spawn directly, each for a stated reason.
 _EXEMPT = {
@@ -63,12 +74,12 @@ def test_the_package_has_files_to_scan():
     assert len(_python_files()) > 50
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=str)
+@pytest.mark.parametrize("path", _python_files(), ids=_rel)
 def test_no_unsealed_process_spawn(path: Path):
     calls = _spawn_calls(ast.parse(path.read_text()))
     if not calls:
         return
-    assert path.as_posix() in _EXEMPT, (
+    assert _rel(path) in _EXEMPT, (
         f"{path} spawns a child via {', '.join(sorted(set(calls)))}. "
         "Use run_sealed/popen_sealed from cyberai.core.sandbox so the child "
         "cannot inherit the operator's credentials, or add an explicit "
@@ -79,4 +90,4 @@ def test_no_unsealed_process_spawn(path: Path):
 def test_exemptions_still_exist():
     """A stale exemption hides a module that no longer needs one."""
     for rel in _EXEMPT:
-        assert Path(rel).exists(), f"exempt module {rel} is gone; drop the entry"
+        assert (_ROOT / rel).exists(), f"exempt module {rel} is gone; drop the entry"
