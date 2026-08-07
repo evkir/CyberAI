@@ -255,6 +255,37 @@ def test_concatenated_routes_are_capped():
     assert len(routes_from_concatenated_base(text, max_routes=5)) == 5
 
 
+_TWO_FORM_BUNDLE = (
+    'class S{host=this.hostServer+"/rest/wallet/balance";'
+    "get(){return this.http.get(this.host)}"
+    "put(e){return this.http.put(this.host,{amount:e})}}"
+    'n.get("/rest/wallet/balance?currency=eur");'
+)
+
+
+def _js(text):
+    result = fetch_js_routes("http://t", lambda url: {"body": text}, _SHELL)
+    return {(e["url"], e["method"]): e for e in result["endpoints"]}
+
+
+def test_both_readers_feed_one_table():
+    """A bundle names its API two ways at once; the same path must not double."""
+    found = _js(_TWO_FORM_BUNDLE)
+    assert len([k for k in found if k[0].endswith("/rest/wallet/balance")]) == 2
+
+
+def test_a_path_found_twice_keeps_names_from_both_readers():
+    """Whichever reader ran second must not drop what only the first saw."""
+    found = _js(_TWO_FORM_BUNDLE)
+    assert found[("http://t/rest/wallet/balance", "GET")]["params"] == ["currency"]
+
+
+def test_a_verb_only_the_concatenating_reader_sees_reaches_the_surface():
+    found = _js(_TWO_FORM_BUNDLE)
+    assert ("http://t/rest/wallet/balance", "PUT") in found
+    assert found[("http://t/rest/wallet/balance", "PUT")]["params"] == ["amount"]
+
+
 def test_max_routes_is_capped():
     text = ";".join(f'fetch("/r{i}")' for i in range(60))
     assert len(routes_from_javascript(text, max_routes=5)) == 5

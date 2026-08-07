@@ -639,6 +639,22 @@ def routes_from_concatenated_base(text: str, max_routes: int = MAX_ROUTES) -> li
     return list(routes.values())
 
 
+def _merge_route(collected: dict[tuple[str, str], dict[str, Any]], route: dict[str, Any]) -> None:
+    """Fold one route into the table, keeping every name either source found.
+
+    A path reached by both readers must not lose the parameters only one of
+    them saw, so names are added rather than the later route replacing the
+    earlier one.
+    """
+    slot = collected.setdefault((route["path"], route["method"]), route)
+    for name in route["params"]:
+        if name not in slot["params"]:
+            slot["params"].append(name)
+    for name in route.get("path_params", []):
+        if name not in slot.setdefault("path_params", []):
+            slot["path_params"].append(name)
+
+
 def fetch_js_routes(
     base: str,
     fetch: FetchFn,
@@ -665,15 +681,14 @@ def fetch_js_routes(
         if not isinstance(body, str) or not body:
             continue
         scripts.append(url)
-        for route in routes_from_javascript(body[:MAX_SCRIPT_BYTES], max_routes=max_routes):
-            key = (route["path"], route["method"])
-            slot = collected.setdefault(key, route)
-            for name in route["params"]:
-                if name not in slot["params"]:
-                    slot["params"].append(name)
-            for name in route.get("path_params", []):
-                if name not in slot.setdefault("path_params", []):
-                    slot["path_params"].append(name)
+        text = body[:MAX_SCRIPT_BYTES]
+        # One bundle names its API two ways at once: as whole literals, and as
+        # a base field with the rest appended at the call. The same path can
+        # arrive by both, so they merge into one table rather than two lists.
+        for route in routes_from_javascript(
+            text, max_routes=max_routes
+        ) + routes_from_concatenated_base(text, max_routes=max_routes):
+            _merge_route(collected, route)
 
     endpoints = [
         _endpoint(
