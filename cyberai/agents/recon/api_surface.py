@@ -339,6 +339,13 @@ _HARD_OPTIONS: frozenset[str] = frozenset(
         "withCredentials",
         "baseURL",
         "url",
+        # An Angular service writes no `method:`, so its options bag is only
+        # recognisable by these: they name how the response is delivered, and
+        # a server is never asked for a field called `reportProgress`.
+        "observe",
+        "reportProgress",
+        "context",
+        "transferCache",
     }
 )
 
@@ -456,9 +463,14 @@ def _object_keys(window: str) -> list[str]:
     options bag, and only then are payload-wrapper names dropped -- elsewhere
     `body` is as likely to be a real field as any other.
     """
+    names_present = _OBJECT_KEY.findall(window)
     is_options = _OPTION_METHOD.search(window) is not None
+    # A lone `params` key is the request's query bag, never a field: an object
+    # whose only member is named after the transport is the transport.
+    if names_present == ["params"]:
+        return []
     names: list[str] = []
-    for name in _OBJECT_KEY.findall(window):
+    for name in names_present:
         if name in _HARD_OPTIONS or (is_options and name in _SOFT_OPTIONS):
             continue
         if name not in names:
@@ -565,6 +577,96 @@ def routes_from_javascript(text: str, max_routes: int = MAX_ROUTES) -> list[dict
     return list(routes.values())
 
 
+# A bundled service keeps its base path in a field and appends the rest at the
+# call site: `host=this.hostServer+"/rest/user"` once, then
+# `this.http.post(this.host+"/erasure-request",...)` wherever it is used. The
+# path never exists as one literal, so a literal-only reader sees neither half.
+# On Juice Shop this hides eighteen base paths -- more endpoints than the
+# literal reader finds in total.
+_BASE_DECL = re.compile(
+    r"""([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*[^;{}=]*?\+\s*['"`](/[A-Za-z0-9_\-./]*)['"`]"""
+)
+
+# A call whose target is that field, with or without a tail appended.
+_BASE_CALL = re.compile(
+    r"""\.(get|post|put|patch|delete)\s*\(\s*(?:this\.)?"""
+    r"""([A-Za-z_$][A-Za-z0-9_$]*)"""
+    r"""(?:\s*\+\s*['"`](/[A-Za-z0-9_\-./]*)['"`])?""",
+    re.IGNORECASE,
+)
+
+
+def _base_at(declarations: list[tuple[int, str, str]], field: str, position: int) -> Optional[str]:
+    """The base this call was written under: nearest declaration of the field.
+
+    Bundlers emit a class as one run of text, so the declaration a call means
+    is the last one for that field before it. Pairing every base with every
+    tail instead would invent paths no service ever calls -- ninety guesses
+    where sixteen calls exist.
+    """
+    best: Optional[str] = None
+    for at, name, base in declarations:
+        if at < position and name == field:
+            best = base
+    return best
+
+
+def routes_from_concatenated_base(text: str, max_routes: int = MAX_ROUTES) -> list[dict[str, Any]]:
+    """Request paths a bundle assembles from a field plus a literal tail.
+
+    Reported paths are still guesses: like every synthesized name here, one
+    enters the surface only once the target answers it apart from its own
+    baseline.
+    """
+    declarations = [(m.start(), m.group(1), m.group(2)) for m in _BASE_DECL.finditer(text)]
+    if not declarations:
+        return []
+    routes: dict[tuple[str, str], dict[str, Any]] = {}
+    for match in _BASE_CALL.finditer(text):
+        method, field, tail = match.group(1).upper(), match.group(2), match.group(3)
+        base = _base_at(declarations, field, match.start())
+        if base is None:
+            continue
+        path = base + (tail or "")
+        if path.endswith("/") and len(path) > 1:
+            path = path[:-1]
+        if not _is_route(path):
+            continue
+        window = _call_window(text, match.end())
+        slot = routes.setdefault(
+            (path, method),
+            {
+                "path": path,
+                "method": method,
+                "params": [],
+                "path_params": _path_params(path),
+                "source": "js-route",
+            },
+        )
+        for name in _object_keys(window):
+            if name not in slot["params"]:
+                slot["params"].append(name)
+        if len(routes) >= max_routes:
+            break
+    return list(routes.values())
+
+
+def _merge_route(collected: dict[tuple[str, str], dict[str, Any]], route: dict[str, Any]) -> None:
+    """Fold one route into the table, keeping every name either source found.
+
+    A path reached by both readers must not lose the parameters only one of
+    them saw, so names are added rather than the later route replacing the
+    earlier one.
+    """
+    slot = collected.setdefault((route["path"], route["method"]), route)
+    for name in route["params"]:
+        if name not in slot["params"]:
+            slot["params"].append(name)
+    for name in route.get("path_params", []):
+        if name not in slot.setdefault("path_params", []):
+            slot["path_params"].append(name)
+
+
 def fetch_js_routes(
     base: str,
     fetch: FetchFn,
@@ -591,15 +693,14 @@ def fetch_js_routes(
         if not isinstance(body, str) or not body:
             continue
         scripts.append(url)
-        for route in routes_from_javascript(body[:MAX_SCRIPT_BYTES], max_routes=max_routes):
-            key = (route["path"], route["method"])
-            slot = collected.setdefault(key, route)
-            for name in route["params"]:
-                if name not in slot["params"]:
-                    slot["params"].append(name)
-            for name in route.get("path_params", []):
-                if name not in slot.setdefault("path_params", []):
-                    slot["path_params"].append(name)
+        text = body[:MAX_SCRIPT_BYTES]
+        # One bundle names its API two ways at once: as whole literals, and as
+        # a base field with the rest appended at the call. The same path can
+        # arrive by both, so they merge into one table rather than two lists.
+        for route in routes_from_javascript(
+            text, max_routes=max_routes
+        ) + routes_from_concatenated_base(text, max_routes=max_routes):
+            _merge_route(collected, route)
 
     endpoints = [
         _endpoint(

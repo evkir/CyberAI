@@ -11,6 +11,7 @@ from cyberai.agents.recon.api_surface import (
     parse_openapi,
     probe_route_params,
     probe_well_known,
+    routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,
 )
@@ -172,6 +173,31 @@ def test_options_object_drops_transport_keys_but_keeps_payload_fields():
     assert _routes(_BUNDLE)[("/api/login", "POST")] == ["username", "password"]
 
 
+def test_angular_delivery_options_are_not_parameters():
+    """An Angular service writes no `method:`, so its options bag needs naming.
+
+    Sending `reportProgress` at a server spends the request budget on a field
+    the bundle never meant for it, and puts an invented name in the report.
+    """
+    text = (
+        'host=b+"/rest/chat";'
+        "n.post(this.host,{messages:e},"
+        '{responseType:"text",observe:"events",reportProgress:!0});'
+    )
+    assert _concat(text)[("/rest/chat", "POST")] == ["messages"]
+
+
+def test_a_lone_params_object_is_the_query_bag():
+    text = 'n.get("/api/Products/",{params:e});'
+    assert _routes(text)[("/api/Products/", "GET")] == []
+
+
+def test_params_beside_a_real_field_is_still_dropped_only_as_transport():
+    """`params` next to other fields stays readable as what the object is."""
+    text = 'n.post("/a",{params:p,title:t});'
+    assert _routes(text)[("/a", "POST")] == ["params", "title"]
+
+
 def test_adjacent_calls_do_not_leak_parameters():
     text = 'n.post("/a",{title:t});fetch("/b",{method:"POST",body:JSON.stringify({secret:s})});'
     found = _routes(text)
@@ -204,6 +230,85 @@ def test_template_literal_becomes_a_path_parameter():
 
 def test_route_without_parameters_is_still_reported():
     assert _routes(_BUNDLE)[("/health", "GET")] == []
+
+
+_CONCAT_BUNDLE = """
+class A{host=this.hostServer+"/rest/user";erase(e){return this.http.post(this.host+"/erasure-request",e)}}
+class B{host=this.hostServer+"/api/Hints";getAll(){return this.http.get(this.host+"/")}}
+class C{host=this.hostServer+"/rest/wallet/balance";get(){return this.http.get(this.host)}put(e){return this.http.put(this.host,{amount:e})}}
+"""
+
+
+def _concat(text):
+    return {(r["path"], r["method"]): r["params"] for r in routes_from_concatenated_base(text)}
+
+
+def test_tail_joins_the_base_declared_for_that_field():
+    """The half-paths are both in the bundle; neither is a route on its own."""
+    assert ("/rest/user/erasure-request", "POST") in _concat(_CONCAT_BUNDLE)
+
+
+def test_a_tail_does_not_join_a_base_from_another_class():
+    """Pairing every base with every tail invents paths no service calls."""
+    assert set(_concat(_CONCAT_BUNDLE)) == {
+        ("/rest/user/erasure-request", "POST"),
+        ("/api/Hints", "GET"),
+        ("/rest/wallet/balance", "GET"),
+        ("/rest/wallet/balance", "PUT"),
+    }
+
+
+def test_base_called_with_no_tail_is_itself_a_route():
+    found = _concat(_CONCAT_BUNDLE)
+    assert ("/api/Hints", "GET") in found
+    assert ("/rest/wallet/balance", "GET") in found
+
+
+def test_verbs_on_one_path_stay_apart():
+    found = _concat(_CONCAT_BUNDLE)
+    assert ("/rest/wallet/balance", "PUT") in found
+    assert found[("/rest/wallet/balance", "PUT")] == ["amount"]
+    assert found[("/rest/wallet/balance", "GET")] == []
+
+
+def test_bundle_without_a_base_declaration_yields_nothing():
+    assert routes_from_concatenated_base('n.post("/a",{t:1});') == []
+
+
+def test_concatenated_routes_are_capped():
+    text = ";".join(f'x=b+"/base{i}";n.get(this.x+"/t")' for i in range(60))
+    assert len(routes_from_concatenated_base(text, max_routes=5)) == 5
+
+
+_TWO_FORM_BUNDLE = (
+    'class S{host=this.hostServer+"/rest/wallet/balance";'
+    "get(){return this.http.get(this.host)}"
+    "put(e){return this.http.put(this.host,{amount:e})}}"
+    'n.get("/rest/wallet/balance?currency=eur");'
+)
+
+
+def _js(text):
+    result = fetch_js_routes("http://t", lambda url: {"body": text}, _SHELL)
+    return {(e["url"], e["method"]): e for e in result["endpoints"]}
+
+
+def test_both_readers_feed_one_table():
+    """A bundle names its API two ways at once; the same path must not double."""
+    found = _js(_TWO_FORM_BUNDLE)
+    assert len([k for k in found if k[0].endswith("/rest/wallet/balance")]) == 2
+
+
+def test_a_path_found_twice_keeps_names_from_both_readers():
+    """Whichever reader ran second must not drop what only the first saw."""
+    found = _js(_TWO_FORM_BUNDLE)
+    assert found[("http://t/rest/wallet/balance", "GET")]["params"] == ["currency"]
+
+
+def test_a_verb_only_the_concatenating_reader_sees_reaches_the_surface():
+    found = _js(_TWO_FORM_BUNDLE)
+    assert ("http://t/rest/wallet/balance", "PUT") in found
+    assert found[("http://t/rest/wallet/balance", "PUT")]["params"] == ["amount"]
 
 
 def test_max_routes_is_capped():
