@@ -22,6 +22,17 @@ from cyberai.core.session import PentestSession
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _isolate_working_directory(tmp_path, monkeypatch):
+    """Run every test from scratch space, not from the repository.
+
+    Applied to the whole suite rather than per test: five call sites had
+    already reached for monkeypatch.chdir by hand, which is exactly the shape
+    of guard that protects only the cases someone remembered.
+    """
+    monkeypatch.chdir(tmp_path)
+
+
 @pytest.fixture(scope="session")
 def base_config() -> CyberAIConfig:
     """Shared config for all tests — no real API keys needed."""

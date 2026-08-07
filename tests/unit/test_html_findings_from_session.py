@@ -7,7 +7,6 @@ section that reached the KB and no further. This one runs the real report
 phase against a real path on disk.
 """
 
-import os
 from pathlib import Path
 
 from cyberai.core.logger import AuditLogger
@@ -41,7 +40,10 @@ def test_a_session_finding_reaches_the_html_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = orch._run_report(session)
 
-    html = Path(os.path.join(tmp_path, result["html_report"]))
+    html = Path(result["html_report"])
+    # All three artefacts of one run belong together: a bare filename here
+    # lands in the working directory while the markdown sits in output_dir.
+    assert html.parent == tmp_path
     content = html.read_text(encoding="utf-8")
     assert "SQL injection confirmed in parameter &#x27;q&#x27;" in content or (
         "SQL injection confirmed in parameter 'q'" in content
