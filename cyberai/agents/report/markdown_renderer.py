@@ -119,6 +119,28 @@ def _endpoint_lines(entries: list) -> list[str]:
     return _listed(entries, _endpoint_line)
 
 
+def _render_ai_analysis(session: PentestSession) -> list[str]:
+    """The model's reading of the phase, if a model was asked.
+
+    Only the HTML report carried this. A reader who opens the Markdown -- the
+    format committed to repositories and pasted into tickets -- saw the
+    findings but never the analysis that interpreted them, which is the part
+    that says which finding to chase first.
+    """
+    kb = getattr(session, "kb", None)
+    exploit = kb.get("exploit") if kb is not None else None
+    if not isinstance(exploit, dict):
+        return []
+    analysis = exploit.get("ai_analysis")
+    # A non-string, or the skip notice from a run with no model wired, is not
+    # analysis; a heading over either would promise a reading nobody made.
+    if not isinstance(analysis, str) or not analysis.strip():
+        return []
+    if analysis.startswith("AI analysis skipped"):
+        return []
+    return ["## AI Analysis", "", analysis.strip(), "", "---", ""]
+
+
 def _render_web_exploitation(session: PentestSession) -> list[str]:
     """What the web phase touched, and what it could not answer for.
 
@@ -263,6 +285,9 @@ def render_markdown(session: PentestSession) -> str:
             lines += ["---", ""]
 
     lines += _render_web_exploitation(session)
+    # After the surface section: the analysis reads what those sections
+    # list, so it follows them rather than opening the report.
+    lines += _render_ai_analysis(session)
 
     lines += [
         "## Summary",
