@@ -159,6 +159,7 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     inert = report.get("inert_params")
     destructive = report.get("destructive_endpoints")
     phantom = report.get("phantom_endpoints")
+    enumerable = report.get("enumerable_params")
     # Validated here rather than in the renderer below, because the heading
     # counts these before anything is rendered: a string would arrive as its
     # own length and report five untested parameters that do not exist.
@@ -166,6 +167,7 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     inert = inert if isinstance(inert, list) else []
     destructive = destructive if isinstance(destructive, list) else []
     phantom = phantom if isinstance(phantom, list) else []
+    enumerable = enumerable if isinstance(enumerable, list) else []
     tested = report.get("endpoints_tested", 0)
     if not (tested or unauthorized or inert or destructive or phantom):
         return []
@@ -187,6 +189,17 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
             "",
         ]
         lines += _param_lines(unauthorized) + [""]
+    if enumerable:
+        lines += [
+            f"### Enumerable identifiers ({len(enumerable)})",
+            "",
+            "Each value in these path segments addressed a different record, and "
+            "the collection above them names the values. Whether that matters "
+            "depends on what the records hold: a catalogue keyed by title reads "
+            "the same way as an account keyed by name.",
+            "",
+        ]
+        lines += _param_lines(enumerable) + [""]
     if inert:
         lines += [
             f"### Value not read ({len(inert)})",
