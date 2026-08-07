@@ -76,7 +76,10 @@ def _run(config: CyberAIConfig) -> List[str]:
     ):
         session = orch.run(TARGET)
 
-    return list(dict.fromkeys(hit)), session
+    # The phantom check probes paths no surface declares. They are traffic, not
+    # attack order, and this test is about the order the plan produced.
+    declared = {DULL, HINTED}
+    return list(dict.fromkeys(u for u in hit if u in declared)), session
 
 
 def test_plan_phase_is_inserted_and_writes_web_subtasks():
