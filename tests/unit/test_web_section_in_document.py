@@ -74,3 +74,52 @@ def test_a_network_only_run_writes_no_web_section(tmp_path):
     """No web phase, no heading claiming one ran."""
     md = _written_markdown(_agent(tmp_path, None).run("http://127.0.0.1:3000"))
     assert "## Web Exploitation" not in md
+
+
+def test_the_source_of_a_parameter_reaches_the_document(tmp_path: Path):
+    """A name from a bundle and a name from a spec earn different confidence."""
+    report = {
+        "confirmed": 0,
+        "endpoints_tested": 2,
+        "requests_sent": 4,
+        "inert_params": [
+            {
+                "url": "http://t/engine.io",
+                "parameter": "agent",
+                "method": "GET",
+                "transport": "query",
+                "source": "js-route",
+            }
+        ],
+        "unauthorized_params": [
+            {
+                "url": "http://t/v1/books",
+                "parameter": "id",
+                "method": "GET",
+                "transport": "query",
+                "source": "openapi",
+            }
+        ],
+    }
+    text = _written_markdown(_agent(tmp_path, report).run("http://t"))
+    assert "(query, js-route)" in text
+    assert "(query, openapi)" in text
+
+
+def test_a_parameter_without_a_source_prints_no_dangling_comma(tmp_path: Path):
+    report = {
+        "confirmed": 0,
+        "endpoints_tested": 1,
+        "requests_sent": 2,
+        "inert_params": [
+            {
+                "url": "http://t/reviews",
+                "parameter": "id",
+                "method": "GET",
+                "transport": "query",
+            }
+        ],
+    }
+    text = _written_markdown(_agent(tmp_path, report).run("http://t"))
+    assert "(query)" in text
+    assert "(query, )" not in text

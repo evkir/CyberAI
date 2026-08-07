@@ -114,6 +114,34 @@ def _declared_params(spec: dict[str, Any], raw: Any) -> list[str]:
     return names
 
 
+def _endpoint(
+    url: str,
+    method: str,
+    params: list[str],
+    *,
+    body_params: Optional[list[str]] = None,
+    path_params: Optional[list[str]] = None,
+    source: str = "",
+) -> dict[str, Any]:
+    """One endpoint record, with every key present whichever path built it.
+
+    Three call sites assembled this shape by hand and each carried a different
+    subset: the spec path set body_params, the bundle path did not, the
+    well-known path set neither it nor path_params. Consumers then guessed the
+    difference with `.get(key, []) or []`, and a field dropped at the source
+    was indistinguishable from a field that legitimately had no value. Both
+    path_params and source have been lost across this boundary before.
+    """
+    return {
+        "url": url,
+        "method": method,
+        "params": list(params),
+        "body_params": list(body_params or []),
+        "path_params": list(path_params or []),
+        "source": source,
+    }
+
+
 def _body_params(spec: dict[str, Any], operation: dict[str, Any]) -> list[str]:
     """Body field names, from an OAS3 requestBody or a Swagger 2 body param."""
     names: list[str] = []
@@ -199,14 +227,14 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
                     params.append(name)
             body = [name for name in _body_params(spec, operation) if name not in params]
             endpoints.append(
-                {
-                    "url": _join(base, prefix, path),
-                    "method": method.upper(),
-                    "params": params + body,
-                    "body_params": body,
-                    "path_params": path_names,
-                    "source": "openapi",
-                }
+                _endpoint(
+                    _join(base, prefix, path),
+                    method.upper(),
+                    params + body,
+                    body_params=body,
+                    path_params=path_names,
+                    source="openapi",
+                )
             )
     return endpoints
 
@@ -574,13 +602,13 @@ def fetch_js_routes(
                     slot["path_params"].append(name)
 
     endpoints = [
-        {
-            "url": urljoin(base.rstrip("/") + "/", route["path"].lstrip("/")),
-            "method": route["method"],
-            "params": route["params"],
-            "path_params": route.get("path_params", []),
-            "source": "js-route",
-        }
+        _endpoint(
+            urljoin(base.rstrip("/") + "/", route["path"].lstrip("/")),
+            route["method"],
+            route["params"],
+            path_params=route.get("path_params", []),
+            source="js-route",
+        )
         for route in collected.values()
     ]
     return {"scripts": scripts, "endpoints": endpoints}
@@ -624,7 +652,7 @@ def probe_well_known(
         if not isinstance(status, int):
             continue
         if status < 400 or status in _PRESENT_STATUSES:
-            found.append({"url": url, "method": "GET", "params": [], "source": "well-known"})
+            found.append(_endpoint(url, "GET", [], source="well-known"))
     return found
 
 
@@ -774,11 +802,12 @@ def discover_api_surface(
         for name in endpoint["params"]:
             if name not in slot["params"]:
                 slot["params"].append(name)
-        if endpoint.get("body_params"):
-            slot.setdefault("body_params", [])
-            for name in endpoint["body_params"]:
-                if name not in slot["body_params"]:
-                    slot["body_params"].append(name)
+        # Only the spec path fills body_params, and one document cannot declare
+        # the same (path, method) twice, so a second record for this key never
+        # brings any: the branch that merged them was unreachable and its
+        # setdefault guarded against a shape the constructor now rules out.
+        # Measured, not reasoned: a spec and a bundle describing the same POST
+        # produce one record whose body fields come from the spec alone.
 
     endpoints = [e for e in merged.values() if e["params"]]
     routes = [e for e in merged.values() if not e["params"]]
