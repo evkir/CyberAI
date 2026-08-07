@@ -49,6 +49,12 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
             for domain, items in group_by_domain(session.findings).items()
         },
         "attack_paths": (session.kb.get("exploit.attack_paths") or {}).get("attack_paths", []),
+        # The Markdown document names 26 addresses on a Juice Shop run and this
+        # file named none of them: attack_paths is a CVE-shaped key that a web
+        # target never writes, and nothing read exploit.web at all. A machine
+        # consumer of this report could not tell a walked surface from an
+        # absent one.
+        "web_exploitation": session.kb.get("exploit.web") or {},
         "knowledge_base_keys": list(session.kb.keys()),
     }
 
