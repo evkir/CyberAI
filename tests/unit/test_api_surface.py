@@ -540,3 +540,66 @@ def test_a_reply_missing_its_body_is_not_an_answer():
         return {"status": 200, "headers": {}, "body": "all", "url": url}
 
     assert probe_route_params([_route("http://t/a")], fetch) == []
+
+
+_ENDPOINT_KEYS = {"url", "method", "params", "body_params", "path_params", "source"}
+
+
+def test_every_endpoint_carries_the_whole_shape_whichever_path_built_it():
+    """Three call sites assembled this record by hand and each carried a
+    different subset, so a consumer could not tell a field dropped at the
+    source from a field with no value. path_params was lost across this
+    boundary three times and source once; a single constructor is only worth
+    anything if something fails when a site stops using it.
+    """
+    pages = {
+        "http://t/openapi.json": json.dumps(_SWAGGER2),
+        "http://t/assets/app.js": _BUNDLE,
+    }
+    result = discover_api_surface("http://t", _pages(pages), html=_SHELL)
+    records = result["endpoints"] + result["routes"]
+    assert records
+    for record in records:
+        assert set(record.keys()) == _ENDPOINT_KEYS, record
+
+
+def test_each_endpoint_says_which_source_produced_it():
+    """The keys being present is not the same as the value arriving: a
+    constructor with defaults answers an omitted argument with a blank.
+    """
+    pages = {
+        "http://t/openapi.json": json.dumps(_SWAGGER2),
+        "http://t/assets/app.js": _BUNDLE,
+    }
+    result = discover_api_surface("http://t", _pages(pages), html=_SHELL)
+    by_url = {e["url"]: e["source"] for e in result["endpoints"] + result["routes"]}
+    assert by_url["http://t/v1/login"] == "openapi"
+    assert by_url["http://t/switch_personal_path"] == "js-route"
+
+
+def test_a_templated_route_keeps_its_path_parameter_through_the_bundle_path():
+    """The spec path asserts this and the bundle path never did.
+
+    Dropping path_params here left every test green, which is how the field
+    went missing three times. The name is what the exploit side substitutes to
+    make the route resolve at all, so losing it does not weaken a request --
+    it stops the request from landing.
+    """
+    result = discover_api_surface(
+        "http://t", _pages({"http://t/assets/app.js": _BUNDLE}), html=_SHELL
+    )
+    by_url = {e["url"]: e for e in result["endpoints"] + result["routes"]}
+    assert by_url["http://t/tpl/{id}"]["path_params"] == ["id"]
+
+
+def test_a_well_known_path_is_shaped_like_every_other_endpoint():
+    def fetch(url):
+        if url == "http://t/api":
+            return {"status": 200, "headers": {}, "body": "ok", "url": url}
+        return None
+
+    found = probe_well_known("http://t", fetch)
+    assert found
+    for record in found:
+        assert set(record.keys()) == _ENDPOINT_KEYS, record
+        assert record["source"] == "well-known"
