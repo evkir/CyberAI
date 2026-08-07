@@ -234,6 +234,23 @@ def test_a_walked_web_target_does_not_report_having_no_data():
     with patch("cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()):
         result = agent.run("t.local")
     assert result["ai_analysis"] != "No CVE data available."
+    # With a model wired, the walk is what gets analysed: the CVE prompt has
+    # no CVEs to render, so this run is the whole reason the web path exists.
+    assert agent.llm.call.call_count == 1
+    assert agent.llm.call.call_args.kwargs["agent_name"] == "exploit_web"
+
+
+def test_a_walked_web_target_without_an_llm_keeps_the_deterministic_wording():
+    """Rule-based runs must not lose the summary they used to get.
+
+    Calling the analysis unconditionally would overwrite this sentence with
+    "AI analysis skipped", which is worse than what was there before.
+    """
+    agent, session = _exploit_agent(use_web_exploit=True)
+    agent.llm = None
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+    with patch("cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()):
+        result = agent.run("t.local")
     assert "HTTP surface was walked" in result["ai_analysis"]
 
 
