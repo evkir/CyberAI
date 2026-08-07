@@ -173,6 +173,31 @@ def test_options_object_drops_transport_keys_but_keeps_payload_fields():
     assert _routes(_BUNDLE)[("/api/login", "POST")] == ["username", "password"]
 
 
+def test_angular_delivery_options_are_not_parameters():
+    """An Angular service writes no `method:`, so its options bag needs naming.
+
+    Sending `reportProgress` at a server spends the request budget on a field
+    the bundle never meant for it, and puts an invented name in the report.
+    """
+    text = (
+        'host=b+"/rest/chat";'
+        "n.post(this.host,{messages:e},"
+        '{responseType:"text",observe:"events",reportProgress:!0});'
+    )
+    assert _concat(text)[("/rest/chat", "POST")] == ["messages"]
+
+
+def test_a_lone_params_object_is_the_query_bag():
+    text = 'n.get("/api/Products/",{params:e});'
+    assert _routes(text)[("/api/Products/", "GET")] == []
+
+
+def test_params_beside_a_real_field_is_still_dropped_only_as_transport():
+    """`params` next to other fields stays readable as what the object is."""
+    text = 'n.post("/a",{params:p,title:t});'
+    assert _routes(text)[("/a", "POST")] == ["params", "title"]
+
+
 def test_adjacent_calls_do_not_leak_parameters():
     text = 'n.post("/a",{title:t});fetch("/b",{method:"POST",body:JSON.stringify({secret:s})});'
     found = _routes(text)

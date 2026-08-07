@@ -339,6 +339,13 @@ _HARD_OPTIONS: frozenset[str] = frozenset(
         "withCredentials",
         "baseURL",
         "url",
+        # An Angular service writes no `method:`, so its options bag is only
+        # recognisable by these: they name how the response is delivered, and
+        # a server is never asked for a field called `reportProgress`.
+        "observe",
+        "reportProgress",
+        "context",
+        "transferCache",
     }
 )
 
@@ -456,9 +463,14 @@ def _object_keys(window: str) -> list[str]:
     options bag, and only then are payload-wrapper names dropped -- elsewhere
     `body` is as likely to be a real field as any other.
     """
+    names_present = _OBJECT_KEY.findall(window)
     is_options = _OPTION_METHOD.search(window) is not None
+    # A lone `params` key is the request's query bag, never a field: an object
+    # whose only member is named after the transport is the transport.
+    if names_present == ["params"]:
+        return []
     names: list[str] = []
-    for name in _OBJECT_KEY.findall(window):
+    for name in names_present:
         if name in _HARD_OPTIONS or (is_options and name in _SOFT_OPTIONS):
             continue
         if name not in names:
