@@ -85,10 +85,20 @@ def _listed(entries: list, line_for: Callable[[dict], str]) -> list[str]:
 
 
 def _param_line(item: dict) -> str:
-    """Where the parameter is, what it is called, how it travels."""
+    """Where the parameter is, what it is called, how it travels, how it was found.
+
+    The verdict on a name parsed out of a minified bundle and on a name a spec
+    declares reads identically, and the two do not deserve equal weight. The
+    source is omitted when absent rather than printed empty, so a report from
+    before it was recorded does not grow a dangling comma.
+    """
+    where = item.get("transport", "")
+    source = item.get("source", "")
+    if source:
+        where = f"{where}, {source}"
     return (
         f"- `{item.get('method', '')} {item.get('url', '')}` "
-        f"-- parameter `{item.get('parameter', '')}` ({item.get('transport', '')})"
+        f"-- parameter `{item.get('parameter', '')}` ({where})"
     )
 
 
