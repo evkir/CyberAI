@@ -99,6 +99,22 @@ def test_render_chain_empty():
     assert "No exploit chain" in html
 
 
+def test_render_html_report_creates_its_own_directory(tmp_path):
+    """Dropping the mkdir leaves every existing test green.
+
+    In the pipeline the ReportAgent creates output_dir one line earlier, so
+    the renderer works by accident there. A caller that writes HTML without
+    that neighbour -- or a first run against a fresh output_dir -- gets a
+    FileNotFoundError instead of a report.
+    """
+    output = str(tmp_path / "fresh" / "nested" / "report.html")
+
+    render_html_report(SESSION, KB, output_path=output)
+
+    assert Path(output).exists()
+    assert "<html" in Path(output).read_text(encoding="utf-8").lower()
+
+
 def test_render_html_report_creates_file(tmp_path):
     output = str(tmp_path / "report.html")
     result = render_html_report(SESSION, KB, output_path=output)
