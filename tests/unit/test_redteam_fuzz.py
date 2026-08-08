@@ -216,3 +216,61 @@ def test_detect_llm_endpoint_no_signals_is_empty():
     result = detect_llm_endpoints("example.com", prober=prober)
     assert not result["is_llm_target"]
     assert result["llm_endpoints"] == []
+
+
+# ── fuzzer: reflection guard ──────────────────────────────────────────
+
+
+def _echo(payload: str) -> str:
+    """A channel that returns the request verbatim — the naive reflector."""
+    return payload
+
+
+def test_reflected_channel_scores_nothing():
+    """A verbatim echo carries the marker back without executing anything."""
+    fuzzer = _fuzzer_with_grid(available=False)
+
+    report = fuzzer.fuzz_channel(_echo, channel_id="web:echo")
+
+    delivered = [r for r in report.results if r.delivered]
+    assert delivered, "the corpus must deliver something"
+    assert all(r.reflected for r in delivered)
+    acked = [r for r in delivered if r.ack_echoed]
+    assert acked, "the guard is only meaningful while the marker is present"
+    assert report.flagged_count == 0
+    assert [r.payload_id for r in report.results if r.severity == "HIGH"] == []
+    assert all("reflection, not execution" in r.detail for r in acked)
+
+
+def test_non_reflecting_channel_still_flags():
+    """Control: same marker, a response that does not echo the payload."""
+    fuzzer = _fuzzer_with_grid(available=False)
+
+    def send_fn(payload: str) -> str:
+        return f"{ACK_PREFIX}ack"
+
+    report = fuzzer.fuzz_channel(send_fn, channel_id="web:chat")
+
+    assert not any(r.reflected for r in report.results)
+    assert report.flagged_count >= 1
+    assert any(r.severity == "HIGH" for r in report.results)
+
+
+def test_severity_downgrades_a_reflected_marker():
+    """Reflection removes the ack tier only; the other tiers are untouched."""
+    assert _severity_for(False, True, False, False) == "HIGH"
+    assert _severity_for(False, True, False, True) == "INFO"
+    assert _severity_for(True, True, False, True) == "CRITICAL"
+    assert _severity_for(False, True, True, True) == "MEDIUM"
+
+
+def test_reflected_reaches_the_exported_dict():
+    """The verdict must survive serialisation, not just the dataclass."""
+    fuzzer = _fuzzer_with_grid(available=False)
+
+    dumped = fuzzer.fuzz_channel(_echo, channel_id="web:echo").to_dict()
+
+    delivered = [r for r in dumped["results"] if r["delivered"]]
+    assert delivered
+    assert all(r["reflected"] for r in delivered)
+    assert dumped["flagged_count"] == 0
