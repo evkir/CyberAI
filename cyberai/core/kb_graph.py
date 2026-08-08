@@ -29,6 +29,14 @@ CVE = "cve"
 LLM_ENDPOINT = "llm_endpoint"
 HTTP_ENDPOINT = "http_endpoint"
 
+# Parameter names that carry a user turn to an LLM or RAG backend. The name
+# is the discriminator, not the path: measured over 751 recorded endpoints on
+# two targets, the parameter matched only POST /rest/chat (7 runs, zero false
+# positives), while a path-substring test flagged three basket routes because
+# "ask" is a substring of "basket". Only "messages" has been observed in the
+# wild here; the rest are the same field under other conventions.
+_PROMPT_PARAMS = frozenset({"messages", "message", "prompt", "query", "question", "input", "text"})
+
 # Edge relations.
 HAS_PORT = "HAS_PORT"
 RUNS = "RUNS"
@@ -87,6 +95,26 @@ def build_kb_graph(kb: KnowledgeBase, target: Optional[str] = None) -> nx.DiGrap
             continue
         g.add_edge(root, _add_node(g, HOST, sub), rel=SUBDOMAIN)
 
+    _add_llm_endpoints(g, kb, root)
+    _add_http_endpoints(g, kb, root)
+    _add_cves(g, kb, root)
+    return g
+
+
+def _add_llm_endpoints(g: nx.DiGraph, kb: KnowledgeBase, root: Node) -> None:
+    """Add LLM/RAG endpoint nodes from both recon paths that find them.
+
+    The dedicated detector probes a fixed candidate-path list with GET, so a
+    POST-only chat API is invisible to it: on Juice Shop a GET of the real
+    /rest/chat is indistinguishable from a GET of a path that does not exist,
+    and the run reports is_llm_target=false while the web surface holds the
+    endpoint the whole time. The surface also carries what the detector
+    cannot know -- the method and the field name the channel reads -- so a
+    consumer no longer has to guess the request body.
+
+    Node identity stays the bare URL, matching the detector, so an endpoint
+    found by both is one node carrying the surface's attributes.
+    """
     llm = kb.get("recon.llm_endpoints") or {}
     if isinstance(llm, dict) and llm.get("is_llm_target"):
         for ep in llm.get("llm_endpoints") or []:
@@ -95,9 +123,27 @@ def build_kb_graph(kb: KnowledgeBase, target: Optional[str] = None) -> nx.DiGrap
                 continue
             g.add_edge(root, _add_node(g, LLM_ENDPOINT, url), rel=EXPOSES)
 
-    _add_http_endpoints(g, kb, root)
-    _add_cves(g, kb, root)
-    return g
+    surface = kb.get("recon.web_surface") or {}
+    if not isinstance(surface, dict):
+        return
+    for entry in list(surface.get("endpoints") or []) + list(surface.get("routes") or []):
+        if not isinstance(entry, dict):
+            continue
+        url = entry.get("url")
+        if not url:
+            continue
+        params = list(entry.get("params") or []) + list(entry.get("body_params") or [])
+        field = next((p for p in params if p in _PROMPT_PARAMS), None)
+        if field is None:
+            continue
+        node = _add_node(
+            g,
+            LLM_ENDPOINT,
+            url,
+            prompt_field=field,
+            method=str(entry.get("method") or "POST").upper(),
+        )
+        g.add_edge(root, node, rel=EXPOSES)
 
 
 def _add_http_endpoints(g: nx.DiGraph, kb: KnowledgeBase, root: Node) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from cyberai.core.kb_graph import (
     HOST,
     HTTP_ENDPOINT,
+    LLM_ENDPOINT,
     SERVES,
     build_kb_graph,
     nodes_by_type,
@@ -94,3 +95,82 @@ def test_missing_or_malformed_surface_adds_nothing():
     assert nodes_by_type(build_kb_graph(_session("not-a-dict").kb), HTTP_ENDPOINT) == []
     surface = {"endpoints": [None, {"method": "GET"}, {"url": ""}], "routes": ["nope"]}
     assert nodes_by_type(build_kb_graph(_session(surface).kb), HTTP_ENDPOINT) == []
+
+
+# ── LLM endpoints discovered by the web surface ───────────────────────
+
+
+def _llm_attrs(g, url):
+    return g.nodes[(LLM_ENDPOINT, url)]
+
+
+def test_llm_endpoint_from_surface_carries_its_contract():
+    """A chat route the GET detector cannot see still reaches the graph."""
+    g = build_kb_graph(
+        _session(
+            {
+                "endpoints": [
+                    {
+                        "url": f"{BASE}/rest/chat",
+                        "method": "POST",
+                        "params": ["messages"],
+                        "source": "js-route",
+                    },
+                    {
+                        "url": f"{BASE}/rest/products/search",
+                        "method": "GET",
+                        "params": ["q"],
+                        "source": "js-route",
+                    },
+                ]
+            }
+        ).kb
+    )
+
+    assert [n[1] for n in nodes_by_type(g, LLM_ENDPOINT)] == [f"{BASE}/rest/chat"]
+    attrs = _llm_attrs(g, f"{BASE}/rest/chat")
+    assert attrs["prompt_field"] == "messages"
+    assert attrs["method"] == "POST"
+
+
+def test_a_prompt_field_in_the_body_counts():
+    """The field can be declared as a body parameter rather than a query one."""
+    g = build_kb_graph(
+        _session(
+            {"endpoints": [{"url": f"{BASE}/ask", "method": "POST", "body_params": ["prompt"]}]}
+        ).kb
+    )
+
+    assert _llm_attrs(g, f"{BASE}/ask")["prompt_field"] == "prompt"
+
+
+def test_a_path_that_merely_looks_like_a_chat_route_is_not_one():
+    """Control: 'ask' is a substring of 'basket' — the parameter decides."""
+    g = build_kb_graph(
+        _session(
+            {
+                "endpoints": [
+                    {
+                        "url": f"{BASE}/rest/basket/x/checkout",
+                        "method": "POST",
+                        "params": ["couponData", "e", "orderDetails"],
+                    }
+                ]
+            }
+        ).kb
+    )
+
+    assert nodes_by_type(g, LLM_ENDPOINT) == []
+
+
+def test_the_detector_path_still_produces_nodes():
+    """Control: the original producer keeps working alongside the new one."""
+    session = _session()
+    session.kb.set(
+        "recon.llm_endpoints",
+        {"is_llm_target": True, "llm_endpoints": [{"url": f"{BASE}/v1/chat/completions"}]},
+    )
+
+    g = build_kb_graph(session.kb)
+
+    assert [n[1] for n in nodes_by_type(g, LLM_ENDPOINT)] == [f"{BASE}/v1/chat/completions"]
