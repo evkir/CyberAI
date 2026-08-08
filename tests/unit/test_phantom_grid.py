@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import patch, MagicMock
 from cyberai.integrations.phantom_grid import PhantomGridClient, OOBInteraction
 from cyberai.integrations.oob_payloads import (
@@ -128,6 +129,80 @@ def test_get_interactions_empty_on_error(mock_httpx):
     client._available = True
     result = client.get_interactions("xyz")
     assert result == []
+
+
+# ── poll: server groups rows by token ────────────────────────────────
+
+_OTHER_ROW = dict(_REAL_HTTP_ROW, id="aaaa1111", token_id="1460f39f9c71", body="")
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_poll_flattens_token_keyed_response(mock_httpx):
+    _mock_get(mock_httpx, {"69e0fb21d836": [_REAL_HTTP_ROW], "1460f39f9c71": [_OTHER_ROW]})
+
+    client = PhantomGridClient()
+    client._available = True
+    result = client.poll()
+
+    assert len(result) == 2
+    assert {i.interaction_id for i in result} == {"69e0fb21d836", "1460f39f9c71"}
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_poll_filters_by_token(mock_httpx):
+    _mock_get(mock_httpx, {"69e0fb21d836": [_REAL_HTTP_ROW], "1460f39f9c71": [_OTHER_ROW]})
+
+    client = PhantomGridClient()
+    client._available = True
+    result = client.poll(token="69e0fb21d836")
+
+    assert len(result) == 1
+    assert result[0].interaction_id == "69e0fb21d836"
+    assert result[0].payload == "payload=pwn"
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_poll_passes_since_to_server(mock_httpx):
+    _mock_get(mock_httpx, {})
+    getter = mock_httpx.return_value.__enter__.return_value.get
+
+    client = PhantomGridClient()
+    client._available = True
+    client.poll(since="2026-08-08T22:00:00+00:00")
+
+    assert getter.call_args.kwargs["params"] == {"since": "2026-08-08T22:00:00+00:00"}
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_poll_rejects_list_body(mock_httpx, caplog):
+    _mock_get(mock_httpx, [_REAL_HTTP_ROW])
+
+    client = PhantomGridClient()
+    client._available = True
+    # An empty list alone proves nothing here: without the guard, .items() on
+    # a list raises and the bare except returns the very same []. The warning
+    # is what makes "wrong shape" distinguishable from "no callbacks".
+    with caplog.at_level(logging.WARNING, logger="cyberai.integrations.phantom_grid"):
+        with patch.object(client, "_parse") as parse:
+            assert client.poll() == []
+    parse.assert_not_called()
+    assert "contract mismatch" in caplog.text
+    assert "/api/poll" in caplog.text
+    assert "list" in caplog.text
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_get_interactions_warns_on_wrapped_body(mock_httpx, caplog):
+    _mock_get(mock_httpx, {"interactions": [_REAL_HTTP_ROW]})
+
+    client = PhantomGridClient()
+    client._available = True
+    with caplog.at_level(logging.WARNING, logger="cyberai.integrations.phantom_grid"):
+        assert client.get_interactions("69e0fb21d836") == []
+
+    assert "contract mismatch" in caplog.text
+    assert "/interactions" in caplog.text
+    assert "dict" in caplog.text
 
 
 # ── payload generator tests ──────────────────────────────────────────
