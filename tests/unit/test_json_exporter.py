@@ -97,3 +97,44 @@ def test_phantom_endpoints_reach_the_json_export(tmp_path: Path) -> None:
     web = data["web_exploitation"]
     assert web["endpoints_phantom"] == 1
     assert web["phantom_endpoints"] == [{"url": "http://127.0.0.1:3000/reviews", "method": "GET"}]
+
+
+# Shape taken from a live run (session 29f9d66e): one channel on Juice Shop,
+# three payloads skipped because the OOB grid was down, zero confirmed.
+REDTEAM_RESULT = {
+    "channels": 1,
+    "confirmed": 0,
+    "flagged": 2,
+    "reports": [
+        {
+            "channel_id": "http://127.0.0.1:3000/rest/chat",
+            "oob_used": False,
+            "confirmed_count": 0,
+            "flagged_count": 2,
+            "skipped_count": 3,
+            "results": [{"payload_id": "ack-1", "category": "direct", "severity": "HIGH"}],
+        }
+    ],
+}
+
+
+def test_redteam_reaches_the_json_file(tmp_path: Path) -> None:
+    """The fuzzer wrote channel reports into the kb and no exporter read them."""
+    session = ScanSession(target="http://127.0.0.1:3000")
+    session.kb.set("exploit", {"redteam": dict(REDTEAM_RESULT)}, agent="exploit")
+    out = export_json(session, str(tmp_path))
+    data = json.loads(Path(out).read_text())
+
+    rt = data["redteam"]
+    assert rt["flagged"] == 2
+    assert [r["channel_id"] for r in rt["reports"]] == ["http://127.0.0.1:3000/rest/chat"]
+    assert rt["reports"][0]["skipped_count"] == 3
+    assert rt["reports"][0]["results"][0]["severity"] == "HIGH"
+
+
+def test_redteam_key_is_present_without_a_redteam_run(tmp_path: Path) -> None:
+    """A run without --planned-redteam still has to carry the key, or a parser
+    cannot tell "no channels found" from "this build cannot fuzz channels"."""
+    session = ScanSession(target="scanme.nmap.org")
+    out = export_json(session, str(tmp_path))
+    assert json.loads(Path(out).read_text())["redteam"] == {}
