@@ -15,6 +15,7 @@ Default HTTP port is 9090 (v2.0), not 8080.
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -24,6 +25,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 DEFAULT_GRID_URL = "http://127.0.0.1:9090"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -133,13 +136,28 @@ class PhantomGridClient:
                     headers=self._headers(),
                 )
                 r.raise_for_status()
-                items = r.json().get("interactions", [])
+                items = r.json()
+                if not isinstance(items, list):
+                    logger.warning(
+                        "phantom-grid contract mismatch: /interactions returned %s, "
+                        "expected a list",
+                        type(items).__name__,
+                    )
+                    return []
                 return [self._parse(i) for i in items]
         except Exception:
             return []
 
-    def poll(self, since: Optional[str] = None) -> List[OOBInteraction]:
-        """GET /api/poll?since=<ISO> -> new interactions across all tokens."""
+    def poll(
+        self, since: Optional[str] = None, token: Optional[str] = None
+    ) -> List[OOBInteraction]:
+        """GET /api/poll?since=<ISO> -> new interactions across all tokens.
+
+        The server groups rows by capture token: {token_id: [row, ...]}. It
+        never emits a flat list, and without `since` it replays the last 50
+        rows of every token on the grid — pass `token` to keep another run's
+        callbacks out of correlation.
+        """
         if not self.available:
             return []
         params = {"since": since} if since else {}
@@ -151,17 +169,49 @@ class PhantomGridClient:
                     headers=self._headers(),
                 )
                 r.raise_for_status()
-                items = r.json().get("interactions", [])
-                return [self._parse(i) for i in items]
+                grouped = r.json()
+                if not isinstance(grouped, dict):
+                    logger.warning(
+                        "phantom-grid contract mismatch: /api/poll returned %s, "
+                        "expected a token-keyed object",
+                        type(grouped).__name__,
+                    )
+                    return []
+                out: List[OOBInteraction] = []
+                for tid, rows in grouped.items():
+                    if token is not None and tid != token:
+                        continue
+                    if isinstance(rows, list):
+                        out.extend(self._parse(i) for i in rows)
+                return out
         except Exception:
             return []
 
+    _DATA_FIELDS = (
+        "id",
+        "method",
+        "path",
+        "query",
+        "headers",
+        "content_type",
+        "query_name",
+        "query_type",
+        "exfil_data",
+        "raw_labels",
+    )
+
     def _parse(self, raw: Dict) -> OOBInteraction:
+        """Map a phantom-grid v2.0 interaction row onto OOBInteraction.
+
+        Server field names differ from the dataclass: token_id/type/time/body.
+        The row id is the interaction id, not the capture token; the token is
+        what payloads embed, so it is what correlation matches on.
+        """
         return OOBInteraction(
-            interaction_id=raw.get("id", "") or raw.get("token", ""),
-            protocol=raw.get("protocol", "unknown"),
+            interaction_id=str(raw.get("token_id", "")),
+            protocol=str(raw.get("type", "unknown")).lower(),
             source_ip=raw.get("source_ip", ""),
-            timestamp=str(raw.get("timestamp", datetime.now(timezone.utc).isoformat())),
-            payload=raw.get("payload", ""),
-            data=raw.get("data", {}),
+            timestamp=str(raw.get("time") or datetime.now(timezone.utc).isoformat()),
+            payload=raw.get("body") or "",
+            data={k: raw[k] for k in self._DATA_FIELDS if raw.get(k) is not None},
         )
