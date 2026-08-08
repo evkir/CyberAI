@@ -59,6 +59,12 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
         # omitted when no model was asked. A key that comes and goes is a
         # break for whoever parses this; "" is an answer, a KeyError is not.
         "ai_analysis": (session.kb.get("exploit") or {}).get("ai_analysis", ""),
+        # The channel fuzzer writes its counters and per-channel reports under
+        # exploit.redteam, and no exporter read them: a run that fuzzed a live
+        # LLM channel was indistinguishable, to a machine consumer, from a run
+        # that never found one. Present even when empty, for the same reason as
+        # ai_analysis above -- "" or {} is an answer, a KeyError is not.
+        "redteam": (session.kb.get("exploit") or {}).get("redteam", {}),
         "knowledge_base_keys": list(session.kb.keys()),
     }
 

@@ -427,3 +427,112 @@ def test_finding_without_cve_or_doubt_says_neither(tmp_path):
     content = Path(output).read_text()
     assert "<strong>CVE:</strong>" not in content
     assert "<strong>Confidence:</strong>" not in content
+
+
+def _redteam_kb(redteam):
+    """A real KnowledgeBase, and the key the orchestrator actually writes.
+
+    The counters live nested under `exploit`, not under a flat dotted key the
+    way the web report does: the orchestrator merges the fuzzer result into
+    the exploit phase dict before storing it. A fixture built the other way
+    would pass on a shape the product never produces.
+    """
+    from cyberai.core.scan_session import ScanSession
+
+    session = ScanSession(target="http://127.0.0.1:3000")
+    if redteam is not None:
+        session.kb.set("exploit", {"redteam": redteam}, agent="exploit")
+    return session.kb
+
+
+_CHANNEL = {
+    "channel_id": "http://127.0.0.1:3000/rest/chat",
+    "oob_used": False,
+    "confirmed_count": 0,
+    "flagged_count": 2,
+    "skipped_count": 3,
+}
+_REDTEAM = {"channels": 1, "confirmed": 0, "flagged": 2, "reports": [_CHANNEL]}
+
+
+def test_the_channel_section_reaches_the_html_file(tmp_path):
+    output = str(tmp_path / "rt.html")
+    render_html_report(SESSION, _redteam_kb(_REDTEAM), output_path=output)
+    content = Path(output).read_text()
+
+    assert "LLM Channel Red-Team" in content
+    # The heading alone would pass with an empty list; require the address.
+    assert "http://127.0.0.1:3000/rest/chat" in content
+    assert "Channels fuzzed: 1 | Confirmed: 0 | Flagged: 2" in content
+
+
+def test_undelivered_payloads_reach_the_page(tmp_path):
+    """Three payloads never left. A page showing only "0 confirmed" reads as a
+    channel that took every payload and stayed clean."""
+    output = str(tmp_path / "rt_skipped.html")
+    render_html_report(SESSION, _redteam_kb(_REDTEAM), output_path=output)
+    content = Path(output).read_text()
+
+    assert "not delivered 3" in content
+    assert "no OOB channel" in content
+
+
+def test_a_live_oob_channel_is_distinguished_on_the_page(tmp_path):
+    output = str(tmp_path / "rt_oob.html")
+    kb = _redteam_kb({**_REDTEAM, "reports": [{**_CHANNEL, "oob_used": True}]})
+    render_html_report(SESSION, kb, output_path=output)
+    content = Path(output).read_text()
+
+    assert "OOB channel used" in content
+    assert "no OOB channel" not in content
+
+
+def test_the_channel_row_carries_its_own_counters(tmp_path):
+    output = str(tmp_path / "rt_counts.html")
+    kb = _redteam_kb({**_REDTEAM, "reports": [{**_CHANNEL, "flagged_count": 7}]})
+    render_html_report(SESSION, kb, output_path=output)
+
+    assert "flagged 7" in Path(output).read_text()
+
+
+def test_a_channel_id_is_escaped(tmp_path):
+    """The address comes off the wire. Rendered raw it would run."""
+    output = str(tmp_path / "rt_xss.html")
+    kb = _redteam_kb({**_REDTEAM, "reports": [{**_CHANNEL, "channel_id": "<script>x</script>"}]})
+    render_html_report(SESSION, kb, output_path=output)
+    content = Path(output).read_text()
+
+    assert "<script>x</script>" not in content
+    assert "&lt;script&gt;" in content
+
+
+def test_no_section_when_no_channel_was_fuzzed(tmp_path):
+    output = str(tmp_path / "rt_none.html")
+    kb = _redteam_kb({"channels": 0, "confirmed": 0, "flagged": 0, "reports": []})
+    render_html_report(SESSION, kb, output_path=output)
+    content = Path(output).read_text()
+
+    assert "LLM Channel Red-Team" not in content
+    # An unsubstituted placeholder is worse than an absent section: it prints
+    # the template's own syntax onto the page a reader opens.
+    assert "{redteam_html}" not in content
+
+
+def test_no_section_without_a_redteam_run(tmp_path):
+    output = str(tmp_path / "rt_absent.html")
+    render_html_report(SESSION, _redteam_kb(None), output_path=output)
+    content = Path(output).read_text()
+
+    assert "LLM Channel Red-Team" not in content
+    assert "{redteam_html}" not in content
+
+
+def test_malformed_shapes_do_not_render_a_heading(tmp_path):
+    from cyberai.core.scan_session import ScanSession
+
+    session = ScanSession(target="t.local")
+    session.kb.set("exploit", {"redteam": "yes"}, agent="exploit")
+    output = str(tmp_path / "rt_bad.html")
+    render_html_report(SESSION, session.kb, output_path=output)
+
+    assert "LLM Channel Red-Team" not in Path(output).read_text()
