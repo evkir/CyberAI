@@ -133,7 +133,9 @@ class PhantomGridClient:
                     headers=self._headers(),
                 )
                 r.raise_for_status()
-                items = r.json().get("interactions", [])
+                items = r.json()
+                if not isinstance(items, list):
+                    return []
                 return [self._parse(i) for i in items]
         except Exception:
             return []
@@ -156,12 +158,31 @@ class PhantomGridClient:
         except Exception:
             return []
 
+    _DATA_FIELDS = (
+        "id",
+        "method",
+        "path",
+        "query",
+        "headers",
+        "content_type",
+        "query_name",
+        "query_type",
+        "exfil_data",
+        "raw_labels",
+    )
+
     def _parse(self, raw: Dict) -> OOBInteraction:
+        """Map a phantom-grid v2.0 interaction row onto OOBInteraction.
+
+        Server field names differ from the dataclass: token_id/type/time/body.
+        The row id is the interaction id, not the capture token; the token is
+        what payloads embed, so it is what correlation matches on.
+        """
         return OOBInteraction(
-            interaction_id=raw.get("id", "") or raw.get("token", ""),
-            protocol=raw.get("protocol", "unknown"),
+            interaction_id=str(raw.get("token_id", "")),
+            protocol=str(raw.get("type", "unknown")).lower(),
             source_ip=raw.get("source_ip", ""),
-            timestamp=str(raw.get("timestamp", datetime.now(timezone.utc).isoformat())),
-            payload=raw.get("payload", ""),
-            data=raw.get("data", {}),
+            timestamp=str(raw.get("time") or datetime.now(timezone.utc).isoformat()),
+            payload=raw.get("body") or "",
+            data={k: raw[k] for k in self._DATA_FIELDS if raw.get(k) is not None},
         )
