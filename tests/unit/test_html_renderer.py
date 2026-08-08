@@ -246,6 +246,20 @@ def test_a_run_without_a_web_phase_writes_no_web_section(tmp_path):
     assert "{web_exploitation_html}" not in content
 
 
+def test_a_web_phase_that_found_nothing_writes_no_section(tmp_path):
+    """The key is present and the phase ran, but it walked nothing.
+
+    Distinct from the absent key above: this report is a dict and passes
+    the type guard, so without the count check the page would print a
+    heading over an empty body and claim a walk that found no surface.
+    """
+    output = str(tmp_path / "emptyweb.html")
+    render_html_report(SESSION, _live_kb({"endpoints_tested": 0}), output_path=output)
+    content = Path(output).read_text()
+    assert "Web Exploitation" not in content
+    assert "{web_exploitation_html}" not in content
+
+
 WEB_EVIDENCE = {
     "vuln_class": "sqli",
     "url": "http://127.0.0.1:3000/rest/products/search",
