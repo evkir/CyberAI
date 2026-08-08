@@ -191,6 +191,61 @@ def test_finding_text_is_escaped(tmp_path):
     assert "&lt;script&gt;" in content
 
 
+def _live_kb(web_report):
+    """A real KnowledgeBase, not the nested dict the constants above use.
+
+    The section reads a flat dotted key; a test on a plain dict would pass
+    on a shape the product never builds. Tail R is exactly that mistake
+    made on three older sections, green tests and an empty page.
+    """
+    from cyberai.core.scan_session import ScanSession
+
+    session = ScanSession(target="http://127.0.0.1:3000")
+    if web_report is not None:
+        session.kb.set("exploit.web", web_report, agent="exploit")
+    return session.kb
+
+
+_WEB_REPORT = {
+    "endpoints_tested": 11,
+    "requests_sent": 187,
+    "confirmed": 1,
+    "unauthorized_params": [
+        {
+            "url": "http://127.0.0.1:3000/rest/user/security-question",
+            "parameter": "email",
+            "method": "GET",
+        }
+    ],
+    "destructive_endpoints": [{"url": "http://127.0.0.1:3000/api/Users/1", "method": "DELETE"}],
+}
+
+
+def test_the_web_section_reaches_the_html_file(tmp_path):
+    output = str(tmp_path / "web.html")
+    render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
+    content = Path(output).read_text()
+    assert "Web Exploitation" in content
+    assert "rest/user/security-question" in content
+    assert "api/Users/1" in content
+
+
+def test_the_web_section_names_the_counts(tmp_path):
+    output = str(tmp_path / "counts.html")
+    render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
+    content = Path(output).read_text()
+    assert "187" in content
+
+
+def test_a_run_without_a_web_phase_writes_no_web_section(tmp_path):
+    """Control: without this the assertions above pass on a hardcoded block."""
+    output = str(tmp_path / "noweb.html")
+    render_html_report(SESSION, _live_kb(None), output_path=output)
+    content = Path(output).read_text()
+    assert "Web Exploitation" not in content
+    assert "{web_exploitation_html}" not in content
+
+
 WEB_EVIDENCE = {
     "vuln_class": "sqli",
     "url": "http://127.0.0.1:3000/rest/products/search",

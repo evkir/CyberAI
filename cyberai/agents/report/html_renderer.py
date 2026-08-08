@@ -41,6 +41,7 @@ def render_html_report(
         "{state}": session_summary.get("state", ""),
         "{duration_s}": str(session_summary.get("duration_s", "")),
         "{phases_html}": _render_phases(session_summary.get("phases", [])),
+        "{web_exploitation_html}": _render_web_exploitation(kb),
         "{attack_paths_html}": _render_attack_paths(attack_paths),
         "{chain_html}": _render_chain(chain),
         "{ai_analysis}": _escape(ai_analysis),
@@ -59,6 +60,58 @@ def render_html_report(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return output_path
+
+
+def _render_web_exploitation(kb: Dict[str, Any]) -> str:
+    """What the web phase touched, and what it could not answer for.
+
+    Markdown grew this section; the HTML page did not, and twelve contract
+    tests stayed green because every one of them read the markdown file. A
+    reader who opens the page instead sees the confirmed findings and no
+    sign that anything else on the HTTP surface was left unanswered.
+    """
+    report = kb.get("exploit.web")
+    if not isinstance(report, dict):
+        return ""
+    groups = [
+        ("Untested -- refused without a credential", "unauthorized_params", _param_row),
+        ("Value not read", "inert_params", _param_row),
+        ("Skipped as state-changing", "destructive_endpoints", _endpoint_row),
+        ("Not routed", "phantom_endpoints", _endpoint_row),
+        ("Enumerable identifier", "enumerable_params", _param_row),
+    ]
+    present = [
+        (t, [x for x in (report.get(k) or []) if isinstance(x, dict)], r) for t, k, r in groups
+    ]
+    present = [(t, items, r) for t, items, r in present if items]
+    tested = report.get("endpoints_tested", 0)
+    if not (tested or present):
+        return ""
+    parts = [
+        "<h2>Web Exploitation</h2>",
+        f"<p>Endpoints tested: {_escape(str(tested))} | "
+        f"Requests sent: {_escape(str(report.get('requests_sent', 0)))} | "
+        f"Confirmed: {_escape(str(report.get('confirmed', 0)))}</p>",
+    ]
+    for title, items, row in present:
+        parts.append(f"<h3>{_escape(title)} ({len(items)})</h3>")
+        parts.append("<ul>" + "".join(row(i) for i in items) + "</ul>")
+    return "\n".join(parts)
+
+
+def _param_row(item: Dict[str, Any]) -> str:
+    return (
+        f"<li><code>{_escape(str(item.get('method', '')))} "
+        f"{_escape(str(item.get('url', '')))}</code> — "
+        f"{_escape(str(item.get('parameter', '')))}</li>"
+    )
+
+
+def _endpoint_row(item: Dict[str, Any]) -> str:
+    return (
+        f"<li><code>{_escape(str(item.get('method', '')))} "
+        f"{_escape(str(item.get('url', '')))}</code></li>"
+    )
 
 
 # ── section renderers ─────────────────────────────────────────────────
