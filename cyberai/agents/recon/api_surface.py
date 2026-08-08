@@ -657,14 +657,16 @@ def _merge_route(collected: dict[tuple[str, str], dict[str, Any]], route: dict[s
     A path reached by both readers must not lose the parameters only one of
     them saw, so names are added rather than the later route replacing the
     earlier one.
+
+    Only the declared names need folding. Both readers derive path_params from
+    the path itself, so two routes under one key already agree on them, and the
+    concatenating reader cannot produce a templated path at all: neither `$`
+    nor `{` is in the character class its base and tail are matched with.
     """
     slot = collected.setdefault((route["path"], route["method"]), route)
     for name in route["params"]:
         if name not in slot["params"]:
             slot["params"].append(name)
-    for name in route.get("path_params", []):
-        if name not in slot.setdefault("path_params", []):
-            slot["path_params"].append(name)
 
 
 def fetch_js_routes(

@@ -11,6 +11,7 @@ from cyberai.agents.recon.api_surface import (
     parse_openapi,
     probe_route_params,
     probe_well_known,
+    _merge_route,
     routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,
@@ -273,6 +274,51 @@ def test_verbs_on_one_path_stay_apart():
 
 def test_bundle_without_a_base_declaration_yields_nothing():
     assert routes_from_concatenated_base('n.post("/a",{t:1});') == []
+
+
+def test_a_call_on_a_field_no_declaration_names_is_left_alone():
+    """A bundle declares one base and calls through another field.
+
+    Not the same as a bundle with no declarations at all: here the reader has
+    a table and still has to decline, because pairing the tail with whatever
+    base happens to be nearby invents a path the service never calls.
+    """
+    text = 'class A{host=this.h+"/rest/user";go(){return this.http.get(this.other+"/x")}}'
+    assert routes_from_concatenated_base(text) == []
+    reached = 'class A{host=this.h+"/rest/user";go(){return this.http.get(this.host+"/x")}}'
+    assert [r["path"] for r in routes_from_concatenated_base(reached)] == ["/rest/user/x"]
+
+
+def test_a_base_and_tail_that_land_on_an_asset_are_not_a_route():
+    """Halves that each look routable can still join into a file."""
+    text = 'class A{host=this.h+"/assets";go(){return this.http.get(this.host+"/app.js")}}'
+    assert routes_from_concatenated_base(text) == []
+
+
+def test_one_path_named_by_both_readers_keeps_the_names_each_saw():
+    """The merge exists because a path arrives twice with different fields.
+
+    Whichever reader lands second must add to the names rather than replace
+    them: the literal reader sees the call site, the concatenating reader sees
+    another, and dropping either loses parameters that are really there.
+    """
+    text = (
+        'class A{host=this.h+"/u";go(){return this.http.post(this.host+"/x",{q:1})}}'
+        'n.post("/u/x",{r:2});'
+    )
+    merged: dict = {}
+    for route in routes_from_javascript(text) + routes_from_concatenated_base(text):
+        _merge_route(merged, route)
+
+    # Both readers reach this one key, each with a name the other missed. The
+    # other keys in the table are the halves the literal reader also sees on
+    # their own, and they are not what this pins.
+    from_literal = [r for r in routes_from_javascript(text) if r["path"] == "/u/x"]
+    from_concat = [r for r in routes_from_concatenated_base(text) if r["path"] == "/u/x"]
+    assert len(from_literal) == 1 and len(from_concat) == 1
+    assert from_literal[0]["params"] != from_concat[0]["params"]
+
+    assert sorted(merged[("/u/x", "POST")]["params"]) == ["q", "r"]
 
 
 def test_concatenated_routes_are_capped():
