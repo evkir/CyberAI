@@ -160,6 +160,7 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     destructive = report.get("destructive_endpoints")
     phantom = report.get("phantom_endpoints")
     enumerable = report.get("enumerable_params")
+    bola = report.get("bola_params")
     # Validated here rather than in the renderer below, because the heading
     # counts these before anything is rendered: a string would arrive as its
     # own length and report five untested parameters that do not exist.
@@ -168,8 +169,9 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     destructive = destructive if isinstance(destructive, list) else []
     phantom = phantom if isinstance(phantom, list) else []
     enumerable = enumerable if isinstance(enumerable, list) else []
+    bola = bola if isinstance(bola, list) else []
     tested = report.get("endpoints_tested", 0)
-    if not (tested or unauthorized or inert or destructive or phantom):
+    if not (tested or unauthorized or inert or destructive or phantom or enumerable or bola):
         return []
 
     sent = report.get("requests_sent", 0)
@@ -200,6 +202,18 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
             "",
         ]
         lines += _param_lines(enumerable) + [""]
+    if bola:
+        lines += [
+            f"### Object authorization not enforced ({len(bola)})",
+            "",
+            "One credential addressed several distinct records here, while the "
+            "same request without it was refused. The route authenticates the "
+            "caller and then stops asking which records are theirs. This does "
+            "not name whose data was reached -- the walk holds no account of "
+            "its own to compare against -- so confirm ownership before filing.",
+            "",
+        ]
+        lines += _param_lines(bola) + [""]
     if inert:
         lines += [
             f"### Value not read ({len(inert)})",

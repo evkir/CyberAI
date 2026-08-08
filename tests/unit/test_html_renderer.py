@@ -260,6 +260,55 @@ def test_a_web_phase_that_found_nothing_writes_no_section(tmp_path):
     assert "{web_exploitation_html}" not in content
 
 
+_BOLA_ONLY_REPORT = {
+    "endpoints_tested": 0,
+    "requests_sent": 5,
+    "confirmed": 0,
+    "params_bola": 1,
+    "bola_params": [
+        {
+            "url": "http://127.0.0.1:3000/rest/basket/{bid}",
+            "parameter": "bid",
+            "method": "GET",
+            "transport": "path",
+            "source": "js-route",
+        }
+    ],
+}
+
+
+def test_the_page_names_the_route_that_stopped_checking_ownership(tmp_path):
+    """The heading alone is a count; the reader has to be given the address."""
+    output = str(tmp_path / "bola.html")
+    render_html_report(SESSION, _live_kb(_BOLA_ONLY_REPORT), output_path=output)
+    content = Path(output).read_text()
+    assert "Object authorization not enforced (1)" in content
+    assert "rest/basket/{bid}" in content
+    assert "bid" in content
+
+
+def test_a_web_phase_that_only_found_this_still_writes_the_section(tmp_path):
+    """No endpoint was tested, so the count check alone would drop the page.
+
+    The verdict costs the walk nothing it counts as a test, which is what
+    separates this from the empty report above: there is something to say
+    and no tested endpoint to say it under.
+    """
+    output = str(tmp_path / "bolaonly.html")
+    render_html_report(SESSION, _live_kb(_BOLA_ONLY_REPORT), output_path=output)
+    content = Path(output).read_text()
+    assert "Web Exploitation" in content
+    assert "{web_exploitation_html}" not in content
+
+
+def test_a_run_without_a_broken_object_check_writes_no_such_heading(tmp_path):
+    """Control: without it the assertions above pass on a hardcoded block."""
+    output = str(tmp_path / "nobola.html")
+    render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
+    content = Path(output).read_text()
+    assert "Object authorization" not in content
+
+
 WEB_EVIDENCE = {
     "vuln_class": "sqli",
     "url": "http://127.0.0.1:3000/rest/products/search",
