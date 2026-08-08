@@ -92,13 +92,14 @@ class RedTeamAgent(BaseAgent):
         channels = self._planned_channels()
         if not channels:
             self._log("No injection-fuzz subtasks in plan — red team skipped")
-            return {"channels": 0, "confirmed": 0, "reports": []}
+            return {"channels": 0, "confirmed": 0, "flagged": 0, "reports": []}
 
         fuzzer = (context or {}).get("fuzzer") or LLMChannelFuzzer()
         channel_factory = (context or {}).get("channel_factory")
 
         reports: List[Dict[str, Any]] = []
         confirmed = 0
+        flagged = 0
         for channel in channels:
             url = channel["url"]
             # The contract is bound here rather than passed to the factory:
@@ -114,12 +115,24 @@ class RedTeamAgent(BaseAgent):
                 send_fn = _default_channel(url)
             report = fuzzer.fuzz_channel(send_fn, channel_id=url)
             confirmed += report.confirmed_count
+            flagged += report.flagged_count
             self._record(report, url)
             reports.append(report.to_dict())
 
         self.kb.set("redteam.reports", reports, agent=self.AGENT_NAME)
-        self._log(f"fuzzed {len(channels)} channel(s), {confirmed} confirmed")
-        return {"channels": len(channels), "confirmed": confirmed, "reports": reports}
+        # Both counters are reported because they answer different questions.
+        # Only an out-of-band callback earns `confirmed`, and with no callback
+        # channel available that number is zero however well the run went --
+        # a live model echoing the marker on four payloads still logged
+        # "0 confirmed". `flagged` is what the heuristic tiers found, and it
+        # is the number the findings on the session correspond to.
+        self._log(f"fuzzed {len(channels)} channel(s), {confirmed} confirmed, {flagged} flagged")
+        return {
+            "channels": len(channels),
+            "confirmed": confirmed,
+            "flagged": flagged,
+            "reports": reports,
+        }
 
     def _planned_channels(self) -> List[Dict[str, Any]]:
         """Channels from injection-fuzz subtasks, in plan order, deduplicated.

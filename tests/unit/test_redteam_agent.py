@@ -72,7 +72,7 @@ def test_no_plan_or_no_fuzz_subtasks_does_nothing():
         fuzzer = _StubFuzzer()
         result = _run(_agent(plan), fuzzer)
         assert fuzzer.channels == []
-        assert result == {"channels": 0, "confirmed": 0, "reports": []}
+        assert result == {"channels": 0, "confirmed": 0, "flagged": 0, "reports": []}
 
 
 def test_confirmed_result_becomes_a_finding_with_full_confidence():
@@ -372,3 +372,43 @@ def test_run_falls_back_when_no_field_is_known():
         agent.run("t.local", {"fuzzer": _StubFuzzer()})
 
     assert built == [RAG]
+
+
+def test_flagged_reaches_the_phase_result():
+    """Heuristic hits have to be counted, not just recorded as findings.
+
+    `confirmed` counts out-of-band callbacks only, which is correct but
+    means a run with no callback channel reports zero however much the
+    channel gave up: a live model echoing the marker on four payloads
+    still logged "0 confirmed" while four findings sat on the session.
+    """
+    hit = FuzzResult(
+        payload_id="xpia-ignore-context",
+        category="xpia",
+        ack_echoed=True,
+        severity="HIGH",
+        detail="acknowledgement marker echoed in response",
+    )
+    agent = _agent({"todo": [{"action": "injection-fuzz", "target": CHAT}]})
+
+    result = _run(agent, _StubFuzzer([hit]))
+
+    assert result["flagged"] == 1
+    assert result["confirmed"] == 0
+
+
+def test_a_reflected_hit_is_not_counted():
+    """Control: the reflection guard has to survive the aggregation step."""
+    reflected = FuzzResult(
+        payload_id="xpia-ignore-context",
+        category="xpia",
+        ack_echoed=True,
+        reflected=True,
+        severity="INFO",
+        detail="marker present but the channel echoed the payload verbatim",
+    )
+    agent = _agent({"todo": [{"action": "injection-fuzz", "target": CHAT}]})
+
+    result = _run(agent, _StubFuzzer([reflected]))
+
+    assert result["flagged"] == 0
