@@ -248,6 +248,62 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     return lines + ["---", ""]
 
 
+def _channel_line(item: dict) -> str:
+    """One fuzzed channel: what was reached, what was suspected, what never left.
+
+    `not delivered` counts payloads the run could not send -- the out-of-band
+    tier when no capture host answers. Without that number a run against a dead
+    grid reads as a channel that took every payload and stayed clean.
+    """
+    oob = "OOB channel used" if item.get("oob_used") else "no OOB channel"
+    return (
+        f"- `{item.get('channel_id', '')}` -- confirmed "
+        f"{item.get('confirmed_count', 0)}, flagged {item.get('flagged_count', 0)}, "
+        f"not delivered {item.get('skipped_count', 0)} ({oob})"
+    )
+
+
+def _channel_lines(entries: list) -> list[str]:
+    return _listed(entries, _channel_line)
+
+
+def _render_redteam(session: PentestSession) -> list[str]:
+    """The LLM channels the run fuzzed, and on what evidence.
+
+    The fuzzer wrote these into the knowledge base and no renderer read them,
+    so the document a human opens said nothing about the channel at all -- not
+    even that one had been found and driven.
+    """
+    kb = getattr(session, "kb", None)
+    exploit = kb.get("exploit") if kb is not None else None
+    if not isinstance(exploit, dict):
+        return []
+    redteam = exploit.get("redteam")
+    if not isinstance(redteam, dict):
+        return []
+    reports = redteam.get("reports")
+    reports = reports if isinstance(reports, list) else []
+    # A heading over zero channels would assert a walk of the LLM surface that
+    # did not happen; a run that finds no channel is the common case.
+    if not reports:
+        return []
+    lines = [
+        "## LLM Channel Red-Team",
+        "",
+        f"Channels fuzzed: {redteam.get('channels', len(reports))} | "
+        f"Confirmed: {redteam.get('confirmed', 0)} | "
+        f"Flagged: {redteam.get('flagged', 0)}",
+        "",
+        "Confirmed means an out-of-band callback fired: the model acted on the "
+        "injection and reached a host it was never given. Flagged is heuristic "
+        "-- an acknowledgement echoed back, or a reply that reads like the "
+        "system prompt -- and is a lead to reproduce, not a finding to file.",
+        "",
+    ]
+    lines += _channel_lines(reports) + [""]
+    return lines + ["---", ""]
+
+
 def render_markdown(session: PentestSession) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
@@ -325,6 +381,9 @@ def render_markdown(session: PentestSession) -> str:
             lines += ["---", ""]
 
     lines += _render_web_exploitation(session)
+    # The channel section follows the HTTP surface because the channel was
+    # found on it: the endpoint is one of the addresses listed above.
+    lines += _render_redteam(session)
     # After the surface section: the analysis reads what those sections
     # list, so it follows them rather than opening the report.
     lines += _render_ai_analysis(session)
