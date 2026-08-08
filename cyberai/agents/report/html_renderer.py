@@ -79,6 +79,7 @@ def _render_web_exploitation(kb: Dict[str, Any]) -> str:
         ("Skipped as state-changing", "destructive_endpoints", _endpoint_row),
         ("Not routed", "phantom_endpoints", _endpoint_row),
         ("Enumerable identifier", "enumerable_params", _param_row),
+        ("Object authorization not enforced", "bola_params", _param_row),
     ]
     present = [
         (t, [x for x in (report.get(k) or []) if isinstance(x, dict)], r) for t, k, r in groups

@@ -190,3 +190,43 @@ def test_a_phantom_only_run_still_writes_the_section(tmp_path: Path):
 def test_a_run_without_phantoms_writes_no_such_block(tmp_path: Path):
     md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
     assert "Not routed" not in md
+
+
+_BOLA_REPORT = {
+    "confirmed": 0,
+    "endpoints_tested": 0,
+    "requests_sent": 5,
+    "params_bola": 1,
+    "bola_params": [
+        {
+            "url": "http://127.0.0.1:3000/rest/basket/{bid}",
+            "parameter": "bid",
+            "method": "GET",
+            "transport": "path",
+            "source": "js-route",
+        }
+    ],
+}
+
+
+def test_the_written_document_names_the_route_that_stopped_checking_ownership(tmp_path: Path):
+    """A count is not an address, and this one has to be verified by hand."""
+    md = _written_markdown(_agent(tmp_path, _BOLA_REPORT).run("http://127.0.0.1:3000"))
+    assert "### Object authorization not enforced (1)" in md
+    assert "`GET http://127.0.0.1:3000/rest/basket/{bid}` -- parameter `bid` (path, js-route)" in md
+
+
+def test_a_run_that_tested_nothing_but_found_this_still_writes_the_section(tmp_path: Path):
+    """The verdict costs no endpoint test, so the section gate has to count it.
+
+    Every list the section can hold belongs in that gate: a report whose only
+    content is one of them would otherwise be dropped whole, and a missing
+    section reads as a web phase that never ran.
+    """
+    md = _written_markdown(_agent(tmp_path, _BOLA_REPORT).run("http://127.0.0.1:3000"))
+    assert "## Web Exploitation" in md
+
+
+def test_a_run_without_a_broken_object_check_writes_no_such_block(tmp_path: Path):
+    md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
+    assert "Object authorization" not in md
