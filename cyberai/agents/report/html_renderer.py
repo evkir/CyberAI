@@ -43,6 +43,7 @@ def render_html_report(
         "{phases_html}": _render_phases(session_summary.get("phases", [])),
         "{web_exploitation_html}": _render_web_exploitation(kb),
         "{attack_paths_html}": _render_attack_paths(attack_paths),
+        "{redteam_html}": _render_redteam(kb),
         "{chain_html}": _render_chain(chain),
         "{ai_analysis}": _escape(ai_analysis),
         # Last on purpose: substitution walks the whole template once per key,
@@ -112,6 +113,52 @@ def _endpoint_row(item: Dict[str, Any]) -> str:
     return (
         f"<li><code>{_escape(str(item.get('method', '')))} "
         f"{_escape(str(item.get('url', '')))}</code></li>"
+    )
+
+
+def _render_redteam(kb: Dict[str, Any]) -> str:
+    """The LLM channels the run fuzzed, and on what evidence.
+
+    Nested under exploit rather than a flat key: the orchestrator merges the
+    fuzzer result into the exploit phase dict, and that copy is the one that
+    carries the counters. The flat redteam.reports key holds the list alone.
+    """
+    exploit = kb.get("exploit")
+    if not isinstance(exploit, dict):
+        return ""
+    redteam = exploit.get("redteam")
+    if not isinstance(redteam, dict):
+        return ""
+    reports = [r for r in (redteam.get("reports") or []) if isinstance(r, dict)]
+    # A heading over zero channels would assert a walk of the LLM surface that
+    # did not happen; a run that finds no channel is the common case.
+    if not reports:
+        return ""
+    parts = [
+        "<h2>LLM Channel Red-Team</h2>",
+        f"<p>Channels fuzzed: {_escape(str(redteam.get('channels', len(reports))))} | "
+        f"Confirmed: {_escape(str(redteam.get('confirmed', 0)))} | "
+        f"Flagged: {_escape(str(redteam.get('flagged', 0)))}</p>",
+        "<p>Confirmed means an out-of-band callback fired: the model acted on "
+        "the injection and reached a host it was never given. Flagged is "
+        "heuristic -- a lead to reproduce, not a finding to file.</p>",
+        "<ul>" + "".join(_channel_row(r) for r in reports) + "</ul>",
+    ]
+    return "\n".join(parts)
+
+
+def _channel_row(item: Dict[str, Any]) -> str:
+    """One channel: what was reached, what was suspected, what never left.
+
+    `not delivered` counts payloads the run could not send. Without it a run
+    against a dead capture host reads as a channel that took every payload.
+    """
+    oob = "OOB channel used" if item.get("oob_used") else "no OOB channel"
+    return (
+        f"<li><code>{_escape(str(item.get('channel_id', '')))}</code> — confirmed "
+        f"{_escape(str(item.get('confirmed_count', 0)))}, flagged "
+        f"{_escape(str(item.get('flagged_count', 0)))}, not delivered "
+        f"{_escape(str(item.get('skipped_count', 0)))} ({_escape(oob)})</li>"
     )
 
 
