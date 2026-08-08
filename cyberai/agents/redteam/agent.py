@@ -30,11 +30,36 @@ DEFAULT_TIMEOUT = 10.0
 _PROMPT_FIELDS = ("prompt", "message", "input", "query", "text")
 
 
-def _default_channel(url: str, timeout: float = DEFAULT_TIMEOUT) -> Callable[[str], str]:
-    """Return a send function that POSTs a payload to `url` as JSON."""
+def _body_for(prompt_field: Optional[str], payload: str) -> Dict[str, Any]:
+    """Build the request body for a channel whose contract may be known.
+
+    Recon names the field when it found the endpoint on the web surface; the
+    shotgun over `_PROMPT_FIELDS` is the fallback for channels discovered by
+    the path detector, which cannot know it. The shotgun is not harmless: on
+    Juice Shop every one of the five guessed names is ignored and the target
+    answers that messages must not be empty, so a run that looks delivered
+    carries nothing.
+
+    A field named `messages` takes the chat-completions list rather than a
+    bare string -- sending the string yields "messages.some is not a
+    function". The special case is keyed on the field name, not the target.
+    """
+    if not prompt_field:
+        return {field: payload for field in _PROMPT_FIELDS}
+    if prompt_field == "messages":
+        return {"messages": [{"role": "user", "content": payload}]}
+    return {prompt_field: payload}
+
+
+def _channel_for(
+    url: str,
+    prompt_field: Optional[str] = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Callable[[str], str]:
+    """Return a send function that POSTs to `url`, honouring a known field."""
 
     def _send(payload: str) -> str:
-        body = {field: payload for field in _PROMPT_FIELDS}
+        body = _body_for(prompt_field, payload)
         try:
             with httpx.Client(timeout=timeout, follow_redirects=True) as client:
                 return client.post(url, json=body).text
@@ -42,6 +67,15 @@ def _default_channel(url: str, timeout: float = DEFAULT_TIMEOUT) -> Callable[[st
             return ""
 
     return _send
+
+
+def _default_channel(url: str) -> Callable[[str], str]:
+    """Return a send function for a channel whose contract is unknown.
+
+    Kept as a one-argument callable because that is the shape every caller
+    supplies a factory in; the contract-aware variant is `_channel_for`.
+    """
+    return _channel_for(url)
 
 
 class RedTeamAgent(BaseAgent):
@@ -55,40 +89,60 @@ class RedTeamAgent(BaseAgent):
 
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         self._check_iteration_limit()
-        urls = self._planned_channels()
-        if not urls:
+        channels = self._planned_channels()
+        if not channels:
             self._log("No injection-fuzz subtasks in plan — red team skipped")
             return {"channels": 0, "confirmed": 0, "reports": []}
 
         fuzzer = (context or {}).get("fuzzer") or LLMChannelFuzzer()
-        channel_factory = (context or {}).get("channel_factory") or _default_channel
+        channel_factory = (context or {}).get("channel_factory")
 
         reports: List[Dict[str, Any]] = []
         confirmed = 0
-        for url in urls:
-            report = fuzzer.fuzz_channel(channel_factory(url), channel_id=url)
+        for channel in channels:
+            url = channel["url"]
+            # The contract is bound here rather than passed to the factory:
+            # a factory is a one-argument callable everywhere it is supplied,
+            # and widening that signature would break every caller that hands
+            # one in to keep a test off the network.
+            field = channel.get("prompt_field")
+            if channel_factory is not None:
+                send_fn = channel_factory(url)
+            elif field:
+                send_fn = _channel_for(url, field)
+            else:
+                send_fn = _default_channel(url)
+            report = fuzzer.fuzz_channel(send_fn, channel_id=url)
             confirmed += report.confirmed_count
             self._record(report, url)
             reports.append(report.to_dict())
 
         self.kb.set("redteam.reports", reports, agent=self.AGENT_NAME)
-        self._log(f"fuzzed {len(urls)} channel(s), {confirmed} confirmed")
-        return {"channels": len(urls), "confirmed": confirmed, "reports": reports}
+        self._log(f"fuzzed {len(channels)} channel(s), {confirmed} confirmed")
+        return {"channels": len(channels), "confirmed": confirmed, "reports": reports}
 
-    def _planned_channels(self) -> List[str]:
-        """URLs from injection-fuzz subtasks, in plan order, deduplicated."""
+    def _planned_channels(self) -> List[Dict[str, Any]]:
+        """Channels from injection-fuzz subtasks, in plan order, deduplicated.
+
+        Each entry keeps the contract the plan carries, not just the URL: the
+        field name is what makes the difference between a payload the target
+        reads and one it ignores.
+        """
         plan = self.kb.get("plan") or {}
         todo = plan.get("todo") if isinstance(plan, dict) else None
         if not isinstance(todo, list):
             return []
-        urls: List[str] = []
+        channels: List[Dict[str, Any]] = []
+        seen: set[str] = set()
         for task in todo:
             if not isinstance(task, dict) or task.get("action") != "injection-fuzz":
                 continue
             url = task.get("target")
-            if url and url not in urls:
-                urls.append(str(url))
-        return urls
+            if not url or str(url) in seen:
+                continue
+            seen.add(str(url))
+            channels.append({"url": str(url), "prompt_field": task.get("prompt_field")})
+        return channels
 
     def _record(self, report: FuzzReport, url: str) -> None:
         """Turn fuzz results into session findings, one per signal."""

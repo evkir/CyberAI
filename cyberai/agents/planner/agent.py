@@ -90,10 +90,13 @@ class PlannerAgent(BaseAgent):
             )
 
         for node in nodes_by_type(graph, LLM_ENDPOINT):
+            attrs = graph.nodes[node]
             subtasks.append(
                 {
                     "action": "injection-fuzz",
                     "target": node[1],
+                    "method": attrs.get("method"),
+                    "prompt_field": attrs.get("prompt_field"),
                     "path": [target, node[1]],
                 }
             )

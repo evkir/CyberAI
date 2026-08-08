@@ -68,3 +68,51 @@ def test_subtasks_are_numbered_with_the_rest_of_the_plan():
 def test_no_web_surface_yields_no_web_subtasks():
     assert _web(_todo()) == []
     assert _web(_todo({"endpoints": []})) == []
+
+
+# ── LLM channels carry their contract into the plan ───────────────────
+
+
+def _fuzz(todo: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [t for t in todo if t["action"] == "injection-fuzz"]
+
+
+def test_a_chat_route_becomes_a_fuzz_subtask_with_its_field():
+    """The field name has to survive graph-to-plan, not merely exist on the node.
+
+    Without it the red team falls back to guessing five field names, none of
+    which the target reads, and the run reports a delivered payload that
+    carried nothing.
+    """
+    todo = _todo(
+        {
+            "endpoints": [
+                {"url": f"{BASE}/rest/chat", "method": "POST", "params": ["messages"]},
+                {"url": f"{BASE}/search", "method": "POST", "params": ["q", "page"]},
+            ]
+        }
+    )
+
+    tasks = _fuzz(todo)
+    assert [t["target"] for t in tasks] == [f"{BASE}/rest/chat"]
+    assert tasks[0]["prompt_field"] == "messages"
+    assert tasks[0]["method"] == "POST"
+
+
+def test_a_detector_channel_keeps_the_key_with_no_field():
+    """Control: a node the path detector found has no contract to carry.
+
+    The key is present and null rather than absent, so a consumer reads an
+    answer instead of a KeyError.
+    """
+    s = ScanSession(target=TARGET)
+    s.kb.set("recon.result", {"target": TARGET})
+    s.kb.set(
+        "recon.llm_endpoints",
+        {"is_llm_target": True, "llm_endpoints": [{"url": f"{BASE}/v1/chat/completions"}]},
+    )
+
+    tasks = _fuzz(PlannerAgent(CyberAIConfig(), s).run(TARGET)["todo"])
+
+    assert [t["target"] for t in tasks] == [f"{BASE}/v1/chat/completions"]
+    assert tasks[0]["prompt_field"] is None
