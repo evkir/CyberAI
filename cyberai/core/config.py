@@ -156,6 +156,10 @@ class CyberAIConfig:
     # walk is not clean, only unread; no env variable backs this because a
     # credential in the environment outlives the run that needed it.
     auth_headers: Optional[dict[str, str]] = None
+    # Attack state-changing verbs (DELETE/PUT/PATCH) instead of skipping them.
+    # Off by default: proving an injection through a DELETE destroys the record
+    # that evidences it, and on a live target that is damage taken for nothing.
+    allow_destructive: bool = False
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":

@@ -166,6 +166,11 @@ def cli() -> None:
     help="Header sent with every web request, e.g. 'Authorization: Bearer <token>' (repeatable)",
 )
 @click.option(
+    "--allow-destructive",
+    is_flag=True,
+    help="Attack DELETE/PUT/PATCH endpoints too; changes state on the target",
+)
+@click.option(
     "--recon-only", is_flag=True, help="Run only the recon phase (safe for external targets)"
 )
 @click.option(
@@ -262,6 +267,7 @@ def scan(
     native_tools: bool | None,
     llm_summary: bool | None,
     auth: tuple[str, ...],
+    allow_destructive: bool,
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -304,6 +310,8 @@ def scan(
         config.max_rps = max_rps
     if auth:
         config.auth_headers = _parse_auth_headers(auth)
+    if allow_destructive:
+        config.allow_destructive = True
 
     phases = [ScanPhase.RECON] if recon_only else None
     orchestrator = Orchestrator(config=config, phases=phases, dry_run=dry_run)

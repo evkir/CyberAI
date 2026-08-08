@@ -208,6 +208,36 @@ def test_a_run_without_a_credential_passes_none():
     assert spy.call_args.kwargs["auth_headers"] is None
 
 
+def test_allow_destructive_reaches_the_walk():
+    """Configured off by default, the flag has to arrive as an argument.
+
+    A mutant dropping the keyword leaves the call shape complete -- the
+    default fills in False and every call-count assertion stays green.
+    """
+    agent, session = _exploit_agent(use_web_exploit=True, allow_destructive=True)
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+
+    with patch(
+        "cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()
+    ) as spy:
+        agent.run("t.local")
+
+    assert spy.call_args.kwargs["allow_destructive"] is True
+
+
+def test_a_run_without_the_flag_stays_non_destructive():
+    """Control: without this the assertion above passes on a hardcoded True."""
+    agent, session = _exploit_agent(use_web_exploit=True)
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+
+    with patch(
+        "cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()
+    ) as spy:
+        agent.run("t.local")
+
+    assert spy.call_args.kwargs["allow_destructive"] is False
+
+
 def test_missing_surface_is_a_clean_no_op():
     agent, session = _exploit_agent(use_web_exploit=True)
     with patch("cyberai.agents.exploit.agent.exploit_surface") as spy:
