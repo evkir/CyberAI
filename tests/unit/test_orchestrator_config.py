@@ -7,6 +7,8 @@ and the CLI wiring works in dry-run.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from click.testing import CliRunner
 
 from cyberai.__main__ import _apply_feature_overrides, cli
@@ -73,6 +75,30 @@ def test_cli_scan_reports_findings_count():
     runner = CliRunner()
     result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run"])
     assert "Findings:" in result.output
+
+
+def test_cli_allow_destructive_reaches_the_config():
+    """exit_code 0 proves only that click accepted the option.
+
+    The assignment is what a mutant removes, and a dry run exits zero
+    without it. Only the config object distinguishes the two.
+    """
+    with patch("cyberai.__main__.Orchestrator") as spy:
+        CliRunner().invoke(cli, ["scan", "t.local", "--allow-destructive", "--dry-run"])
+    # The run cannot exit zero here: a patched Orchestrator returns a mock
+    # session and the save step below rejects it. That step is covered by the
+    # real dry run above; this test owns one seam -- the config reaching the
+    # constructor, which happens before anything downstream can fail.
+    assert spy.called
+    assert spy.call_args.kwargs["config"].allow_destructive is True
+
+
+def test_cli_without_the_flag_leaves_destructive_off():
+    """Control: without this the assertion above passes on a hardcoded True."""
+    with patch("cyberai.__main__.Orchestrator") as spy:
+        CliRunner().invoke(cli, ["scan", "t.local", "--dry-run"])
+    assert spy.called
+    assert spy.call_args.kwargs["config"].allow_destructive is False
 
 
 def test_cli_status_works():
