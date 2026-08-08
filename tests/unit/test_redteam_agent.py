@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
-from cyberai.agents.redteam.agent import RedTeamAgent, _default_channel
+from cyberai.agents.redteam.agent import (
+    RedTeamAgent,
+    _body_for,
+    _channel_for,
+    _default_channel,
+)
 from cyberai.agents.redteam.fuzzer import FuzzReport, FuzzResult
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.scan_session import ScanSession, Severity
@@ -67,7 +72,7 @@ def test_no_plan_or_no_fuzz_subtasks_does_nothing():
         fuzzer = _StubFuzzer()
         result = _run(_agent(plan), fuzzer)
         assert fuzzer.channels == []
-        assert result == {"channels": 0, "confirmed": 0, "reports": []}
+        assert result == {"channels": 0, "confirmed": 0, "flagged": 0, "reports": []}
 
 
 def test_confirmed_result_becomes_a_finding_with_full_confidence():
@@ -244,3 +249,166 @@ def test_exploit_phase_omits_the_key_when_red_team_is_off():
         result = orch._run_exploit(session)
 
     assert "redteam" not in result
+
+
+# ── the contract recon found reaches the request body ─────────────────
+
+
+def test_body_for_uses_the_named_field_alone():
+    """A known field is sent by itself, not alongside five guesses."""
+    body = _body_for("question", "PAYLOAD")
+
+    assert body == {"question": "PAYLOAD"}
+
+
+def test_body_for_sends_messages_as_a_turn_list():
+    """`messages` takes the chat-completions list; a bare string is rejected."""
+    body = _body_for("messages", "PAYLOAD")
+
+    assert body == {"messages": [{"role": "user", "content": "PAYLOAD"}]}
+
+
+def test_body_for_falls_back_to_the_shotgun():
+    """Control: with no field named, every candidate is still tried."""
+    body = _body_for(None, "PAYLOAD")
+
+    assert len(body) > 1
+    assert set(body.values()) == {"PAYLOAD"}
+
+
+def test_planned_channels_keep_the_contract():
+    """The field has to survive the plan-to-channel step, not just exist."""
+    agent = _agent(
+        {
+            "todo": [
+                {"action": "injection-fuzz", "target": CHAT, "prompt_field": "messages"},
+                {"action": "injection-fuzz", "target": RAG},
+            ]
+        }
+    )
+
+    channels = agent._planned_channels()
+
+    assert channels == [
+        {"url": CHAT, "prompt_field": "messages"},
+        {"url": RAG, "prompt_field": None},
+    ]
+
+
+def test_a_named_field_reaches_the_wire():
+    """End to end: a planned contract decides what the channel actually posts."""
+    from unittest.mock import patch
+
+    sent: Dict[str, Any] = {}
+
+    def fake_post(url, json=None, **kwargs):
+        sent["url"] = url
+        sent["json"] = json
+        response = MagicMock()
+        response.text = "ok"
+        return response
+
+    client = MagicMock()
+    client.__enter__ = lambda self: client
+    client.__exit__ = lambda self, *a: False
+    client.post = fake_post
+
+    with patch("cyberai.agents.redteam.agent.httpx.Client", return_value=client):
+        _channel_for(CHAT, "messages")("PAYLOAD")
+
+    assert sent["url"] == CHAT
+    assert sent["json"] == {"messages": [{"role": "user", "content": "PAYLOAD"}]}
+
+
+def test_default_channel_stays_a_one_argument_factory():
+    """Callers supply factories as `lambda url: ...`; that shape is contract."""
+    import inspect
+
+    params = inspect.signature(_default_channel).parameters
+
+    assert len(params) == 1
+
+
+def test_run_builds_a_contract_aware_channel():
+    """run() has to pick the contract-aware factory, not just carry the field.
+
+    The field surviving into _planned_channels proves nothing about which
+    channel run() actually builds: that step is a separate branch, and the
+    one that matters is the one nothing was exercising.
+    """
+    from unittest.mock import patch
+
+    built: List[Any] = []
+
+    def spy(url, prompt_field=None, timeout=None):
+        built.append((url, prompt_field))
+        return lambda payload: "ok"
+
+    agent = _agent(
+        {"todo": [{"action": "injection-fuzz", "target": CHAT, "prompt_field": "messages"}]}
+    )
+    fuzzer = _StubFuzzer()
+
+    with patch("cyberai.agents.redteam.agent._channel_for", spy):
+        result = agent.run("t.local", {"fuzzer": fuzzer})
+
+    assert built == [(CHAT, "messages")]
+    assert result["channels"] == 1
+
+
+def test_run_falls_back_when_no_field_is_known():
+    """Control: without a field the shotgun factory is the one that is built."""
+    from unittest.mock import patch
+
+    built: List[str] = []
+
+    def spy(url):
+        built.append(url)
+        return lambda payload: "ok"
+
+    agent = _agent({"todo": [{"action": "injection-fuzz", "target": RAG}]})
+
+    with patch("cyberai.agents.redteam.agent._default_channel", spy):
+        agent.run("t.local", {"fuzzer": _StubFuzzer()})
+
+    assert built == [RAG]
+
+
+def test_flagged_reaches_the_phase_result():
+    """Heuristic hits have to be counted, not just recorded as findings.
+
+    `confirmed` counts out-of-band callbacks only, which is correct but
+    means a run with no callback channel reports zero however much the
+    channel gave up: a live model echoing the marker on four payloads
+    still logged "0 confirmed" while four findings sat on the session.
+    """
+    hit = FuzzResult(
+        payload_id="xpia-ignore-context",
+        category="xpia",
+        ack_echoed=True,
+        severity="HIGH",
+        detail="acknowledgement marker echoed in response",
+    )
+    agent = _agent({"todo": [{"action": "injection-fuzz", "target": CHAT}]})
+
+    result = _run(agent, _StubFuzzer([hit]))
+
+    assert result["flagged"] == 1
+    assert result["confirmed"] == 0
+
+
+def test_a_reflected_hit_is_not_counted():
+    """Control: the reflection guard has to survive the aggregation step."""
+    reflected = FuzzResult(
+        payload_id="xpia-ignore-context",
+        category="xpia",
+        ack_echoed=True,
+        reflected=True,
+        severity="INFO",
+        detail="marker present but the channel echoed the payload verbatim",
+    )
+    agent = _agent({"todo": [{"action": "injection-fuzz", "target": CHAT}]})
+
+    result = _run(agent, _StubFuzzer([reflected]))
+
+    assert result["flagged"] == 0
