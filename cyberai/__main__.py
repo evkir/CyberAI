@@ -129,6 +129,23 @@ BANNER = """
 """
 
 
+def _parse_auth_headers(pairs: tuple[str, ...]) -> dict[str, str] | None:
+    """Turn repeated "Header: value" arguments into a header mapping.
+
+    A raw pair rather than a --token flag: the credential is not always a
+    bearer token, and a Cookie or an X-API-Key would each need their own
+    option. A malformed pair raises instead of being dropped -- a walk that
+    silently runs anonymous reports 401 as a verdict about the target.
+    """
+    headers: dict[str, str] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition(":")
+        if not sep or not name.strip():
+            raise click.BadParameter(f"expected 'Header: value', got {pair!r}", param_hint="--auth")
+        headers[name.strip()] = value.strip()
+    return headers or None
+
+
 @click.group()
 @click.version_option(__version__, "-V", "--version", prog_name="cyberai")
 def cli() -> None:
@@ -142,6 +159,12 @@ def cli() -> None:
 @click.option("--model", default=None, help="LLM model (overrides provider default)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
+@click.option(
+    "--auth",
+    multiple=True,
+    metavar="'Header: value'",
+    help="Header sent with every web request, e.g. 'Authorization: Bearer <token>' (repeatable)",
+)
 @click.option(
     "--recon-only", is_flag=True, help="Run only the recon phase (safe for external targets)"
 )
@@ -238,6 +261,7 @@ def scan(
     planned_redteam: bool | None,
     native_tools: bool | None,
     llm_summary: bool | None,
+    auth: tuple[str, ...],
 ) -> None:
     """Run full pentest pipeline against TARGET."""
     _detach_stdin_from_tty()
@@ -278,6 +302,8 @@ def scan(
 
     if max_rps:
         config.max_rps = max_rps
+    if auth:
+        config.auth_headers = _parse_auth_headers(auth)
 
     phases = [ScanPhase.RECON] if recon_only else None
     orchestrator = Orchestrator(config=config, phases=phases, dry_run=dry_run)

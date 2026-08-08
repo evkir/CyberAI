@@ -152,6 +152,10 @@ class CyberAIConfig:
     air_gapped: bool = False
     # Cap nmap scan rate (packets/sec) on external/legal targets; None = uncapped.
     max_rps: Optional[int] = None
+    # Headers every web request carries. A target that refuses an anonymous
+    # walk is not clean, only unread; no env variable backs this because a
+    # credential in the environment outlives the run that needed it.
+    auth_headers: Optional[dict[str, str]] = None
 
     @classmethod
     def from_file(cls, path: str) -> "CyberAIConfig":

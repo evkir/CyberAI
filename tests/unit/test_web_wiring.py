@@ -176,6 +176,38 @@ def test_web_report_is_stored_in_the_knowledge_base():
     assert stored["findings"][0]["parameter"] == "host"
 
 
+def test_auth_headers_reach_the_walk():
+    """The credential has to arrive as an argument, not merely be configured.
+
+    A mutant dropping the keyword leaves the call in place and its shape
+    complete -- the default fills in None and every call-count assertion
+    stays green. Only the value distinguishes them.
+    """
+    headers = {"Authorization": "Bearer t0k", "Cookie": "sid=a:b"}
+    agent, session = _exploit_agent(use_web_exploit=True, auth_headers=headers)
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+
+    with patch(
+        "cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()
+    ) as spy:
+        agent.run("t.local")
+
+    assert spy.call_args.kwargs["auth_headers"] == headers
+
+
+def test_a_run_without_a_credential_passes_none():
+    """Control: without this the assertion above passes on a hardcoded value."""
+    agent, session = _exploit_agent(use_web_exploit=True)
+    session.kb.set("recon.web_surface", _SURFACE, agent="recon")
+
+    with patch(
+        "cyberai.agents.exploit.agent.exploit_surface", return_value=_confirmed_report()
+    ) as spy:
+        agent.run("t.local")
+
+    assert spy.call_args.kwargs["auth_headers"] is None
+
+
 def test_missing_surface_is_a_clean_no_op():
     agent, session = _exploit_agent(use_web_exploit=True)
     with patch("cyberai.agents.exploit.agent.exploit_surface") as spy:
