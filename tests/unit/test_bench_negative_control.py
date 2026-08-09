@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from cyberai.bench.evaluator import probe_cmdi, probe_sqli, probe_traversal
+from cyberai.bench.evaluator import probe_cmdi, probe_sqli, probe_ssrf, probe_traversal
 
 
 class _SilentHandler(BaseHTTPRequestHandler):
@@ -79,8 +79,8 @@ def echo_target():
 
 @pytest.mark.parametrize(
     "probe",
-    [probe_sqli, probe_cmdi, probe_traversal],
-    ids=["sqli", "cmdi", "traversal"],
+    [probe_sqli, probe_cmdi, probe_traversal, probe_ssrf],
+    ids=["sqli", "cmdi", "traversal", "ssrf"],
 )
 def test_no_probe_solves_a_silent_hardened_target(probe, silent_target):
     assert probe(silent_target) is False
@@ -88,8 +88,8 @@ def test_no_probe_solves_a_silent_hardened_target(probe, silent_target):
 
 @pytest.mark.parametrize(
     "probe",
-    [probe_sqli, probe_cmdi, probe_traversal],
-    ids=["sqli", "cmdi", "traversal"],
+    [probe_sqli, probe_cmdi, probe_traversal, probe_ssrf],
+    ids=["sqli", "cmdi", "traversal", "ssrf"],
 )
 def test_no_probe_solves_a_reflecting_hardened_target(probe, echo_target):
     assert probe(echo_target) is False

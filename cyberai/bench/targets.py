@@ -97,6 +97,19 @@ LOCAL_SUITE: tuple[VulnTarget, ...] = (
         success_signal="contents of a file outside the web root read via ../ sequences",
         description="Static-file handler joins a user path without normalization.",
     ),
+    VulnTarget(
+        id="local-ssrf-fetch",
+        name="Blind SSRF in URL fetcher",
+        vuln_class=VulnClass.SSRF,
+        cwe="CWE-918",
+        port=8804,
+        app="ssrf_fetch",
+        success_signal="out-of-band collector recorded a callback carrying the run nonce",
+        description=(
+            "Fetch endpoint requests a user-supplied URL and answers identically "
+            "whichever way it goes, so only an out-of-band callback proves it."
+        ),
+    ),
 )
 
 

@@ -15,7 +15,7 @@ inside a container, invisible to coverage).
 
 from __future__ import annotations
 
-from cyberai.bench.apps import cmdi_ping, path_traversal, sqli_login
+from cyberai.bench.apps import cmdi_ping, path_traversal, sqli_login, ssrf_fetch
 from cyberai.bench import evaluator
 from cyberai.bench.targets import LOCAL_SUITE, VulnClass
 
@@ -55,6 +55,32 @@ def test_app_ports_match_the_suite():
         VulnClass.SQLI: sqli_login.PORT,
         VulnClass.COMMAND_INJECTION: cmdi_ping.PORT,
         VulnClass.PATH_TRAVERSAL: path_traversal.PORT,
+        VulnClass.SSRF: ssrf_fetch.PORT,
     }
+    # Every class in the suite must appear above. A table listing a subset
+    # would let a new target drift its port undetected -- the check would pass
+    # by not looking, which is how this file's own SSRF gap survived a mutant.
+    assert {t.vuln_class for t in LOCAL_SUITE} == set(ports)
     for vc, app_port in ports.items():
         assert _target(vc).port == app_port, f"port drift for {vc.value}"
+
+
+def test_the_ssrf_target_answers_identically_whatever_the_fetch_does():
+    """The app's blindness is its contract with the evaluator.
+
+    Every other target leaks its success into the reply. This one must not:
+    the moment it reports an outcome, the response-reading walk confirms it and
+    the target stops covering the out-of-band path it exists to cover.
+    """
+    import inspect
+
+    source = inspect.getsource(ssrf_fetch._fetch)
+    assert source.count("h.respond") == 1, "one reply, no outcome-dependent branch"
+    assert "_CONSTANT_REPLY" in source
+
+
+def test_the_ssrf_fetch_carries_a_timeout():
+    # The bench server is single-threaded: a hanging fetch stops the target
+    # answering anything else, and the run reads as a dead target.
+    assert ssrf_fetch.FETCH_TIMEOUT > 0
+    assert "timeout=FETCH_TIMEOUT" in __import__("inspect").getsource(ssrf_fetch._fetch)
