@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs
 
 from cyberai.bench.evaluator import (
     cmdi_solved_from_evidence,
     evaluate,
     probe_cmdi,
     ssrf_solved_from_evidence,
+    probe_for,
     probe_sqli,
+    probe_ssrf,
     probe_traversal,
     sqli_solved_from_evidence,
     traversal_solved_from_evidence,
@@ -158,3 +161,125 @@ def test_evaluate_ssrf_without_a_marker_is_unsolved():
     # The dispatcher must not substitute a constant here the way CMDi and
     # traversal do; without a nonce there is nothing to prove.
     assert evaluate(_ssrf_target(), "GET /c/AB12 from 172.17.0.2") is False
+
+
+def test_probe_ssrf_against_the_live_blind_target():
+    """The real app, in process: proof arrives out of band or not at all.
+
+    Asserted against the app itself rather than a mock, because what is being
+    checked is that the target issues an outbound request the probe can catch.
+    A mocked httpx call would prove only that the probe formats a URL.
+    """
+    import threading
+    from http.server import HTTPServer
+
+    from cyberai.bench.apps import ssrf_fetch
+
+    server = HTTPServer(("127.0.0.1", 0), ssrf_fetch.Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        assert probe_ssrf(base) is True
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_the_blind_target_reply_carries_no_trace_of_the_outcome():
+    """If the reply differed by outcome the target would not be blind, and the
+    response-reading walk would confirm it -- which is the case this whole
+    target exists to exclude."""
+    import threading
+    from http.server import HTTPServer
+
+    import httpx
+
+    from cyberai.bench.apps import ssrf_fetch
+
+    server = HTTPServer(("127.0.0.1", 0), ssrf_fetch.Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        with httpx.Client(timeout=10) as client:
+            reachable = client.get(f"{base}/fetch", params={"url": base})
+            refused = client.get(f"{base}/fetch", params={"url": "http://127.0.0.1:1/x"})
+            absent = client.get(f"{base}/fetch")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert reachable.text == refused.text == absent.text
+    assert reachable.status_code == refused.status_code == absent.status_code
+
+
+def test_probe_ssrf_ignores_a_callback_that_is_not_ours():
+    """A callback is proof only if it carries this call's nonce.
+
+    A target may reach the collector for reasons of its own -- a health check,
+    a retry of someone else's URL, an unrelated crawler. Counting any arrival
+    would score that as an exploited SSRF, and on a shared collector two runs
+    would start confirming each other. The stand-in target here does issue an
+    outbound request, just not the one it was handed.
+    """
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from urllib.parse import urlparse
+    import urllib.request
+
+    class _NoisyHandler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            params = parse_qs(urlparse(self.path).query)
+            given = (params.get("url") or [""])[0]
+            if given:
+                # Same collector, different path: arrival without our nonce.
+                bits = urlparse(given)
+                try:
+                    urllib.request.urlopen(
+                        f"http://{bits.netloc}/unrelated-traffic", timeout=5
+                    ).read()
+                except Exception:
+                    pass
+            body = b'{"status": "accepted"}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = HTTPServer(("127.0.0.1", 0), _NoisyHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        assert probe_ssrf(f"http://127.0.0.1:{server.server_port}") is False
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_probe_for_routes_the_ssrf_class_to_the_live_probe():
+    """The dispatch branch, not the probe: reaching probe_ssrf only by direct
+    call would leave the path the engine actually takes unexercised -- the
+    shape that has silently dropped fields here before."""
+    import threading
+    from http.server import HTTPServer
+
+    from cyberai.bench.apps import ssrf_fetch
+
+    target = _ssrf_target()
+    server = HTTPServer(("127.0.0.1", 0), ssrf_fetch.Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        assert probe_for(target, base) is True
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
