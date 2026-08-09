@@ -141,7 +141,7 @@ def probe_traversal(base_url: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
         return False
 
 
-def _collector_host(base_url: str) -> str:
+def _collector_host() -> str:
     """The address the target should call back on.
 
     A containerised target reaches the host through the bridge gateway, never
@@ -151,11 +151,15 @@ def _collector_host(base_url: str) -> str:
     instead of arriving here, which is indistinguishable from an unexploitable
     target. An IP cannot be answered by something else.
 
-    A target already on this host is called back on loopback: it has no bridge
-    to cross, and the gateway address may not route from there at all.
+    The same address serves a target in a container and one in this process.
+    Measured: the gateway is a local address on the host, so an in-process
+    target reaches it too. Deciding by `base_url` instead was wrong by
+    construction -- a published port makes a containerised target look exactly
+    like a local one, so the URL answers "where do we reach the target", never
+    "where does the target reach us". That guess sent the callback to a
+    loopback the container does not share, and the run reported a target that
+    is not vulnerable.
     """
-    if "localhost" in base_url or "127.0.0.1" in base_url:
-        return "127.0.0.1"
     try:
         # Sealed like every other docker call here: the CLI would otherwise
         # inherit the operator's HOME and reach the credential helpers in
@@ -214,7 +218,7 @@ def probe_ssrf(base_url: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        callback = f"http://{_collector_host(base_url)}:{server.server_port}/{nonce}"
+        callback = f"http://{_collector_host()}:{server.server_port}/{nonce}"
         with httpx.Client(timeout=timeout) as client:
             client.get(f"{base_url}/fetch", params={"url": callback})
     except httpx.HTTPError as exc:

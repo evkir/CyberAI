@@ -292,19 +292,9 @@ def test_collector_host_reads_the_bridge_gateway_for_a_remote_target():
 
     proc = MagicMock(stdout="172.17.0.1\n")
     with patch("cyberai.bench.evaluator.run_sealed", return_value=proc) as sealed:
-        assert _collector_host("http://192.0.2.10:8804") == "172.17.0.1"
+        assert _collector_host() == "172.17.0.1"
     argv = sealed.call_args.args[0]
     assert argv[:3] == ["docker", "network", "inspect"], "the gateway is asked of docker"
-
-
-def test_collector_host_is_loopback_for_a_target_on_this_host():
-    """No bridge to cross, and the gateway address may not route from here."""
-    from cyberai.bench.evaluator import _collector_host
-
-    with patch("cyberai.bench.evaluator.run_sealed") as sealed:
-        assert _collector_host("http://127.0.0.1:8804") == "127.0.0.1"
-        assert _collector_host("http://localhost:8804") == "127.0.0.1"
-    sealed.assert_not_called()
 
 
 def test_collector_host_falls_back_to_loopback_when_docker_cannot_answer():
@@ -317,10 +307,10 @@ def test_collector_host_falls_back_to_loopback_when_docker_cannot_answer():
     from cyberai.bench.evaluator import _collector_host
 
     with patch("cyberai.bench.evaluator.run_sealed", side_effect=OSError("no docker")):
-        assert _collector_host("http://192.0.2.10:8804") == "127.0.0.1"
+        assert _collector_host() == "127.0.0.1"
 
     with patch("cyberai.bench.evaluator.run_sealed", return_value=MagicMock(stdout="  \n")):
-        assert _collector_host("http://192.0.2.10:8804") == "127.0.0.1"
+        assert _collector_host() == "127.0.0.1"
 
 
 def test_probe_ssrf_reports_unsolved_when_the_target_is_dead():
