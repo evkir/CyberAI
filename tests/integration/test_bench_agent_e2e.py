@@ -25,6 +25,11 @@ from cyberai.bench.apps import cmdi_ping, path_traversal, sqli_login
 from cyberai.bench.docker_builder import RunningTarget
 from cyberai.bench.targets import LocalSuiteAdapter
 
+# The response-provable classes only. The blind SSRF target is deliberately
+# absent: it answers identically whether or not it issued the outbound request,
+# so the response-reading walk drops it by design and no agent verdict here
+# could be anything but unsolved. Its proof lives out of band, and asserting it
+# in this file would turn a designed behaviour into an apparent failure.
 _APPS = {
     "local-sqli-login": sqli_login,
     "local-cmdi-ping": cmdi_ping,
@@ -63,7 +68,7 @@ def traversal_secrets(tmp_path, monkeypatch):
 
 @pytest.fixture
 def live_suite(traversal_secrets):
-    """All three bench apps served in-process, keyed by task id."""
+    """The response-provable bench apps served in-process, keyed by task id."""
     servers = {tid: _serve(mod.Handler) for tid, mod in _APPS.items()}
     try:
         yield {tid: f"http://127.0.0.1:{s.server_port}" for tid, s in servers.items()}
@@ -95,10 +100,18 @@ def test_agents_solve_the_local_suite_and_the_probes_concur(live_suite):
     builder = _InProcessBuilder(live_suite)
     run = make_agent_runner(adapter, builder=builder)
 
-    results = [run(task) for task in adapter.load_tasks()]
+    all_tasks = adapter.load_tasks()
+    tasks = [t for t in all_tasks if t.id in _APPS]
+    # Referenced against the suite, not against _APPS: comparing the filtered
+    # list to the thing that filtered it compares a value with itself. A target
+    # added to the suite without an app here would silently narrow this test.
+    assert {t.id for t in all_tasks} - set(_APPS) == {"local-ssrf-fetch"}, (
+        "only the blind SSRF target may be absent from the response-provable set"
+    )
+    results = [run(task) for task in tasks]
 
-    assert [r.solved for r in results] == [True, True, True], (
-        "the pipeline is expected to prove all three classes unaided"
+    assert [r.solved for r in results] == [True] * len(_APPS), (
+        "the pipeline is expected to prove every response-provable class unaided"
     )
     for r in results:
         assert r.details["agreement"] is True, f"{r.task_id}: agent and probe must concur"
@@ -111,7 +124,8 @@ def test_every_finding_carries_the_proof_that_earned_it(live_suite):
     adapter = LocalSuiteAdapter()
     run = make_agent_runner(adapter, builder=_InProcessBuilder(live_suite))
 
-    findings = [f for task in adapter.load_tasks() for f in run(task).details["findings"]]
+    tasks = [t for t in adapter.load_tasks() if t.id in _APPS]
+    findings = [f for task in tasks for f in run(task).details["findings"]]
 
     assert findings
     for f in findings:

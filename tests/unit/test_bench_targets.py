@@ -11,13 +11,15 @@ from cyberai.bench.targets import (
 )
 
 
-def test_local_suite_has_three_distinct_targets():
+def test_local_suite_has_four_distinct_targets():
     ids = [t.id for t in LOCAL_SUITE]
-    assert len(ids) == 3
-    assert len(set(ids)) == 3
+    assert len(ids) == 4
+    # Uniqueness is asserted against the actual length, not the literal: a
+    # duplicate added alongside a count bump would otherwise pass both.
+    assert len(set(ids)) == len(ids)
     # ports must be unique so containers don't collide
     ports = [t.port for t in LOCAL_SUITE]
-    assert len(set(ports)) == 3
+    assert len(set(ports)) == len(ports)
 
 
 def test_to_bench_task_projects_contract():

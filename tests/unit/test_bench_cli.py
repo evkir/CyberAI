@@ -23,8 +23,8 @@ def test_bench_run_default_suite_exit_zero():
     result = CliRunner().invoke(bench, ["run"])
     assert result.exit_code == 0
     assert "pass@1" in result.output
-    # placeholder runner never fakes success -> 0/3
-    assert "0/3" in result.output
+    # placeholder runner never fakes success -> 0/4
+    assert "0/4" in result.output
 
 
 def test_bench_run_pins_the_seed(monkeypatch):
@@ -190,7 +190,7 @@ def test_bench_run_agent_engine_shows_the_probe_beside_the_agent(monkeypatch):
     # An agent miss on an exploitable target is the number worth acting on:
     # it has to reach the operator, not just the JSON.
     assert "disagreement on local-cmdi-ping" in result.output
-    assert "1/3" in result.output, "score follows the agent, not the probe"
+    assert "1/4" in result.output, "score follows the agent, not the probe"
 
 
 def test_bench_run_agent_engine_falls_back_off_the_local_suite(monkeypatch):
@@ -267,7 +267,7 @@ def test_task_filter_narrows_the_run_and_says_so():
     result = CliRunner().invoke(bench, ["run", "--task", "local-sqli-login"])
 
     assert result.exit_code == 0
-    assert "filtered: 1 of 3" in result.output
+    assert "filtered: 1 of 4" in result.output
     assert "0/1" in result.output, "the denominator is the selection"
     assert "local-cmdi-ping" not in result.output
 
@@ -278,7 +278,7 @@ def test_task_filter_accepts_several_ids():
     )
 
     assert result.exit_code == 0
-    assert "filtered: 2 of 3" in result.output
+    assert "filtered: 2 of 4" in result.output
 
 
 def test_an_unfiltered_run_says_nothing_about_filtering():
@@ -306,7 +306,7 @@ def test_a_filtered_scorecard_carries_the_narrowed_denominator(tmp_path):
     assert result.exit_code == 0
     text = out.read_text()
     assert "filtered" in text
-    assert "1 of 3 tasks: local-sqli-login" in text
+    assert "1 of 4 tasks: local-sqli-login" in text
 
 
 def test_the_grader_verdict_is_not_rendered_as_unknown(monkeypatch):
