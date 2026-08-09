@@ -84,3 +84,34 @@ def test_the_ssrf_fetch_carries_a_timeout():
     # answering anything else, and the run reads as a dead target.
     assert ssrf_fetch.FETCH_TIMEOUT > 0
     assert "timeout=FETCH_TIMEOUT" in __import__("inspect").getsource(ssrf_fetch._fetch)
+
+
+def test_the_ssrf_app_runs_the_way_the_container_runs_it(monkeypatch):
+    """The container path, not the package path.
+
+    Inside the bench container there is no `cyberai` package -- only the apps
+    directory, mounted and used as the working directory -- so the module falls
+    back to a flat `_server` import and is executed as __main__. Neither line
+    is reached by importing the module normally, and if either broke the target
+    would simply never come up: a dead target, not an import error, which reads
+    as an unexploitable one.
+    """
+    import runpy
+    import sys
+    from pathlib import Path
+
+    apps_dir = Path(ssrf_fetch.__file__).parent
+    monkeypatch.syspath_prepend(str(apps_dir))
+    monkeypatch.setitem(sys.modules, "cyberai.bench.apps._server", None)
+
+    served: list[tuple[object, int]] = []
+    monkeypatch.setattr(
+        "_server.serve", lambda handler, port: served.append((handler, port)), raising=False
+    )
+
+    runpy.run_path(str(apps_dir / "ssrf_fetch.py"), run_name="__main__")
+
+    assert len(served) == 1, "the container entrypoint must start the server exactly once"
+    handler, port = served[0]
+    assert port == ssrf_fetch.PORT, "the standalone run must bind the suite's port"
+    assert ("GET", "/fetch") in handler.routes, "the vulnerable route must be registered"
