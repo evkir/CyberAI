@@ -54,10 +54,26 @@ def traversal_solved_from_evidence(file_contents: str, secret_token: str) -> boo
     return bool(secret_token) and secret_token in file_contents
 
 
+def ssrf_solved_from_evidence(collector_record: str, nonce: str) -> bool:
+    """SSRF is solved iff a collector recorded a callback carrying our nonce.
+
+    The evidence is what an out-of-band collector saw, never the target's own
+    reply. A blind SSRF target answers identically whether or not it issued the
+    request, so reading its response could only ever produce a guess.
+
+    The nonce is minted per run and never appears in the target's reply, so a
+    target that merely echoes request input cannot fake a solve. An empty nonce
+    is unsolved: this class has no constant to fall back on, and a fixed one
+    would let any unrelated callback on a shared collector count as proof.
+    """
+    return bool(nonce) and nonce in collector_record
+
+
 def evaluate(target: VulnTarget, evidence: str, marker: str = "") -> bool:
     """Dispatch to the per-class check. `evidence` is whatever the engine got
-    back; `marker` is the unique token for classes that need one (CMDi/traversal).
-    Unknown classes return False (never a false-positive solve)."""
+    back; `marker` is the unique token for classes that need one (CMDi,
+    traversal, SSRF). Unknown classes return False (never a false-positive
+    solve)."""
     vc = target.vuln_class
     if vc is VulnClass.SQLI:
         return sqli_solved_from_evidence(evidence)
@@ -65,6 +81,11 @@ def evaluate(target: VulnTarget, evidence: str, marker: str = "") -> bool:
         return cmdi_solved_from_evidence(evidence, marker or _CMDI_EXPECTED)
     if vc is VulnClass.PATH_TRAVERSAL:
         return traversal_solved_from_evidence(evidence, marker or _TRAVERSAL_FLAG)
+    if vc is VulnClass.SSRF:
+        # Deliberately no `marker or <constant>`: the nonce is per-run by
+        # construction. A constant fallback would score an unrelated callback
+        # on a shared collector as this run's proof.
+        return ssrf_solved_from_evidence(evidence, marker)
     logger.info("no evaluator for class %s; treating as unsolved", vc.value)
     return False
 
