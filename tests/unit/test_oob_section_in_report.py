@@ -107,8 +107,18 @@ def test_a_run_without_a_collector_writes_neither_block(tmp_path):
 
 def test_a_confirmation_is_reported_before_the_open_questions(tmp_path):
     """A proven finding read after two lists of things nobody checked is a
-    finding the reader reaches last."""
+    finding the reader reaches last.
+
+    Presence is asserted before position, and it is not redundant with the
+    naming tests above: `index` raises on a missing block, so a renderer that
+    dropped the block entirely would fail here for the wrong reason and this
+    test would look like it was pinning order when it was pinning existence.
+    A renderer that emits the block in the wrong place still emits it, and
+    that is the mutation this has to catch.
+    """
     md = _markdown(tmp_path, OOB_REPORT)
+    for block in ("Confirmed out of band", "Value not read", "Left unverified"):
+        assert block in md, f"{block} is missing, so its position proves nothing"
     assert md.index("Confirmed out of band") < md.index("Value not read")
     assert md.index("Value not read") < md.index("Left unverified")
 
