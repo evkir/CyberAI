@@ -25,6 +25,7 @@ FLAGS = [
     ("planned_redteam", "use_planned_redteam", "CYBERAI_USE_PLANNED_REDTEAM"),
     ("native_tools", "use_native_tools", "CYBERAI_USE_NATIVE_TOOLS"),
     ("llm_summary", "use_llm_summary", "CYBERAI_USE_LLM_SUMMARY"),
+    ("oob", "use_oob", "CYBERAI_USE_OOB"),
 ]
 
 IDS = [f[0] for f in FLAGS]

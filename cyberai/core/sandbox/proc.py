@@ -18,6 +18,7 @@ door: environment-borne secret exfiltration. Containerisation covers the rest.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -28,6 +29,8 @@ from typing import IO, Any, Mapping, Optional, Sequence
 _BASE_ENV_KEYS = ("PATH", "LANG", "LC_ALL", "TERM", "TZ")
 
 _FALLBACK_PATH = "/usr/local/bin:/usr/bin:/bin"
+
+logger = logging.getLogger("cyberai.core.sandbox")
 
 # Defence in depth: even if an allowlist entry is wrong, these never pass.
 _SECRET_PATTERN = re.compile(
@@ -148,3 +151,44 @@ def popen_sealed(
         stderr=stderr,
         text=True,
     )
+
+
+def bridge_gateway_host(fallback: str = "127.0.0.1") -> str:
+    """The address a containerised process reaches this host on.
+
+    A container cannot reach us through its own loopback, so anything that
+    asks a container to call back -- an out-of-band collector, a bench probe --
+    has to name the bridge gateway. The address is read at run time rather than
+    named: `host.docker.internal` resolves even where it was never mapped, a
+    DNS interceptor answers it, and the callback then leaves for a proxy
+    instead of arriving here. That failure is indistinguishable from a target
+    that is not vulnerable. An IP cannot be answered by something else.
+
+    The same address serves a process in a container and one on this host,
+    because the gateway is a local address here too. Deriving it from the
+    target's URL instead was wrong by construction: a published port makes a
+    containerised target look exactly like a local one, so the URL answers
+    "where do we reach the target", never "where does the target reach us".
+
+    `fallback` is returned when Docker cannot answer at all. It is not a
+    working callback address for a container -- nothing is, without Docker --
+    but it keeps a caller on this host working.
+    """
+    try:
+        # Sealed like every other docker call: the CLI would otherwise inherit
+        # the operator's HOME and reach the credential helpers in ~/.docker.
+        proc = run_sealed(
+            [
+                "docker",
+                "network",
+                "inspect",
+                "bridge",
+                "--format",
+                "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
+            ],
+            timeout=10,
+        )
+    except (SealedEnvError, subprocess.SubprocessError, OSError) as exc:
+        logger.warning("bridge gateway lookup failed: %s", exc)
+        return fallback
+    return proc.stdout.strip() or fallback

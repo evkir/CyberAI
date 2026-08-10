@@ -161,6 +161,8 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     phantom = report.get("phantom_endpoints")
     enumerable = report.get("enumerable_params")
     bola = report.get("bola_params")
+    oob_confirmed = report.get("oob_confirmed_params")
+    oob_unverified = report.get("oob_unverified_params")
     # Validated here rather than in the renderer below, because the heading
     # counts these before anything is rendered: a string would arrive as its
     # own length and report five untested parameters that do not exist.
@@ -170,8 +172,20 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     phantom = phantom if isinstance(phantom, list) else []
     enumerable = enumerable if isinstance(enumerable, list) else []
     bola = bola if isinstance(bola, list) else []
+    oob_confirmed = oob_confirmed if isinstance(oob_confirmed, list) else []
+    oob_unverified = oob_unverified if isinstance(oob_unverified, list) else []
     tested = report.get("endpoints_tested", 0)
-    if not (tested or unauthorized or inert or destructive or phantom or enumerable or bola):
+    if not (
+        tested
+        or unauthorized
+        or inert
+        or destructive
+        or phantom
+        or enumerable
+        or bola
+        or oob_confirmed
+        or oob_unverified
+    ):
         return []
 
     sent = report.get("requests_sent", 0)
@@ -182,6 +196,17 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
         f"Endpoints tested: {tested} | Requests sent: {sent} | Confirmed: {confirmed}",
         "",
     ]
+    if oob_confirmed:
+        lines += [
+            f"### Confirmed out of band ({len(oob_confirmed)})",
+            "",
+            "These parameters made the target call a collector we control. The "
+            "response is identical whichever way the vector goes, so the "
+            "callback is the only evidence this class can produce -- and it is "
+            "evidence of execution, observed from outside the target.",
+            "",
+        ]
+        lines += _param_lines(oob_confirmed) + [""]
     if unauthorized:
         lines += [
             f"### Not reached ({len(unauthorized)})",
@@ -220,10 +245,23 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
             "",
             "Every payload of the first class drew an identical response, so the "
             "value is not reaching anything. A blind vector looks the same from "
-            "here; these are the candidates for an out-of-band re-check.",
+            "here, which is what the out-of-band check answers; without it, "
+            "these are the candidates for one.",
             "",
         ]
         lines += _param_lines(inert) + [""]
+    if oob_unverified:
+        lines += [
+            f"### Left unverified ({len(oob_unverified)})",
+            "",
+            "The out-of-band check could not run against these -- the collector "
+            "was unreachable or the delivery was refused. This says nothing "
+            "about the target: it is our own instrument reporting that it did "
+            "not measure. Re-run with a working collector before treating any "
+            "of them as clean.",
+            "",
+        ]
+        lines += _param_lines(oob_unverified) + [""]
     if destructive:
         lines += [
             f"### Skipped as state-changing ({len(destructive)})",

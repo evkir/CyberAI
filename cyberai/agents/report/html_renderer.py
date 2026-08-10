@@ -75,8 +75,10 @@ def _render_web_exploitation(kb: Dict[str, Any]) -> str:
     if not isinstance(report, dict):
         return ""
     groups = [
+        ("Confirmed out of band", "oob_confirmed_params", _param_row),
         ("Untested -- refused without a credential", "unauthorized_params", _param_row),
         ("Value not read", "inert_params", _param_row),
+        ("Left unverified -- the check could not run", "oob_unverified_params", _param_row),
         ("Skipped as state-changing", "destructive_endpoints", _endpoint_row),
         ("Not routed", "phantom_endpoints", _endpoint_row),
         ("Enumerable identifier", "enumerable_params", _param_row),

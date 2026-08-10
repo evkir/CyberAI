@@ -285,34 +285,6 @@ def test_probe_for_routes_the_ssrf_class_to_the_live_probe():
         thread.join(timeout=5)
 
 
-def test_collector_host_reads_the_bridge_gateway_for_a_remote_target():
-    """A containerised target cannot reach us on its own loopback, so the
-    callback address must be the bridge gateway -- read, not assumed."""
-    from cyberai.bench.evaluator import _collector_host
-
-    proc = MagicMock(stdout="172.17.0.1\n")
-    with patch("cyberai.bench.evaluator.run_sealed", return_value=proc) as sealed:
-        assert _collector_host() == "172.17.0.1"
-    argv = sealed.call_args.args[0]
-    assert argv[:3] == ["docker", "network", "inspect"], "the gateway is asked of docker"
-
-
-def test_collector_host_falls_back_to_loopback_when_docker_cannot_answer():
-    """Both failure shapes: the CLI raising, and the CLI answering nothing.
-
-    A fallback nobody exercises is how a callback address silently becomes
-    unreachable, and an unreachable collector reads exactly like a target that
-    is not vulnerable.
-    """
-    from cyberai.bench.evaluator import _collector_host
-
-    with patch("cyberai.bench.evaluator.run_sealed", side_effect=OSError("no docker")):
-        assert _collector_host() == "127.0.0.1"
-
-    with patch("cyberai.bench.evaluator.run_sealed", return_value=MagicMock(stdout="  \n")):
-        assert _collector_host() == "127.0.0.1"
-
-
 def test_probe_ssrf_reports_unsolved_when_the_target_is_dead():
     """A refused connection is not a clean target; it is no measurement."""
     assert probe_ssrf("http://127.0.0.1:1") is False

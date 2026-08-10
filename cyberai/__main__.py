@@ -60,6 +60,7 @@ def _apply_feature_overrides(
     air_gapped: bool | None = None,
     web_recon: bool | None = None,
     web_exploit: bool | None = None,
+    oob: bool | None = None,
     api_discovery: bool | None = None,
     probe_routes: bool | None = None,
     plan_web_order: bool | None = None,
@@ -89,6 +90,8 @@ def _apply_feature_overrides(
         config.use_behavioral_fingerprint = behavioral
     if nuclei is not None:
         config.use_nuclei = nuclei
+    if oob is not None:
+        config.use_oob = oob
     if judge is not None:
         config.use_judge = judge
     if replan is not None:
@@ -188,6 +191,11 @@ def cli() -> None:
     "--nuclei/--no-nuclei", default=None, help="Force the nuclei exploit engine on or off"
 )
 @click.option(
+    "--oob/--no-oob",
+    default=None,
+    help="Confirm blind parameters via an out-of-band callback (needs phantom-grid)",
+)
+@click.option(
     "--judge/--no-judge", default=None, help="Force the LLM-as-Judge report check on or off"
 )
 @click.option(
@@ -260,6 +268,7 @@ def scan(
     air_gapped: bool | None,
     web_recon: bool | None,
     web_exploit: bool | None,
+    oob: bool | None,
     api_discovery: bool | None,
     probe_routes: bool | None,
     plan_web_order: bool | None,
@@ -298,6 +307,7 @@ def scan(
         air_gapped=air_gapped,
         web_recon=web_recon,
         web_exploit=web_exploit,
+        oob=oob,
         api_discovery=api_discovery,
         probe_routes=probe_routes,
         plan_web_order=plan_web_order,

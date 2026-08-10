@@ -15,7 +15,6 @@ only part that touches the network.
 from __future__ import annotations
 
 import logging
-import subprocess
 import threading
 import time
 import uuid
@@ -24,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import httpx
 
 from cyberai.bench.targets import VulnClass, VulnTarget
-from cyberai.core.sandbox import SealedEnvError, run_sealed
+from cyberai.core.sandbox import bridge_gateway_host
 
 logger = logging.getLogger("cyberai.bench.evaluator")
 
@@ -141,47 +140,6 @@ def probe_traversal(base_url: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
         return False
 
 
-def _collector_host() -> str:
-    """The address the target should call back on.
-
-    A containerised target reaches the host through the bridge gateway, never
-    through its own loopback. The gateway address is read at run time rather
-    than named: `host.docker.internal` resolves even where it was never mapped
-    -- a DNS interceptor answers it -- and the callback then leaves for a proxy
-    instead of arriving here, which is indistinguishable from an unexploitable
-    target. An IP cannot be answered by something else.
-
-    The same address serves a target in a container and one in this process.
-    Measured: the gateway is a local address on the host, so an in-process
-    target reaches it too. Deciding by `base_url` instead was wrong by
-    construction -- a published port makes a containerised target look exactly
-    like a local one, so the URL answers "where do we reach the target", never
-    "where does the target reach us". That guess sent the callback to a
-    loopback the container does not share, and the run reported a target that
-    is not vulnerable.
-    """
-    try:
-        # Sealed like every other docker call here: the CLI would otherwise
-        # inherit the operator's HOME and reach the credential helpers in
-        # ~/.docker, which a bench probe has no business touching.
-        proc = run_sealed(
-            [
-                "docker",
-                "network",
-                "inspect",
-                "bridge",
-                "--format",
-                "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
-            ],
-            timeout=10,
-        )
-    except (SealedEnvError, subprocess.SubprocessError, OSError) as exc:
-        logger.warning("bridge gateway lookup failed: %s", exc)
-        return "127.0.0.1"
-    host = proc.stdout.strip()
-    return host or "127.0.0.1"
-
-
 class _CollectorHandler(BaseHTTPRequestHandler):
     """Records the path of every callback it receives."""
 
@@ -218,7 +176,7 @@ def probe_ssrf(base_url: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        callback = f"http://{_collector_host()}:{server.server_port}/{nonce}"
+        callback = f"http://{bridge_gateway_host()}:{server.server_port}/{nonce}"
         with httpx.Client(timeout=timeout) as client:
             client.get(f"{base_url}/fetch", params={"url": callback})
     except httpx.HTTPError as exc:

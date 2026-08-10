@@ -123,6 +123,11 @@ class CyberAIConfig:
     use_web_recon: bool = False
     # Flag-gated: attack the discovered HTTP surface directly (non-blind).
     use_web_exploit: bool = False
+    # Flag-gated: confirm the parameters the direct walk could not read through
+    # an out-of-band callback. Off by default: it needs a reachable collector,
+    # and a parameter that is not vulnerable costs the collector's full wait
+    # before it says so.
+    use_oob: bool = False
     # Flag-gated: read spec and JS bundles when the HTML shell exposes nothing.
     use_api_discovery: bool = False
     # Flag-gated: ask discovered routes whether they read an undeclared
@@ -203,6 +208,7 @@ class CyberAIConfig:
             use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
             use_web_recon=_env_bool("CYBERAI_USE_WEB_RECON", False),
             use_web_exploit=_env_bool("CYBERAI_USE_WEB_EXPLOIT", False),
+            use_oob=_env_bool("CYBERAI_USE_OOB", False),
             use_api_discovery=_env_bool("CYBERAI_USE_API_DISCOVERY", False),
             use_route_probing=_env_bool("CYBERAI_USE_ROUTE_PROBING", False),
             use_plan_web_order=_env_bool("CYBERAI_USE_PLAN_WEB_ORDER", False),
