@@ -109,12 +109,14 @@ def test_a_confirmation_is_reported_before_the_open_questions(tmp_path):
     """A proven finding read after two lists of things nobody checked is a
     finding the reader reaches last.
 
-    Presence is asserted before position, and it is not redundant with the
-    naming tests above: `index` raises on a missing block, so a renderer that
-    dropped the block entirely would fail here for the wrong reason and this
-    test would look like it was pinning order when it was pinning existence.
-    A renderer that emits the block in the wrong place still emits it, and
-    that is the mutation this has to catch.
+    Presence is asserted before position for the message, not for the check.
+    Measured under a mutant that moves the block down the section: both
+    blocks are present and the bare comparison fails on its own, so the loop
+    adds no coverage over `index(a) < index(b)`.
+
+    What it adds is diagnosis. A renderer that dropped the block entirely
+    makes `index` raise, and a ValueError does not say which block went
+    missing; the loop names it. Order is caught either way.
     """
     md = _markdown(tmp_path, OOB_REPORT)
     for block in ("Confirmed out of band", "Value not read", "Left unverified"):
