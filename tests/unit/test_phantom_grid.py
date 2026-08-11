@@ -100,6 +100,27 @@ _REAL_HTTP_ROW = {
 }
 
 
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_a_valid_signature_behind_a_non_200_is_not_a_grid(mock_httpx):
+    """The signature check must not be reachable past a failed status gate.
+
+    Written because the status branch was the one line of the fix no arm
+    exercised: every existing arm answers 200 and discriminates on the
+    body. A server that emits the grid's exact health payload while
+    reporting 503 is not serving -- a proxy error page carrying a cached
+    body, or the grid itself mid-restart. Body shape alone must not
+    promote it. Kills the mutant that drops the status gate: the body
+    here is byte-identical to _REAL_HEALTH, so the signature half of the
+    condition passes and only the status half can return False.
+    """
+    mock_resp = MagicMock()
+    mock_resp.status_code = 503
+    mock_resp.json.return_value = _REAL_HEALTH
+    mock_httpx.return_value.__enter__.return_value.get.return_value = mock_resp
+
+    assert PhantomGridClient(base_url="http://127.0.0.1:9090").available is False
+
+
 def _mock_get(mock_httpx, payload):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
