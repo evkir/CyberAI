@@ -18,6 +18,54 @@ def test_client_unavailable_when_server_down():
     assert client.available is False
 
 
+# Captured verbatim from a live phantom-grid v2.0 server (GET /health).
+_REAL_HEALTH = {"db": True, "status": "ok"}
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_a_live_grid_is_available(mock_httpx):
+    _mock_get(mock_httpx, _REAL_HEALTH)
+    assert PhantomGridClient(base_url="http://127.0.0.1:9090").available is True
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_a_foreign_app_on_the_grid_port_is_not_a_grid(mock_httpx):
+    """cyberai/bench publishes the evaluated app on 9090, the grid's own port.
+
+    A bench target that answers 200 on /health -- the shape of any app with
+    a catch-all route -- used to be accepted as a grid. Measured against a
+    real catch-all server before this fix: available was True, and
+    capture_url handed out a callback URL pointing at the target itself.
+    """
+    _mock_get(mock_httpx, {"app": "NOT-THE-GRID", "path": "/health"})
+    assert PhantomGridClient(base_url="http://127.0.0.1:9090").available is False
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_a_generic_status_ok_health_endpoint_is_not_a_grid(mock_httpx):
+    """`{"status": "ok"}` is the most common health payload there is.
+
+    Matching on it alone would accept half the web as a phantom-grid, so
+    the db key carries the discrimination. Written because a mutant that
+    dropped the db requirement survived against the catch-all arm above:
+    that server answers with neither field, so it never exercised this
+    half of the condition.
+    """
+    _mock_get(mock_httpx, {"status": "ok"})
+    assert PhantomGridClient(base_url="http://127.0.0.1:9090").available is False
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_a_grid_with_no_database_file_yet_is_still_a_grid(mock_httpx):
+    """db is os.path.exists(DB_PATH) server-side, false before the first write.
+
+    Requiring db to be true would call a freshly started grid unavailable,
+    which is the cure being worse than the disease.
+    """
+    _mock_get(mock_httpx, {"db": False, "status": "ok"})
+    assert PhantomGridClient(base_url="http://127.0.0.1:9090").available is True
+
+
 def test_new_interaction_id_unique():
     client = PhantomGridClient()
     ids = {client.new_interaction_id() for _ in range(10)}
