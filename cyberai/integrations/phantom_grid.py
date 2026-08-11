@@ -75,10 +75,29 @@ class PhantomGridClient:
         return self._available
 
     def _check_health(self) -> bool:
+        """True only when /health answers with the grid's own signature.
+
+        Any 200 used to be enough, and the grid's default port is the same
+        one cyberai/bench publishes the evaluated application on. A bench
+        target answering 200 on /health therefore made the client report a
+        grid that was not there: fuzz reports carried oob_used=True with no
+        channel behind it, the OOB workflow spent both payload batches
+        before returning confirmed=False without an error, and capture_url
+        handed out callback URLs pointing at the benchmark target itself.
+
+        The signature is `status: ok` plus a `db` key, which phantom-grid's
+        health route emits as {"status": "ok", "db": <bool>}. The value of
+        `db` is deliberately not required: it is os.path.exists(DB_PATH) on
+        the server, and a grid that has not yet written its SQLite file is
+        still a grid.
+        """
         try:
             with httpx.Client(timeout=3) as client:
                 r = client.get(f"{self.base_url}/health")
-                return r.status_code == 200
+                if r.status_code != 200:
+                    return False
+                body = r.json()
+                return isinstance(body, dict) and body.get("status") == "ok" and "db" in body
         except Exception:
             return False
 
