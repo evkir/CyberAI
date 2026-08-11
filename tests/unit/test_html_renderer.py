@@ -195,8 +195,9 @@ def _live_kb(web_report):
     """A real KnowledgeBase, not the nested dict the constants above use.
 
     The section reads a flat dotted key; a test on a plain dict would pass
-    on a shape the product never builds. Tail R is exactly that mistake
-    made on three older sections, green tests and an empty page.
+    on a shape the product never builds. The constants above are that
+    shape: they nest everything under one `exploit` dict, which the agent
+    does write, but the web report never lands there.
     """
     from cyberai.core.scan_session import ScanSession
 
@@ -235,6 +236,34 @@ def test_the_web_section_names_the_counts(tmp_path):
     render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
     content = Path(output).read_text()
     assert "187" in content
+
+
+def test_the_web_section_is_not_filed_under_the_attack_paths_heading(tmp_path):
+    """The heading has to sit over the table it names.
+
+    The template used to open with the Attack Paths heading and only then
+    substitute the web section, so a confirmed SQL injection printed under a
+    heading for CVE-driven machinery that produced nothing on that run.
+
+    Both blocks are asserted present first. That is for the failure message,
+    not for the check: `index` raises on a missing block and a ValueError
+    does not say which one went missing. The comparison catches the order
+    either way.
+    """
+    from cyberai.core.scan_session import ScanSession
+
+    session = ScanSession(target="http://127.0.0.1:3000")
+    session.kb.set("exploit.web", _WEB_REPORT, agent="exploit")
+    session.kb.set("exploit", {"attack_paths": KB["exploit"]["attack_paths"]}, agent="exploit")
+
+    output = str(tmp_path / "order.html")
+    render_html_report(SESSION, session.kb, output_path=output)
+    content = Path(output).read_text()
+
+    for block in ("Web Exploitation", "Attack Paths", "CVE-2024-1234"):
+        assert block in content, f"{block} is missing, so its position proves nothing"
+    assert content.index("Web Exploitation") < content.index("Attack Paths")
+    assert content.index("Attack Paths") < content.index("CVE-2024-1234")
 
 
 def test_a_run_without_a_web_phase_writes_no_web_section(tmp_path):
