@@ -9,7 +9,6 @@ phase against a real path on disk.
 
 from pathlib import Path
 
-from cyberai.core.logger import AuditLogger
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanSession, Severity
@@ -33,9 +32,6 @@ def test_a_session_finding_reaches_the_html_file(tmp_path, monkeypatch):
     config.output_dir = tmp_path
     orch = Orchestrator(config)
     session = _session(tmp_path)
-    # run() builds the audit logger before it dispatches any phase; calling one
-    # phase on its own has to stand that up the same way.
-    orch.audit = AuditLogger(session_id=session.session_id)
 
     monkeypatch.chdir(tmp_path)
     result = orch._run_report(session)

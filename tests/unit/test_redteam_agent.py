@@ -183,7 +183,6 @@ def test_orchestrator_runs_red_team_when_enabled():
     from cyberai.core.orchestrator import Orchestrator
 
     orch = Orchestrator(CyberAIConfig(use_planned_redteam=True))
-    orch.audit = MagicMock()
     session = ScanSession(target="t.local")
     session.kb_set("plan", PLAN)
 
@@ -210,7 +209,6 @@ def test_exploit_phase_merges_red_team_result():
     from cyberai.core.orchestrator import Orchestrator
 
     orch = Orchestrator(CyberAIConfig(use_planned_redteam=True))
-    orch.audit = MagicMock()
     session = ScanSession(target="t.local")
     session.kb_set("plan", PLAN)
 
@@ -236,7 +234,6 @@ def test_exploit_phase_omits_the_key_when_red_team_is_off():
     from cyberai.core.orchestrator import Orchestrator
 
     orch = Orchestrator(CyberAIConfig())
-    orch.audit = MagicMock()
     session = ScanSession(target="t.local")
 
     exploit_agent = MagicMock()

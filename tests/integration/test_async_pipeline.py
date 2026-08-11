@@ -4,7 +4,7 @@ Uses mocked agents — no live targets needed.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from cyberai.core.async_base_agent import AsyncBaseAgent
 from cyberai.core.pipeline import AsyncPipeline, PipelineResult
 
@@ -343,7 +343,6 @@ class TestAsyncOrchestrator:
         from cyberai.core.scan_session import ScanSession, ScanPhase
 
         orch = self._orchestrator()
-        orch.audit = MagicMock()
         session = ScanSession(target="t.local")
 
         # _run_intel is the sync handler inherited from Orchestrator;
