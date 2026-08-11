@@ -196,6 +196,19 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
         f"Endpoints tested: {tested} | Requests sent: {sent} | Confirmed: {confirmed}",
         "",
     ]
+
+    # "off" prints nothing: it is the default for every run that did not ask
+    # for a collector, and a line saying so on most reports is noise. The two
+    # states worth a line are the ones that change how the sections below read.
+    channel = report.get("oob_channel")
+    if channel == "live":
+        lines += ["Out-of-band collector: reachable for this run.", ""]
+    elif channel == "unavailable":
+        lines += [
+            "Out-of-band collector: requested and not reachable. Nothing below "
+            "could be confirmed out of band, whatever the target did.",
+            "",
+        ]
     if oob_confirmed:
         lines += [
             f"### Confirmed out of band ({len(oob_confirmed)})",
