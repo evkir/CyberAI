@@ -123,3 +123,33 @@ def test_check_phase_injection_still_flags_real_smuggling():
     assert any(
         f.severity == Severity.MEDIUM and "Prompt-injection" in f.title for f in session.findings
     )
+
+
+def test_a_single_phase_runs_without_standing_up_the_audit_logger(tmp_path):
+    """One phase called on its own must not need the caller to patch in audit.
+
+    run() assigns self.audit before it dispatches anything, so every phase
+    handler reads an attribute that only exists on the full-pipeline path.
+    Five test sites compensated by assigning it by hand. The report phase is
+    the proof because it writes a file: if audit were still missing the call
+    would raise AttributeError before any agent was built.
+    """
+    from pathlib import Path
+
+    from cyberai.core.config import CyberAIConfig
+    from cyberai.core.scan_session import ScanSession
+
+    config = CyberAIConfig()
+    config.output_dir = str(tmp_path)
+    orch = Orchestrator(config)
+    session = ScanSession(target="t.local")
+
+    result = orch._run_report(session)
+
+    # The phase produced its artefact, so the agent accepted audit=None and
+    # built its own logger from the session -- the contract BaseAgent already
+    # declared.
+    assert Path(result["html_report"]).is_file()
+    # And it did so without the orchestrator quietly building one: a logger
+    # appearing here would mean the None path was never exercised.
+    assert orch.audit is None

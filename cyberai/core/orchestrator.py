@@ -60,6 +60,15 @@ class Orchestrator:
         # Lazy per-phase model router; built on first phase that needs the LLM.
         self._router = None
 
+        # Published here, not in run(): every phase handler reaches for
+        # self.audit, and calling one phase on its own is a supported
+        # entry point. Five test sites had to stand the attribute up by
+        # hand, and _run_recon_async read it through getattr -- both are
+        # the shape of an attribute that exists too late. None is the
+        # only honest value before a session exists: BaseAgent already
+        # accepts audit=None and builds its own logger from the session.
+        self.audit: Optional[AuditLogger] = None
+
     # ── llm (lazy) ────────────────────────────────────────────────────
 
     @property
@@ -483,7 +492,7 @@ class AsyncOrchestrator(Orchestrator):
         if getattr(self.config, "use_web_recon", False):
             from cyberai.agents.recon.agent import ReconAgent
 
-            web_agent = ReconAgent(self.config, session, None, getattr(self, "audit", None))
+            web_agent = ReconAgent(self.config, session, None, self.audit)
             await asyncio.to_thread(web_agent._run_web_recon, session.target)
 
         # Validated ReconResult so the planner KB graph gets port/service/
