@@ -97,6 +97,18 @@ def _render_web_exploitation(kb: Dict[str, Any]) -> str:
         f"Requests sent: {_escape(str(report.get('requests_sent', 0)))} | "
         f"Confirmed: {_escape(str(report.get('confirmed', 0)))}</p>",
     ]
+
+    # Mirrors the markdown section: "off" is the default on every run that did
+    # not ask for a collector, so it prints nothing. The value is compared, not
+    # rendered, which is why nothing here needs escaping.
+    channel = report.get("oob_channel")
+    if channel == "live":
+        parts.append("<p>Out-of-band collector: reachable for this run.</p>")
+    elif channel == "unavailable":
+        parts.append(
+            "<p>Out-of-band collector: requested and not reachable. Nothing "
+            "below could be confirmed out of band, whatever the target did.</p>"
+        )
     for title, items, row in present:
         parts.append(f"<h3>{_escape(title)} ({len(items)})</h3>")
         parts.append("<ul>" + "".join(row(i) for i in items) + "</ul>")

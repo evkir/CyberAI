@@ -56,6 +56,37 @@ def test_the_web_section_reaches_the_written_document(tmp_path):
     assert "Endpoints tested: 13" in md
 
 
+def test_a_reachable_collector_is_stated_in_the_document(tmp_path):
+    """Whether a callback could have arrived is a property of the run, and it
+    is not derivable from the sections below: zero confirmations read the same
+    way whether the target was clean or the collector was dead."""
+    md = _written_markdown(
+        _agent(tmp_path, {**WEB_REPORT, "oob_channel": "live"}).run("http://127.0.0.1:3000")
+    )
+    assert "Out-of-band collector: reachable" in md
+
+
+def test_an_unreachable_collector_is_stated_in_the_document(tmp_path):
+    """The state that changes how the rest of the section reads. Measured on
+    Juice Shop against a foreign app holding the grid port: findings were
+    byte-identical to the live-grid run, so the document alone could not tell
+    an operator that nothing had been confirmable out of band."""
+    md = _written_markdown(
+        _agent(tmp_path, {**WEB_REPORT, "oob_channel": "unavailable"}).run("http://127.0.0.1:3000")
+    )
+    assert "requested and not reachable" in md
+    assert "Out-of-band collector: reachable for this run." not in md
+
+
+def test_a_run_that_never_asked_for_a_collector_says_nothing(tmp_path):
+    """ "off" is the default on every run without --oob. A line on each of them
+    would be noise, and noise on the common path is how a real line stops
+    being read. WEB_REPORT carries no oob_channel key at all here, which is
+    also the shape of any report written before the field existed."""
+    md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
+    assert "Out-of-band collector" not in md
+
+
 def test_the_written_document_names_the_untested_parameter(tmp_path):
     """An address someone can act on, not a count of ten."""
     md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
