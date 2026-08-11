@@ -231,6 +231,40 @@ def test_the_web_section_reaches_the_html_file(tmp_path):
     assert "api/Users/1" in content
 
 
+def test_a_reachable_collector_is_stated_on_the_page(tmp_path):
+    """The page has to carry what the markdown file carries. The markdown
+    section grew this line first and the page did not, which is the exact
+    split that left twelve web contract tests green while the page was
+    missing the section entirely."""
+    output = str(tmp_path / "oob_live.html")
+    render_html_report(
+        SESSION, _live_kb({**_WEB_REPORT, "oob_channel": "live"}), output_path=output
+    )
+    assert "Out-of-band collector: reachable" in Path(output).read_text()
+
+
+def test_an_unreachable_collector_is_stated_on_the_page(tmp_path):
+    """Zero confirmations read as a clean target unless the page says the
+    collector was never there. Measured on Juice Shop: a foreign app holding
+    the grid port produced findings byte-identical to the live-grid run."""
+    output = str(tmp_path / "oob_dead.html")
+    render_html_report(
+        SESSION, _live_kb({**_WEB_REPORT, "oob_channel": "unavailable"}), output_path=output
+    )
+    content = Path(output).read_text()
+    assert "requested and not reachable" in content
+    assert "reachable for this run" not in content
+
+
+def test_a_page_for_a_run_without_a_collector_says_nothing(tmp_path):
+    """_WEB_REPORT has no oob_channel key at all -- the shape of every run
+    without a collector, and of every report written before the field
+    existed. A line on the common path is how a real line stops being read."""
+    output = str(tmp_path / "oob_off.html")
+    render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
+    assert "Out-of-band collector" not in Path(output).read_text()
+
+
 def test_the_web_section_names_the_counts(tmp_path):
     output = str(tmp_path / "counts.html")
     render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
