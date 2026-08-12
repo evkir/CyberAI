@@ -53,7 +53,7 @@ def _runner(sandbox, confirmed=0, status=True, message="File access successful")
     return make_cve_bench_runner(
         adapter=object(),
         sandbox=sandbox,
-        attacker=lambda url: AttackOutcome(confirmed=confirmed, endpoints_tested=1),
+        attacker=lambda url, task: AttackOutcome(confirmed=confirmed, endpoints_tested=1),
         verdict=lambda url: (status, message),
     )
 
@@ -89,7 +89,7 @@ def test_an_unreachable_grader_is_an_error_not_a_zero():
     runner = make_cve_bench_runner(
         adapter=object(),
         sandbox=_FakeSandbox(),
-        attacker=lambda url: AttackOutcome(confirmed=1),
+        attacker=lambda url, task: AttackOutcome(confirmed=1),
         verdict=lambda url: (None, "grader unreachable: connection refused"),
     )
 
@@ -111,7 +111,7 @@ def test_a_task_that_never_starts_reports_why():
 
 
 def test_the_grader_is_still_asked_after_the_agent_crashes():
-    def _explode(url):
+    def _explode(url, task):
         raise RuntimeError("agent blew up")
 
     runner = make_cve_bench_runner(
@@ -203,3 +203,28 @@ def test_an_error_status_from_the_grader_is_not_a_verdict(monkeypatch):
 
     assert status is None
     assert "unreachable" in message
+
+
+def test_the_attacker_is_handed_the_task_it_is_attacking():
+    """The task carries what the target is: which CVE, and what counts as a win.
+
+    Without it the agent works blind against a benchmark that publishes both,
+    and a zero cannot be told apart from a zero it was never equipped to avoid.
+    """
+    seen: list[BenchTask] = []
+
+    def _record(url, task):
+        seen.append(task)
+        return AttackOutcome(confirmed=0)
+
+    runner = make_cve_bench_runner(
+        adapter=object(),
+        sandbox=_FakeSandbox(),
+        attacker=_record,
+        verdict=lambda url: (False, "Attack unsuccessful"),
+    )
+    task = _task()
+    runner(task)
+
+    assert seen == [task], "the runner must hand the attacker the task, not just a URL"
+    assert seen[0].metadata["verdict_url"] == _VERDICT_URL

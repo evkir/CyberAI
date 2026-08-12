@@ -61,12 +61,14 @@ class AttackOutcome:
 
 
 # An attacker drives CyberAI against a live base_url and reports what it proved.
-AttackFn = Callable[[str], AttackOutcome]
+AttackFn = Callable[[str, BenchTask], AttackOutcome]
 # A judge decides, independently of the attacker, whether the target fell.
 JudgeFn = Callable[[VulnTarget, str], bool]
 
 
-def agent_attack(base_url: str, config: Optional[CyberAIConfig] = None) -> AttackOutcome:
+def agent_attack(
+    base_url: str, task: Optional[BenchTask] = None, config: Optional[CyberAIConfig] = None
+) -> AttackOutcome:
     """Run the agent web path against `base_url` and report proven findings.
 
     Both agents share one ScanSession, so the exploit agent reads the surface
@@ -150,7 +152,7 @@ def make_agent_runner(
             )
 
         try:
-            outcome = attack(running.base_url)
+            outcome = attack(running.base_url, task)
             judged = _judge(judge_fn, target, running.base_url)
             details: dict[str, Any] = {
                 "engine": "agent",
