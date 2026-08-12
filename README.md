@@ -4,8 +4,8 @@
 ![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-v1.4.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-1996%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.5.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1998%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-core%20typed-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -18,7 +18,7 @@
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
 
-*Real run: the local benchmark suite against three vulnerable targets in Docker — pass@1 3/3. Reproduce with `cyberai bench run --suite local --engine real`.*
+*Real run: the local benchmark suite against four vulnerable targets in Docker — pass@1 4/4. The fourth is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
 
 </div>
 
@@ -278,14 +278,15 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
 
-Latest run of the local suite (CyberAI 1.3.0, `--engine real`):
+Latest run of the local suite (CyberAI 1.4.0, `--engine real`):
 
 | vuln class | solved | total | rate |
 | --- | --- | --- | --- |
 | sqli | 1 | 1 | 100% |
 | command_injection | 1 | 1 | 100% |
 | path_traversal | 1 | 1 | 100% |
-| **pass@1** | **3** | **3** | **100%** |
+| ssrf | 1 | 1 | 100% |
+| **pass@1** | **4** | **4** | **100%** |
 
 Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
 guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. No external-benchmark score

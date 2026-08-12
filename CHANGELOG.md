@@ -2,6 +2,56 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.5.0] - 2026-08-12
+
+### The HTTP surface, and the vectors a response cannot prove
+
+The platform walked networks and read CVEs; a bespoke web application has
+neither. This work gives it the other half: discovering the HTTP surface a
+target actually exposes, attacking it under real credentials, and — for the
+class where every reply is identical — proving execution from outside the
+target instead of guessing from the response.
+
+### Added
+- **Out-of-band confirmation on the product path** — parameters that look
+  inert are re-tested through a collector we control. A blind vector and a
+  parameter nothing reads produce the same response; only an observed
+  callback separates them. The verdict reaches Markdown, HTML and JSON, and
+  a run records whether a channel existed at all, so zero confirmations no
+  longer read the same way whether the target was clean or the collector was
+  dead. Behind `--oob`; a run without it is unchanged.
+- **HTTP surface discovery and exploitation** — recon reads API specs and JS
+  bundles for the routes an application assembles rather than declares, and
+  probes them for parameters no documentation names. The exploit phase walks
+  what it finds, independent of CVE data.
+- **Credentials and destructive endpoints** — `--auth` carries headers into
+  every request of the walk, and `--allow-destructive` opens DELETE/PUT/PATCH
+  endpoints that are otherwise recorded and skipped.
+- **Object-level authorization** — the walk asks whether an identifier
+  addresses a real object and whether anyone may address it, and names both
+  the enumerable identifiers and the missing per-object check.
+- **A blind SSRF target in the local suite** — a fourth class whose success
+  signal is a callback rather than a response, with the evaluator criterion
+  to score it. The suite runs 4/4.
+- **The model on web targets** — an executive section written over the
+  HTTP-surface report, plus red-team results for the LLM channels recon
+  found, rendered in Markdown, HTML and JSON.
+- **LLM usage in the session** — token counts, cost and the reason a run made
+  no call at all.
+
+### Fixed
+- **Endpoints that never existed** — a target answering its application shell
+  for every absent path made every guessed route look real. Those are
+  fingerprinted and dropped, and the ones that remain are named.
+- **Findings the report did not carry** — the web phase, the AI analysis and
+  the executive section each reached the JSON export or the renderer and
+  stopped there. All three now reach the documents a reader opens.
+- **The out-of-band collector's health check** — a 200 from anything on the
+  port counted as the grid answering. The signature is verified, so an
+  unrelated service on 9090 no longer produces false confirmations.
+- **Marker echo scored as a finding** — a channel that merely reflected the
+  payload back was counted as having executed it.
+
 ## [1.4.0] - 2026-07-24
 
 ### Autonomy and unified reporting
