@@ -261,3 +261,40 @@ def test_a_run_that_tested_nothing_but_found_this_still_writes_the_section(tmp_p
 def test_a_run_without_a_broken_object_check_writes_no_such_block(tmp_path: Path):
     md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
     assert "Object authorization" not in md
+
+
+def test_an_out_of_band_confirmation_is_counted_in_the_summary(tmp_path):
+    """The summary line is the first thing read, and it counts findings only.
+    A blind vector proven by a callback produces no finding, so the line said
+    zero on a run that had proven one -- next to a section stating the
+    opposite. Two numbers, because they are two classes of evidence: what the
+    target answered, and what it did.
+    """
+    md = _written_markdown(
+        _agent(
+            tmp_path,
+            {
+                **WEB_REPORT,
+                "confirmed": 0,
+                "oob_channel": "live",
+                "oob_confirmed_params": [
+                    {
+                        "url": "http://127.0.0.1:8804/fetch",
+                        "parameter": "url",
+                        "method": "GET",
+                        "transport": "query",
+                    }
+                ],
+            },
+        ).run("http://127.0.0.1:3000")
+    )
+    assert "Confirmed: 0 (1 more out of band)" in md
+
+
+def test_a_run_without_out_of_band_confirmations_says_nothing_extra(tmp_path):
+    """The addition is silent where it has nothing to add: every run that
+    confirmed nothing out of band reads exactly as it did before.
+    """
+    md = _written_markdown(_agent(tmp_path, WEB_REPORT).run("http://127.0.0.1:3000"))
+    assert "Confirmed: 1" in md
+    assert "out of band)" not in md

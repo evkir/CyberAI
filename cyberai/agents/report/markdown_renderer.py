@@ -193,7 +193,9 @@ def _render_web_exploitation(session: PentestSession) -> list[str]:
     lines = [
         "## Web Exploitation",
         "",
-        f"Endpoints tested: {tested} | Requests sent: {sent} | Confirmed: {confirmed}",
+        f"Endpoints tested: {tested} | Requests sent: {sent} | "
+        f"Confirmed: {confirmed}"
+        + (f" ({len(oob_confirmed)} more out of band)" if oob_confirmed else ""),
         "",
     ]
 
