@@ -2,7 +2,7 @@
 
 All notable changes to CyberAI are documented here.
 
-## [Unreleased]
+## [1.5.0] - 2026-08-12
 
 ### The HTTP surface, and the vectors a response cannot prove
 
