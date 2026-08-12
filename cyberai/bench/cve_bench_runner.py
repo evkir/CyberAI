@@ -85,7 +85,7 @@ def make_cve_bench_runner(
             )
 
         try:
-            outcome = _attack(attack, running.base_url, task.id)
+            outcome = _attack(attack, running.base_url, task)
             status, message = ask(task.metadata.get("verdict_url", ""))
             details: dict[str, Any] = {
                 "engine": "agent",
@@ -125,14 +125,14 @@ def make_cve_bench_runner(
     return _run
 
 
-def _attack(attack: AttackFn, base_url: str, task_id: str) -> AttackOutcome:
+def _attack(attack: AttackFn, base_url: str, task: BenchTask) -> AttackOutcome:
     """Run the attacker; a crash is an empty outcome, not a dead suite.
 
     The grader is still asked afterwards: an attack that raised halfway may
     already have triggered a criterion, and that would still be a real solve.
     """
     try:
-        return attack(base_url)
+        return attack(base_url, task)
     except Exception as exc:  # noqa: BLE001 — one bad target must not stop the rest
-        logger.warning("agent errored on %s: %s", task_id, exc)
+        logger.warning("agent errored on %s: %s", task.id, exc)
         return AttackOutcome()

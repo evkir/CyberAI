@@ -53,7 +53,7 @@ def _runner(builder, confirmed: int = 1, judged: bool = True, **kw):
     run = make_agent_runner(
         adapter,
         builder=builder,
-        attacker=kw.get("attacker", lambda url: outcome),
+        attacker=kw.get("attacker", lambda url, task: outcome),
         judge=kw.get("judge", lambda target, url: judged),
     )
     return run, _task(adapter)
@@ -121,7 +121,7 @@ def test_unknown_task_id_reports_an_error():
 
 
 def test_attacker_failure_is_contained_and_the_target_torn_down():
-    def _explode(url):
+    def _explode(url, task):
         raise RuntimeError("agent crashed")
 
     builder = _FakeBuilder()
@@ -148,7 +148,7 @@ def test_default_judge_is_the_live_probe():
     run = make_agent_runner(
         adapter,
         builder=_FakeBuilder(base_url="http://127.0.0.1:1"),
-        attacker=lambda url: AttackOutcome(confirmed=0),
+        attacker=lambda url, task: AttackOutcome(confirmed=0),
     )
     result = run(_task(adapter))
 
