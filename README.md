@@ -18,7 +18,7 @@
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
 
-*Real run: the local benchmark suite against three vulnerable targets in Docker — pass@1 3/3. Reproduce with `cyberai bench run --suite local --engine real`.*
+*Real run: the local benchmark suite against four vulnerable targets in Docker — pass@1 4/4. The fourth is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
 
 </div>
 
