@@ -60,3 +60,44 @@ cyberai scan http://127.0.0.1:3000 --scope 127.0.0.1 \
 
 Without `--provider`, the pipeline runs rule-based and the report omits the
 analysis section — everything else is identical.
+
+## `blind-ssrf/`
+
+A blind SSRF run against our own local target, kept because it is the one case
+the response cannot answer. The fetch endpoint returns the same body, status
+and length whichever way the request goes, so nothing in the reply separates a
+vector that fired from a parameter nothing reads.
+
+| what | result |
+| --- | --- |
+| endpoints discovered | 1 |
+| requests sent | 10 |
+| confirmed by response | 0 |
+| confirmed out of band | 1 — SSRF, CWE-918, parameter `url` |
+| proof | the target opened an HTTP connection to a collector we control |
+
+The summary line reads `Confirmed: 0 (1 more out of band)` for that reason: the
+target answered nothing, and it still did something. Both numbers are in the
+report because they are different classes of evidence, and a run that collapses
+them tells the reader less than it knows.
+
+The collector is phantom-grid, reached at the Docker bridge gateway. A
+container cannot call back to a loopback address — it reaches its own — so the
+address is read at run time rather than named.
+
+### Reproduce
+
+```bash
+git clone --depth 1 https://github.com/evkir/phantom-grid /tmp/phantom-grid
+(cd /tmp/phantom-grid && python3 server/server.py) &
+
+docker run -d --rm --name cyberai-bench-local-ssrf-fetch -p 8804:8804 \
+  -v "$PWD/cyberai/bench/apps:/apps:ro" -w /apps \
+  python:3.12-slim python /apps/ssrf_fetch.py 8804
+
+cyberai scan http://127.0.0.1:8804 --scope 127.0.0.0/8 --oob \
+  --provider ollama --model qwen2.5-coder:14b
+```
+
+Without `--oob` the parameter is reported as inert: the walk sees the same
+identical responses and has nothing else to go on.

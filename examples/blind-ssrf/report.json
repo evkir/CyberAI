@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "generated": "2026-08-12T15:07:13.491160+00:00",
+    "tool": "CyberAI",
+    "version": "1.4.0"
+  },
+  "session": {
+    "id": "1ba046e2",
+    "target": "http://127.0.0.1:8804",
+    "state": "report",
+    "created_at": "2026-08-12T15:07:03.130714+00:00"
+  },
+  "summary": {
+    "session_id": "1ba046e2",
+    "target": "http://127.0.0.1:8804",
+    "state": "report",
+    "created_at": "2026-08-12T15:07:03.130714+00:00",
+    "started_at": "2026-08-12T15:07:03.131500+00:00",
+    "ended_at": null,
+    "duration_s": null,
+    "phases": [
+      {
+        "phase": "recon",
+        "success": true,
+        "duration_s": 1.62246,
+        "error": null
+      },
+      {
+        "phase": "intel",
+        "success": true,
+        "duration_s": 0.006998,
+        "error": null
+      },
+      {
+        "phase": "exploit",
+        "success": true,
+        "duration_s": 8.718555,
+        "error": null
+      }
+    ],
+    "findings_total": 3,
+    "severity_breakdown": {
+      "CRITICAL": 0,
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0,
+      "INFO": 2
+    },
+    "errors": [],
+    "kb_keys": [
+      "recon.nmap",
+      "recon.whois",
+      "recon.dns",
+      "recon.subdomains",
+      "recon.llm_endpoints",
+      "recon.web_surface",
+      "recon.result",
+      "recon",
+      "intel",
+      "exploit.web",
+      "exploit"
+    ]
+  },
+  "findings": [
+    {
+      "id": 1,
+      "title": "HTTP attack surface on http://127.0.0.1:8804",
+      "severity": "INFO",
+      "description": "Discovered 1 endpoint(s) carrying injectable parameters across the web target.",
+      "target": "http://127.0.0.1:8804",
+      "cve_ids": [],
+      "evidence": [
+        "GET http://127.0.0.1:8804/fetch (url)"
+      ],
+      "agent": "recon",
+      "domain": "Network",
+      "timestamp": "2026-08-12T15:07:04.718709+00:00"
+    },
+    {
+      "id": 2,
+      "title": "Port data unreliable \u2014 target behind proxy/tunnel",
+      "severity": "INFO",
+      "description": "nmap reported 781 open ports on http://127.0.0.1:8804, implausible for a real host and characteristic of a fake-ip proxy, tunnel, or tarpit answering every probe. Version probing was skipped; this port list must not be read as an attack surface.",
+      "target": "http://127.0.0.1:8804",
+      "cve_ids": [],
+      "evidence": [
+        "open_ports=781",
+        "mass-open proxy/tunnel/tarpit signature"
+      ],
+      "agent": "recon",
+      "domain": "Network",
+      "timestamp": "2026-08-12T15:07:04.718742+00:00"
+    },
+    {
+      "id": 3,
+      "title": "Blind vector confirmed out of band on 'url'",
+      "severity": "HIGH",
+      "description": "GET http://127.0.0.1:8804/fetch -- parameter 'url' made the target call a collector we control. The response is identical either way, so the callback is the only evidence this vector can produce.",
+      "target": "http://127.0.0.1:8804/fetch",
+      "cve_ids": [],
+      "evidence": [
+        {
+          "url": "http://127.0.0.1:8804/fetch",
+          "parameter": "url",
+          "method": "GET",
+          "transport": "query",
+          "source": "hint"
+        }
+      ],
+      "agent": "exploit",
+      "domain": "Network",
+      "timestamp": "2026-08-12T15:07:08.122479+00:00"
+    }
+  ],
+  "findings_by_domain": {
+    "Network": [
+      1,
+      2,
+      3
+    ]
+  },
+  "attack_paths": [],
+  "web_exploitation": {
+    "confirmed": 0,
+    "endpoints_tested": 1,
+    "requests_sent": 10,
+    "budget_exhausted": false,
+    "endpoints_skipped": 0,
+    "endpoints_destructive": 0,
+    "destructive_endpoints": [],
+    "params_inert": 1,
+    "inert_params": [
+      {
+        "url": "http://127.0.0.1:8804/fetch",
+        "parameter": "url",
+        "method": "GET",
+        "transport": "query",
+        "source": "hint"
+      }
+    ],
+    "params_unauthorized": 0,
+    "unauthorized_params": [],
+    "requests_unreachable": 0,
+    "endpoints_phantom": 0,
+    "phantom_endpoints": [],
+    "params_enumerable": 0,
+    "enumerable_params": [],
+    "params_bola": 0,
+    "bola_params": [],
+    "params_oob_confirmed": 1,
+    "oob_confirmed_params": [
+      {
+        "url": "http://127.0.0.1:8804/fetch",
+        "parameter": "url",
+        "method": "GET",
+        "transport": "query",
+        "source": "hint"
+      }
+    ],
+    "params_oob_unverified": 0,
+    "oob_unverified_params": [],
+    "oob_channel": "live",
+    "findings": []
+  },
+  "ai_analysis": "The automated HTTP-surface walk against the target `http://127.0.0.1:8804` did not yield any confirmed vulnerabilities. The endpoint `/fetch` with the parameter `url` was identified as inert, meaning it ignored the input and did not provide any direct evidence of its behavior in the response body. There were no unauthorized parameters encountered, which suggests that all accessed endpoints either accepted or rejected the inputs based on authorization without further testing. Given this outcome, the highest-value next step for a human operator should be to manually verify the inert parameter by injecting various payloads to assess if it has any unexpected behaviors or side effects that were not captured during the automated scan.",
+  "redteam": {},
+  "knowledge_base_keys": [
+    "recon.nmap",
+    "recon.whois",
+    "recon.dns",
+    "recon.subdomains",
+    "recon.llm_endpoints",
+    "recon.web_surface",
+    "recon.result",
+    "recon",
+    "intel",
+    "exploit.web",
+    "exploit"
+  ]
+}
