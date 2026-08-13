@@ -10,8 +10,9 @@ not exist yet, it says so.
 
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
-pipeline over a shared knowledge base. Around 18,800 lines of Python, 1,038
-tests green, mypy strict clean on the checked surface, MIT.
+pipeline over a shared knowledge base. 24,158 lines of Python under
+`cyberai/` plus 24,040 lines of tests, 1,999 of them green on this commit,
+`mypy --strict` clean on the typed core (`cyberai/core/types.py`), MIT.
 
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.
@@ -28,12 +29,12 @@ server or an LLM/RAG endpoint belonging to the *target*, and attacks it:
 
 | module | what it does |
 | --- | --- |
-| `mcp_scan/poisoning.py` | hidden instructions in tool descriptions and schemas |
-| `mcp_scan/overprivilege.py` | declared capability vs. what a tool actually reaches |
-| `mcp_scan/attestation.py` | missing message/origin authentication |
-| `mcp_scan/exposure.py` | locally-bound servers reachable from outside, DNS rebinding |
-| `mcp_scan/trust.py` | implicit trust propagation between chained servers |
-| `redteam/fuzzer.py` | live injection fuzzing of any LLM channel |
+| `cyberai/agents/mcp_scan/poisoning.py` | hidden instructions in tool descriptions and schemas |
+| `cyberai/agents/mcp_scan/overprivilege.py` | declared capability vs. what a tool actually reaches |
+| `cyberai/agents/mcp_scan/attestation.py` | missing message/origin authentication |
+| `cyberai/agents/mcp_scan/exposure.py` | locally-bound servers reachable from outside, DNS rebinding |
+| `cyberai/agents/mcp_scan/trust.py` | implicit trust propagation between chained servers |
+| `cyberai/agents/redteam/fuzzer.py` | live injection fuzzing of any LLM channel |
 
 A finding from the fuzzer is only promoted to confirmed when an out-of-band
 callback lands. Injected canaries are served through
@@ -72,18 +73,35 @@ cyberai web3 audit ./contracts --immunefi
 The field is loud. A reproducible scorecard is cheaper to trust than a press
 release, so every number ships with the method that produced it.
 
-**Local suite — pass@1 3/3 (100%).** Three deliberately vulnerable targets
-(SQL injection, command injection, path traversal) built and served from this
-repository, run in Docker by the real engine.
+**Local suite — pass@1 4/4 (100%), twice over.** Four deliberately vulnerable
+targets (SQL injection, command injection, path traversal, blind SSRF) built
+and served from this repository, run in Docker. `--engine real` fires fixed
+per-class probes and answers whether the targets and the harness are sound.
+`--engine agent` answers the question that matters: recon discovers the
+surface, exploit attacks it, and nothing is known about the target beyond its
+URL. Both score 4/4, and the two verdicts are compared task by task — a
+disagreement is recorded as a finding rather than smoothed over.
 
 ```bash
 cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
 ```
+
+The environment variable is not decoration. The blind-SSRF target answers
+identically whichever way it goes, so the only proof it can produce is an
+out-of-band callback carrying the run nonce; that path is off by default
+because a parameter that is not vulnerable costs the collector's full wait
+before it says so. Without the flag the agent run is 3/4 and disagrees with the
+probe. Both numbers were measured, and the flag is published with them. Task
+list and method: `docs/benchmarks/local-suite.md`.
 
 Read that number correctly: **this suite is authored by the same project it
 measures.** It proves the engine end-to-end works against live targets and it
-guards against regression. It is *not* evidence of competitive standing, and it
-should not be compared to CVE-Bench or CyBench results.
+guards against regression. It is *not* evidence of competitive standing: a
+self-authored 100% ranks this project against nobody, and the number must not be
+read as a score on the same scale as CVE-Bench or CyBench. What it can be set
+beside is the external result below — not to compare magnitudes, but because who
+wrote the suite is exactly what separates the two figures.
 
 **EVMBench detect — adapter shipped, numbers pending.** The grader is a
 deterministic class-overlap proxy rather than the upstream LLM judge: fully
@@ -91,10 +109,30 @@ reproducible offline, never drifts with a judge model, but a recall *lower
 bound* and coarser than upstream. That tradeoff is documented in
 `docs/benchmarks/evmbench.md` rather than hidden in a footnote.
 
-**External benchmarks — not run yet.** No CVE-Bench or CyBench figure is
-claimed anywhere in this project. When they exist they will be published
-whatever they say; published agents currently score in the low teens on
-CVE-Bench, and a low honest number is more useful than a high unverifiable one.
+**CVE-Bench — 0/3, and the reason is one, not three.** Three tasks
+(CVE-2024-4442, CVE-2024-5084, CVE-2024-36412) against an upstream checkout,
+graded by the upstream grader running inside the target container. Not solved,
+published anyway.
+
+The three failures share a cause. All three runs report no machine-readable API
+surface: `spec_url` null, zero routes, and the only endpoint source was links
+scraped out of the HTML. So the walk attacked whatever the landing page linked
+to — on the WordPress target, eight static assets under `/wp-includes/` carrying
+a cache-busting parameter. Eight inert parameters out of eight is the correct
+answer to the question that was actually asked.
+
+The question worth asking was elsewhere, and the targets volunteer it: both
+announce their API in a `Link` response header — `/wp-json/`, which answers 200,
+and `/api/docs.jsonld`, which answers 403. Nothing in the recon path parses that
+header, and API discovery knows OpenAPI and Swagger paths only, which its module
+docstring states plainly. That is a capability not claimed, not a defect. 218
+requests, 27 parameters, zero confirmed — and the score stays at zero until the
+recon path can read the surface these targets publish.
+
+Put beside the 4/4 above, the pair is the point: the suite we wrote passes, the
+suite we did not write does not, and both numbers ship with the method that
+produced them. A self-authored 100% on its own would be worth very little. Full
+measurement: `docs/benchmarks/cve-bench.md`.
 
 Every run emits a manifest with engine version, provider, model and timestamp,
 and a regression gate fails the build when solve-rate drops between releases.
@@ -108,8 +146,8 @@ pipeline still runs today, not on release day.
 
 Red-team and NDA work often forbids sending client infrastructure to a
 third-party API. CyberAI runs the full pipeline on local models through Ollama
-or vLLM, and `core/egress_guard.py` asserts the absence of outbound calls in
-local mode; `core/model_router.py` selects a model per phase, so a cheap local
+or vLLM, and `cyberai/core/egress_guard.py` asserts the absence of outbound
+calls in local mode; `cyberai/core/model_router.py` selects a model per phase, so a cheap local
 model handles recon while a stronger one handles exploitation when policy
 allows it.
 
