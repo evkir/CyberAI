@@ -52,6 +52,21 @@ target instead of guessing from the response.
 - **Marker echo scored as a finding** — a channel that merely reflected the
   payload back was counted as having executed it.
 
+### Docs
+
+- **CVE-Bench, measured rather than promised** — a three-task run scoring
+  0/3, with the cause: no target published a spec the recon path can read,
+  so the walk attacked whatever the landing page linked to. The numbers,
+  the shared cause and the criterion that is within reach are written down
+  in `docs/benchmarks/cve-bench.md` instead of left for a launch post.
+
+### Changed
+
+- **The bench attacker receives the task** — the CVE-Bench adapter parses
+  what a task is and what counts as solving it; the runner passed only a
+  URL. The task now reaches the attacker. Nothing downstream consults it
+  yet, and that is stated where it is true rather than implied away.
+
 ## [1.4.0] - 2026-07-24
 
 ### Autonomy and unified reporting
