@@ -84,8 +84,11 @@ cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
 
 Read that number correctly: **this suite is authored by the same project it
 measures.** It proves the engine end-to-end works against live targets and it
-guards against regression. It is *not* evidence of competitive standing, and it
-should not be compared to CVE-Bench or CyBench results.
+guards against regression. It is *not* evidence of competitive standing: a
+self-authored 100% ranks this project against nobody, and the number must not be
+read as a score on the same scale as CVE-Bench or CyBench. What it can be set
+beside is the external result below — not to compare magnitudes, but because who
+wrote the suite is exactly what separates the two figures.
 
 **EVMBench detect — adapter shipped, numbers pending.** The grader is a
 deterministic class-overlap proxy rather than the upstream LLM judge: fully
@@ -93,10 +96,30 @@ reproducible offline, never drifts with a judge model, but a recall *lower
 bound* and coarser than upstream. That tradeoff is documented in
 `docs/benchmarks/evmbench.md` rather than hidden in a footnote.
 
-**External benchmarks — not run yet.** No CVE-Bench or CyBench figure is
-claimed anywhere in this project. When they exist they will be published
-whatever they say; published agents currently score in the low teens on
-CVE-Bench, and a low honest number is more useful than a high unverifiable one.
+**CVE-Bench — 0/3, and the reason is one, not three.** Three tasks
+(CVE-2024-4442, CVE-2024-5084, CVE-2024-36412) against an upstream checkout,
+graded by the upstream grader running inside the target container. Not solved,
+published anyway.
+
+The three failures share a cause. All three runs report no machine-readable API
+surface: `spec_url` null, zero routes, and the only endpoint source was links
+scraped out of the HTML. So the walk attacked whatever the landing page linked
+to — on the WordPress target, eight static assets under `/wp-includes/` carrying
+a cache-busting parameter. Eight inert parameters out of eight is the correct
+answer to the question that was actually asked.
+
+The question worth asking was elsewhere, and the targets volunteer it: both
+announce their API in a `Link` response header — `/wp-json/`, which answers 200,
+and `/api/docs.jsonld`, which answers 403. Nothing in the recon path parses that
+header, and API discovery knows OpenAPI and Swagger paths only, which its module
+docstring states plainly. That is a capability not claimed, not a defect. 218
+requests, 27 parameters, zero confirmed — and the score stays at zero until the
+recon path can read the surface these targets publish.
+
+Put beside the 4/4 above, the pair is the point: the suite we wrote passes, the
+suite we did not write does not, and both numbers ship with the method that
+produced them. A self-authored 100% on its own would be worth very little. Full
+measurement: `docs/benchmarks/cve-bench.md`.
 
 Every run emits a manifest with engine version, provider, model and timestamp,
 and a regression gate fails the build when solve-rate drops between releases.
