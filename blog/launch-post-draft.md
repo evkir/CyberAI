@@ -10,8 +10,9 @@ not exist yet, it says so.
 
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
-pipeline over a shared knowledge base. Around 18,800 lines of Python, 1,038
-tests green, mypy strict clean on the checked surface, MIT.
+pipeline over a shared knowledge base. 24,158 lines of Python under
+`cyberai/` plus 24,040 lines of tests, 1,999 of them green on this commit,
+`mypy --strict` clean on the typed core (`cyberai/core/types.py`), MIT.
 
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.
@@ -28,12 +29,12 @@ server or an LLM/RAG endpoint belonging to the *target*, and attacks it:
 
 | module | what it does |
 | --- | --- |
-| `mcp_scan/poisoning.py` | hidden instructions in tool descriptions and schemas |
-| `mcp_scan/overprivilege.py` | declared capability vs. what a tool actually reaches |
-| `mcp_scan/attestation.py` | missing message/origin authentication |
-| `mcp_scan/exposure.py` | locally-bound servers reachable from outside, DNS rebinding |
-| `mcp_scan/trust.py` | implicit trust propagation between chained servers |
-| `redteam/fuzzer.py` | live injection fuzzing of any LLM channel |
+| `cyberai/agents/mcp_scan/poisoning.py` | hidden instructions in tool descriptions and schemas |
+| `cyberai/agents/mcp_scan/overprivilege.py` | declared capability vs. what a tool actually reaches |
+| `cyberai/agents/mcp_scan/attestation.py` | missing message/origin authentication |
+| `cyberai/agents/mcp_scan/exposure.py` | locally-bound servers reachable from outside, DNS rebinding |
+| `cyberai/agents/mcp_scan/trust.py` | implicit trust propagation between chained servers |
+| `cyberai/agents/redteam/fuzzer.py` | live injection fuzzing of any LLM channel |
 
 A finding from the fuzzer is only promoted to confirmed when an out-of-band
 callback lands. Injected canaries are served through
@@ -72,9 +73,10 @@ cyberai web3 audit ./contracts --immunefi
 The field is loud. A reproducible scorecard is cheaper to trust than a press
 release, so every number ships with the method that produced it.
 
-**Local suite — pass@1 3/3 (100%).** Three deliberately vulnerable targets
-(SQL injection, command injection, path traversal) built and served from this
-repository, run in Docker by the real engine.
+**Local suite — pass@1 4/4 (100%).** Four deliberately vulnerable targets
+(SQL injection, command injection, path traversal, SSRF) built and served from
+this repository, run in Docker by the real engine. Task list and method:
+`docs/benchmarks/local-suite.md`.
 
 ```bash
 cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
@@ -108,8 +110,8 @@ pipeline still runs today, not on release day.
 
 Red-team and NDA work often forbids sending client infrastructure to a
 third-party API. CyberAI runs the full pipeline on local models through Ollama
-or vLLM, and `core/egress_guard.py` asserts the absence of outbound calls in
-local mode; `core/model_router.py` selects a model per phase, so a cheap local
+or vLLM, and `cyberai/core/egress_guard.py` asserts the absence of outbound
+calls in local mode; `cyberai/core/model_router.py` selects a model per phase, so a cheap local
 model handles recon while a stronger one handles exploitation when policy
 allows it.
 
