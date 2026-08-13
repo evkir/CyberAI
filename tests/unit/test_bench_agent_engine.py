@@ -230,3 +230,51 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
 
     agent_attack("http://t")
     assert seen["cfg"].use_web_recon is True and seen["cfg"].use_web_exploit is True
+
+
+def test_out_of_band_confirmation_counts_as_solved():
+    """A blind vector proves itself off the wire or not at all.
+
+    The local SSRF target answers identically whichever way it goes, so its
+    declared success signal is a callback, never a response body. A criterion
+    that reads only in-band proofs scores it unsolvable for the agent while the
+    probe solves it every run, and the gap is logged as a pipeline miss.
+    """
+    assert AttackOutcome(confirmed=0, oob_confirmed=1).solved is True
+    assert AttackOutcome(confirmed=0, oob_confirmed=0).solved is False
+
+
+def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatch):
+    """The exploit report counts confirmed callbacks; the outcome must read it.
+
+    params_oob_confirmed was produced by the exploit walk and consumed by
+    nobody on this path: the field existed, the callback landed, and the bench
+    still recorded an unsolved target.
+    """
+
+    class _Recon:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_exploit(self, base_url):
+            return {
+                "confirmed": 0,
+                "endpoints_tested": 1,
+                "requests_sent": 10,
+                "findings": [],
+                "params_oob_confirmed": 1,
+            }
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+    outcome = agent_attack("http://t")
+    assert outcome.oob_confirmed == 1
+    assert outcome.requests_sent == 10
+    assert outcome.solved is True
