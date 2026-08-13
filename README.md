@@ -278,7 +278,7 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
 
-Latest run of the local suite (CyberAI 1.4.0, `--engine real`):
+Latest run of the local suite (CyberAI 1.5.0, `--engine real`, 2026-08-13):
 
 | vuln class | solved | total | rate |
 | --- | --- | --- | --- |
@@ -289,8 +289,7 @@ Latest run of the local suite (CyberAI 1.4.0, `--engine real`):
 | **pass@1** | **4** | **4** | **100%** |
 
 Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
-guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. No external-benchmark score
-is claimed anywhere in this repository. The full scorecard, including the run manifest, is committed at
+guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard, including the run manifest, is committed at
 [examples/local-bench/scorecard.md](examples/local-bench/scorecard.md).
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard

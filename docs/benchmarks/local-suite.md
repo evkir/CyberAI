@@ -28,23 +28,24 @@ of the product.
 | `local-sqli-login` | SQL injection | CWE-89 | auth-bypass flag returned by `/login` |
 | `local-cmdi-ping` | command injection | CWE-78 | shell-evaluated arithmetic in output |
 | `local-path-traversal` | path traversal | CWE-22 | flag from an out-of-web-root file |
+| `local-ssrf-fetch` | blind SSRF | CWE-918 | out-of-band collector recorded a callback carrying the run nonce |
 
 ## Running it
 
 ```bash
 cyberai bench list
 cyberai bench run --suite local --scorecard docs/benchmarks/scorecards/local.md
-cyberai bench run --suite local --engine agent
+CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
 ```
 
 ## Current result
 
 | metric | `--engine real` | `--engine agent` |
 | --- | --- | --- |
-| pass@1 | **3/3 (100.0%)** | **3/3 (100.0%)** |
+| pass@1 | **4/4 (100.0%)** | **4/4 (100.0%)** |
 | what ran | fixed per-class probes | the CyberAI pipeline itself |
-| agreement with the probes | n/a | 3/3 |
-| measured | 2026-07-24, CyberAI 1.4.0 | 2026-07-27, CyberAI 1.4.0 |
+| agreement with the probes | n/a | 4/4 |
+| measured | 2026-08-13, CyberAI 1.5.0 | 2026-08-13, CyberAI 1.5.0 |
 
 ## What this number is, and what it is not
 
@@ -52,10 +53,16 @@ We author the targets, the probes, and the success signals. That makes the
 result reproducible, and it also means the number is a **self-test, not a
 comparison**. Stated plainly so nobody has to infer it from the source:
 
-- **Self-authored suite.** 3/3 says our three targets are exploitable and our
-  three probes detect it. It says nothing about how CyberAI compares to any
+- **Self-authored suite.** 4/4 says our four targets are exploitable and our
+  four probes detect it. It says nothing about how CyberAI compares to any
   other tool. Cross-tool claims need a third-party suite, and we do not make
   them here.
+- **The blind target needs the out-of-band path switched on.** Without
+  `CYBERAI_USE_OOB=1` the agent run is 3/4 and disagrees with the probe on
+  `local-ssrf-fetch`: the flag is off by default because a parameter that is
+  not vulnerable costs the collector's full wait before it says so. Both runs
+  were measured; the flag is stated here rather than left for the reader to
+  rediscover as a missing point.
 - **`--engine real` measures the probes, not the agent.** The probes are fixed
   exploit checks; the agents take no part in that run. Read it as a
   harness-and-target check. `--engine agent`, below, is the one that measures
@@ -65,7 +72,7 @@ comparison**. Stated plainly so nobody has to infer it from the source:
   inside an out-of-web-root file. A target that echoes request input back
   cannot register as exploited. `tests/unit/test_bench_negative_control.py`
   runs every probe against hardened targets and requires all of them to fail.
-- **Small denominator.** Three tasks means one task moves the rate by 33
+- **Small denominator.** Four tasks means one task moves the rate by 25
   points. The suite grows as classes are added, and the honest reading of any
   single figure has to account for that.
 
