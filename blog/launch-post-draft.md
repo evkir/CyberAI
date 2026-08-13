@@ -73,14 +73,27 @@ cyberai web3 audit ./contracts --immunefi
 The field is loud. A reproducible scorecard is cheaper to trust than a press
 release, so every number ships with the method that produced it.
 
-**Local suite — pass@1 4/4 (100%).** Four deliberately vulnerable targets
-(SQL injection, command injection, path traversal, SSRF) built and served from
-this repository, run in Docker by the real engine. Task list and method:
-`docs/benchmarks/local-suite.md`.
+**Local suite — pass@1 4/4 (100%), twice over.** Four deliberately vulnerable
+targets (SQL injection, command injection, path traversal, blind SSRF) built
+and served from this repository, run in Docker. `--engine real` fires fixed
+per-class probes and answers whether the targets and the harness are sound.
+`--engine agent` answers the question that matters: recon discovers the
+surface, exploit attacks it, and nothing is known about the target beyond its
+URL. Both score 4/4, and the two verdicts are compared task by task — a
+disagreement is recorded as a finding rather than smoothed over.
 
 ```bash
 cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
 ```
+
+The environment variable is not decoration. The blind-SSRF target answers
+identically whichever way it goes, so the only proof it can produce is an
+out-of-band callback carrying the run nonce; that path is off by default
+because a parameter that is not vulnerable costs the collector's full wait
+before it says so. Without the flag the agent run is 3/4 and disagrees with the
+probe. Both numbers were measured, and the flag is published with them. Task
+list and method: `docs/benchmarks/local-suite.md`.
 
 Read that number correctly: **this suite is authored by the same project it
 measures.** It proves the engine end-to-end works against live targets and it
