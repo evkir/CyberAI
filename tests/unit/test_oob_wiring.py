@@ -191,3 +191,55 @@ def test_nothing_confirmed_records_nothing():
         agent._run_web_exploit("t.local")
 
     assert session.findings == []
+
+
+def _report_counting(confirmed, oob):
+    """A report whose two counters are numbers, not mocks.
+
+    MagicMock returns a truthy mock for any attribute, so a summary line
+    guarded by `if oob_count` would read as present no matter what the
+    report says. Both counters are pinned to integers here.
+    """
+    report = MagicMock()
+    report.findings = []
+    report.oob_confirmed_params = []
+    report.confirmed_count = confirmed
+    report.params_oob_confirmed = oob
+    report.to_dict.return_value = {}
+    return report
+
+
+def test_the_summary_line_reports_a_callback_the_in_band_count_cannot_see():
+    """A blind confirmation never reaches confirmed_count.
+
+    The count is in-band by definition, so a run whose only proof was a
+    callback used to log `0 confirmed` -- the same narrow reading that once
+    scored the blind target unsolvable. The line now carries both numbers.
+    """
+    agent, _ = _agent(use_oob=True)
+    with (
+        patch("cyberai.agents.exploit.agent.exploit_surface", return_value=_report_counting(0, 1)),
+        patch.object(agent, "_log") as log,
+    ):
+        agent._run_web_exploit("t.local")
+    summary = log.call_args.args[0]
+    assert "0 confirmed" in summary
+    assert "1 out-of-band" in summary
+
+
+def test_the_summary_line_stays_quiet_when_no_callback_landed():
+    """The addition is conditional, so ordinary runs are not padded.
+
+    Without this the line would end in `, 0 out-of-band` on every run that
+    never used the path, which is noise on the majority of runs and hides
+    the case worth noticing.
+    """
+    agent, _ = _agent(use_oob=True)
+    with (
+        patch("cyberai.agents.exploit.agent.exploit_surface", return_value=_report_counting(2, 0)),
+        patch.object(agent, "_log") as log,
+    ):
+        agent._run_web_exploit("t.local")
+    summary = log.call_args.args[0]
+    assert "2 confirmed" in summary
+    assert "out-of-band" not in summary
