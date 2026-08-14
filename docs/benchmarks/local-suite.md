@@ -62,7 +62,10 @@ comparison**. Stated plainly so nobody has to infer it from the source:
   `local-ssrf-fetch`: the flag is off by default because a parameter that is
   not vulnerable costs the collector's full wait before it says so. Both runs
   were measured; the flag is stated here rather than left for the reader to
-  rediscover as a missing point.
+  rediscover as a missing point. The first version of the criterion could
+  not see a callback at all and scored this target unsolvable for the agent;
+  that is written up in
+  [docs/notes/blind-proof-and-the-scoring-criterion.md](../notes/blind-proof-and-the-scoring-criterion.md).
 - **`--engine real` measures the probes, not the agent.** The probes are fixed
   exploit checks; the agents take no part in that run. Read it as a
   harness-and-target check. `--engine agent`, below, is the one that measures
