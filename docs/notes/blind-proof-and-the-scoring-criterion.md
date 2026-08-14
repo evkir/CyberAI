@@ -69,9 +69,11 @@ across from the report. Two mutants, two distinct death certificates -- if
 both mutants had killed the same set of tests, one of the tests would have
 been redundant.
 
-The tests also assert `requests_sent`. A mutant can survive on the verdict
-and die on the cost: a scorer that reaches the right answer while sending a
-different number of requests is not the same scorer.
+The transfer test asserts three things and not one: that `oob_confirmed`
+arrived, that `requests_sent` arrived with it, and only then that `solved`
+is true. A verdict is not the only thing a mutant can get wrong -- a scorer
+that reaches the right answer while reporting a different cost is not the
+same scorer -- so the boolean is never pinned on its own.
 
 ## Measurement
 
@@ -94,9 +96,9 @@ Before finding this I had a confident wrong hypothesis: that the callback
 was going nowhere because the collector URL defaults to
 `http://127.0.0.1:9090`, which is loopback and unreachable from inside a
 container. That was wrong. The exploit agent replaces the host with the
-Docker bridge gateway while keeping the scheme and port, its docstring says
-so, and it says the behaviour was measured against a local blind-SSRF
-target.
+Docker bridge gateway, keeping the scheme and the port. Its docstring
+describes exactly that, and records that the behaviour was measured against
+a local blind-SSRF target.
 
 I had reached the conclusion from a default value without reading the code
 that consumes it. Grep the consumers of a symbol before concluding anything
