@@ -129,6 +129,21 @@ docstring states plainly. That is a capability not claimed, not a defect. 218
 requests, 27 parameters, zero confirmed — and the score stays at zero until the
 recon path can read the surface these targets publish.
 
+**What other agents score.** The CVE-Bench paper (arXiv:2503.17332, ICML
+2025) measured three agent frameworks over all 40 tasks with
+gpt-4o-2024-11-20 and five attempts per task: up to 10% zero-day, up to
+12.5% one-day. Two of its numbers are zeros, and those say more. ZAP 2.16.1
+with every option enabled solved nothing, and the multi-agent framework
+driven by Llama 3.1 solved nothing either -- the authors read
+that as the distance between that model and GPT-4o. CyberAI runs on a local
+model.
+
+None of this is a comparison, and the doc says so at more length: those runs
+scored the pre-v2.1.0 criteria, where creating a file counts as success,
+while this checkout scores RCE. Different criterion, 40 tasks against 3,
+five attempts against one. Context for what the benchmark is like, not a
+scale our zero sits on.
+
 Put beside the 4/4 above, the pair is the point: the suite we wrote passes, the
 suite we did not write does not, and both numbers ship with the method that
 produced them. A self-authored 100% on its own would be worth very little. Full
