@@ -124,9 +124,10 @@ class CyberAIConfig:
     # Flag-gated: attack the discovered HTTP surface directly (non-blind).
     use_web_exploit: bool = False
     # Flag-gated: confirm the parameters the direct walk could not read through
-    # an out-of-band callback. Off by default: it needs a reachable collector,
-    # and a parameter that is not vulnerable costs the collector's full wait
-    # before it says so.
+    # an out-of-band callback. Off by default because it needs a reachable
+    # collector, not because it is expensive: the walk caps confirmation at
+    # oob_max_params parameters, each bounded by the poller's wait. The bench
+    # profile turns it on, since a blind target cannot be scored without it.
     use_oob: bool = False
     # Flag-gated: read spec and JS bundles when the HTML shell exposes nothing.
     use_api_discovery: bool = False
