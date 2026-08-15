@@ -85,10 +85,22 @@ CyberAI 1.5.0, four-task local suite, 2026-08-13:
 | `CYBERAI_USE_OOB=1 --engine agent` | 4/4, no disagreement |
 | `--engine agent`, flag off | 3/4, disagreement recorded |
 
-The third row is the negative control. The out-of-band path is off by
-default because a parameter that is not vulnerable costs the collector's
-full wait before it says so, so the flag is published alongside the number
-rather than folded into it.
+The third row is the negative control.
+
+Those runs needed the flag passed by hand, which is what the table records.
+Since 2026-08-15 the bench profile turns it on itself: the path stays off in
+the global defaults, where it belongs -- it needs a reachable collector --
+but a suite containing a blind target cannot score that target without it,
+and leaving the flag to the operator meant the default run failed a task the
+agent solves. Re-measured that day with nothing set by hand: 4/4, and the
+blind task finished in 12.11s against 11.50s for the fastest in-band one.
+
+The cost that justified leaving it off turned out to be smaller than the
+wording suggested. Confirmation is capped at three parameters and each is
+bounded by the poller's wait, so the ceiling is seconds per task, not a wait
+on every parameter that is not vulnerable. The cap was stated in the walk's
+own docstring the whole time; the copy of that sentence next to the flag had
+dropped it, and the argument was read from the copy.
 
 ## What I got wrong on the way
 

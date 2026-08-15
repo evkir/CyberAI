@@ -85,15 +85,16 @@ disagreement is recorded as a finding rather than smoothed over.
 
 ```bash
 cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
-CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
+cyberai bench run --suite local --engine agent
 ```
 
-The environment variable is not decoration. The blind-SSRF target answers
-identically whichever way it goes, so the only proof it can produce is an
-out-of-band callback carrying the run nonce; that path is off by default
-because a parameter that is not vulnerable costs the collector's full wait
-before it says so. Without the flag the agent run is 3/4 and disagrees with the
-probe. Both numbers were measured, and the flag is published with them. Task
+The blind-SSRF target answers identically whichever way it goes, so the only
+proof it can produce is an out-of-band callback carrying the run nonce. That
+path stays off in the global defaults, because it needs a reachable
+collector; the bench profile turns it on, because a blind target cannot be
+scored without it. It used to be the operator's job through an environment
+variable, and the run scored 3/4 without it. Measured again on 2026-08-15
+with nothing set by hand: 4/4, agent and probe agreeing on all four. Task
 list and method: `docs/benchmarks/local-suite.md`.
 
 Read that number correctly: **this suite is authored by the same project it
