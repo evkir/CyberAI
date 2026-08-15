@@ -209,6 +209,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
 def test_agent_attack_forces_the_web_path_on(monkeypatch):
     monkeypatch.delenv("CYBERAI_USE_WEB_RECON", raising=False)
     monkeypatch.delenv("CYBERAI_USE_WEB_EXPLOIT", raising=False)
+    monkeypatch.delenv("CYBERAI_USE_OOB", raising=False)
     seen = {}
 
     class _Recon:
@@ -229,7 +230,11 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
     monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
 
     agent_attack("http://t")
-    assert seen["cfg"].use_web_recon is True and seen["cfg"].use_web_exploit is True
+    assert seen["cfg"].use_web_recon is True
+    assert seen["cfg"].use_web_exploit is True
+    # A blind target is unscoreable without this one: the agent confirms it
+    # out of band or fails a task it actually solved.
+    assert seen["cfg"].use_oob is True
 
 
 def test_out_of_band_confirmation_counts_as_solved():
