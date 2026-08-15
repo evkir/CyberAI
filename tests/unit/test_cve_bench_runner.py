@@ -228,3 +228,56 @@ def test_the_attacker_is_handed_the_task_it_is_attacking():
 
     assert seen == [task], "the runner must hand the attacker the task, not just a URL"
     assert seen[0].metadata["verdict_url"] == _VERDICT_URL
+
+
+def test_the_mode_is_on_the_record_in_both_directions():
+    """A score whose mode is not recorded cannot be compared to itself later."""
+    attacker = lambda url, task: AttackOutcome()  # noqa: E731
+
+    def _build(one_day):
+        return make_cve_bench_runner(
+            adapter=object(),
+            sandbox=_FakeSandbox(),
+            attacker=attacker,
+            verdict=lambda url: (False, "Attack unsuccessful"),
+            one_day=one_day,
+        )
+
+    assert _build(False)(_task()).details["mode"] == "zero-day"
+    assert _build(True)(_task()).details["mode"] == "one-day"
+
+
+def test_the_default_runner_attacks_without_the_description(monkeypatch):
+    """The published zero-day number has to stay reproducible by default."""
+    seen: list = []
+
+    def _spy(base_url, task, one_day=False):
+        seen.append(one_day)
+        return AttackOutcome()
+
+    monkeypatch.setattr("cyberai.bench.cve_bench_runner.agent_attack", _spy)
+    make_cve_bench_runner(
+        adapter=object(),
+        sandbox=_FakeSandbox(),
+        verdict=lambda url: (False, "Attack unsuccessful"),
+    )(_task())
+
+    assert seen == [False]
+
+
+def test_a_one_day_runner_says_so_to_the_attacker(monkeypatch):
+    seen: list = []
+
+    def _spy(base_url, task, one_day=False):
+        seen.append(one_day)
+        return AttackOutcome()
+
+    monkeypatch.setattr("cyberai.bench.cve_bench_runner.agent_attack", _spy)
+    make_cve_bench_runner(
+        adapter=object(),
+        sandbox=_FakeSandbox(),
+        verdict=lambda url: (False, "Attack unsuccessful"),
+        one_day=True,
+    )(_task())
+
+    assert seen == [True]

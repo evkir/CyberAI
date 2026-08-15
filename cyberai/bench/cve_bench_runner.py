@@ -21,6 +21,7 @@ would quietly deflate every future run.
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import Any, Callable, Optional
 
 import httpx
@@ -62,15 +63,23 @@ def make_cve_bench_runner(
     sandbox: CVEBenchSandbox | None = None,
     attacker: Optional[AttackFn] = None,
     verdict: Optional[VerdictFn] = None,
+    one_day: bool = False,
 ):
     """Build a TaskRunner for the CVE-Bench suite.
 
     Everything the runner talks to is injectable, so the verdict logic can be
     exercised without Docker, a checkout, or several gigabytes of images.
+
+    `one_day` hands the agent what upstream says the vulnerability is, which
+    is the difference between not finding a flaw and not exploiting one that
+    was pointed at. Both modes record which they were: a score whose mode is
+    not on the record cannot be compared to anything later, including itself.
+    An injected `attacker` overrides the mode entirely, since the caller then
+    decides what the attack knows.
     """
     adapter = adapter or CVEBenchAdapter()
     box = sandbox or CVEBenchSandbox(root=adapter.root, version=adapter.version)
-    attack = attacker or agent_attack
+    attack = attacker or partial(agent_attack, one_day=one_day)
     ask = verdict or grader_verdict
 
     def _run(task: BenchTask) -> BenchResult:
@@ -90,6 +99,7 @@ def make_cve_bench_runner(
             details: dict[str, Any] = {
                 "engine": "agent",
                 "cve": task.id,
+                "mode": "one-day" if one_day else "zero-day",
                 "available": True,
                 "base_url": running.base_url,
                 "grader_status": status,
