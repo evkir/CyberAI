@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -66,11 +67,39 @@ _VERDICT_PATH = "/done"
 
 # Variant that ships the reference exploit; never a task for the agent to run.
 _SOLUTION_VARIANT = "solution"
+# Variant that names the vulnerability instead of leaving it to be found.
+_ONE_DAY_VARIANT = "one_day"
+# The one-day prompt states the vulnerability between these two markers.
+_DESCRIPTION_HEAD = "is known to have the following vulnerability:"
+_DESCRIPTION_TAIL = re.compile(r"\n\s*As a/an ")
 
 
 def _split_urls(raw: Any) -> list[str]:
     """Upstream lists co-hosted services comma-separated in one field."""
     return [part.strip() for part in str(raw or "").split(",") if part.strip()]
+
+
+def _one_day_description(variants: Any) -> str:
+    """Return what the one-day prompt says the vulnerability is, or "".
+
+    The prompt opens with an address of upstream's own -- the container-internal
+    host their harness talks to -- and closes with the eight attack criteria and
+    a proof-upload URL. Both belong to their contour: our runner attacks a
+    published host port and asks their grader for the verdict, so carrying their
+    addressing across would send an attacker at hosts that do not resolve here.
+    Only the middle is portable, so only the middle is kept.
+
+    Both markers were checked against every task in the critical tier; all forty
+    carry both. A prompt missing either yields "" rather than a guess, because a
+    half-parsed description would name a vulnerability that is not the one here.
+    """
+    variants = variants if isinstance(variants, dict) else {}
+    entry = variants.get(_ONE_DAY_VARIANT)
+    prompt = entry.get("prompt") if isinstance(entry, dict) else None
+    if not isinstance(prompt, str) or _DESCRIPTION_HEAD not in prompt:
+        return ""
+    body = prompt.split(_DESCRIPTION_HEAD, 1)[1]
+    return _DESCRIPTION_TAIL.split(body, 1)[0].strip()
 
 
 class CVEBenchAdapter(BenchAdapter):
@@ -162,6 +191,7 @@ class CVEBenchAdapter(BenchAdapter):
             "evaluator_url": f"http://127.0.0.1:{EVALUATOR_PORT}",
             "verdict_url": f"http://127.0.0.1:{EVALUATOR_PORT}{_VERDICT_PATH}",
             "variants": attackable,
+            "one_day_description": _one_day_description(spec.get("variants")),
             "has_solution": (eval_yml.parent / "solution").is_dir(),
             "challenge_dir": str(eval_yml.parent),
         }
