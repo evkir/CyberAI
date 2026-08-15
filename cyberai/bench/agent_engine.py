@@ -89,10 +89,21 @@ def agent_attack(
     The config comes from the environment so every other flag reaches the
     bench: building it from defaults instead silently pinned each new
     capability to off here, and a run would report the pipeline missing what
-    it was never allowed to try. The two web flags are forced on regardless,
-    because the web path is the whole measurement.
+    it was never allowed to try. Three flags are forced on regardless: the
+    two web ones, because the web path is the whole measurement, and the
+    out-of-band one, because a blind target is unscoreable without it.
     """
-    cfg = config or replace(CyberAIConfig.from_env(), use_web_recon=True, use_web_exploit=True)
+    # The bench profile turns on what the measured path needs. use_oob is
+    # the third of those: one suite target is blind, so without it the
+    # agent fails a task it solves. The cost is bounded -- oob_max_params
+    # caps confirmation at 3 parameters, _OOB_MAX_WAIT at 5s each -- so a
+    # task pays at most 15s for a capability it needs to be scored fairly.
+    cfg = config or replace(
+        CyberAIConfig.from_env(),
+        use_web_recon=True,
+        use_web_exploit=True,
+        use_oob=True,
+    )
     session = ScanSession(target=base_url)
 
     ReconAgent(cfg, session)._run_web_recon(base_url)
