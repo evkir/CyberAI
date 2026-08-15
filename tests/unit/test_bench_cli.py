@@ -222,7 +222,7 @@ def test_cve_bench_suite_runs_through_its_own_runner(monkeypatch):
     monkeypatch.setattr(
         mod,
         "make_cve_bench_runner",
-        lambda adapter: (
+        lambda adapter, one_day=False: (
             lambda t: BenchResult(
                 task_id=t.id,
                 suite=t.suite,
@@ -243,7 +243,9 @@ def test_cve_bench_refuses_the_probe_engine(monkeypatch):
 
     monkeypatch.setattr(mod.CVEBenchAdapter, "load_tasks", lambda self: [])
     monkeypatch.setattr(
-        mod, "make_cve_bench_runner", lambda adapter: pytest.fail("must not build a runner")
+        mod,
+        "make_cve_bench_runner",
+        lambda adapter, one_day=False: pytest.fail("must not build a runner"),
     )
 
     result = CliRunner().invoke(bench, ["run", "--suite", "cve-bench", "--engine", "real"])
@@ -319,7 +321,7 @@ def test_the_grader_verdict_is_not_rendered_as_unknown(monkeypatch):
     monkeypatch.setattr(
         mod,
         "make_cve_bench_runner",
-        lambda adapter: (
+        lambda adapter, one_day=False: (
             lambda t: BenchResult(
                 task_id=t.id,
                 suite=t.suite,
@@ -350,3 +352,58 @@ def test_a_second_opinion_is_unknown_only_when_there_was_none():
     assert _second_opinion({"grader_status": True, "available": True}) is False
     # A target that never came up has no second verdict to report.
     assert _second_opinion({"available": False}) is None
+
+
+def _cve_bench_with_recorder(monkeypatch):
+    """Stand in for the cve-bench runner and record the mode it was built with."""
+    import cyberai.cli.bench as mod
+    from cyberai.bench.runner import BenchResult, BenchTask
+
+    seen: list = []
+    task = BenchTask(id="CVE-2024-2624", suite="cve-bench", target="http://127.0.0.1:9090")
+    monkeypatch.setattr(mod.CVEBenchAdapter, "load_tasks", lambda self: [task])
+
+    def _build(adapter, one_day=False):
+        seen.append(one_day)
+        return lambda t: BenchResult(task_id=t.id, suite=t.suite, solved=False)
+
+    monkeypatch.setattr(mod, "make_cve_bench_runner", _build)
+    return seen
+
+
+def test_one_day_reaches_the_runner(monkeypatch):
+    seen = _cve_bench_with_recorder(monkeypatch)
+
+    result = CliRunner().invoke(
+        bench, ["run", "--suite", "cve-bench", "--engine", "agent", "--mode", "one-day"]
+    )
+
+    assert result.exit_code == 0
+    assert seen == [True]
+
+
+def test_a_run_without_the_flag_is_still_zero_day(monkeypatch):
+    """The published cve-bench number has to stay reproducible by default."""
+    seen = _cve_bench_with_recorder(monkeypatch)
+
+    result = CliRunner().invoke(bench, ["run", "--suite", "cve-bench", "--engine", "agent"])
+
+    assert result.exit_code == 0
+    assert seen == [False]
+
+
+def test_one_day_on_a_suite_that_describes_nothing_falls_back_in_the_record_too(
+    monkeypatch, tmp_path
+):
+    out = tmp_path / "scorecard.md"
+
+    result = CliRunner().invoke(
+        bench, ["run", "--suite", "local", "--mode", "one-day", "--scorecard", str(out)]
+    )
+
+    assert result.exit_code == 0
+    assert "running zero-day" in result.output
+    # The warning alone would leave a scorecard claiming a mode that did not
+    # happen; the label has to fall back with the behaviour.
+    assert "zero-day" in out.read_text()
+    assert "one-day" not in out.read_text()

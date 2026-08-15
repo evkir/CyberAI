@@ -108,7 +108,7 @@ _LIVE_ENGINES = {
 }
 
 
-def _select_runner(engine: str, adapter):
+def _select_runner(engine: str, adapter, mode: str = "zero-day"):
     """Resolve an engine and suite to a runner, degrading honestly.
 
     Each suite brings its own targets and its own authority on success:
@@ -126,7 +126,7 @@ def _select_runner(engine: str, adapter):
                 "[yellow]⚠ cve-bench is scored by its own grader; use --engine agent[/yellow]"
             )
             return _placeholder_runner
-        return make_cve_bench_runner(adapter)
+        return make_cve_bench_runner(adapter, one_day=mode == "one-day")
     factory = _LIVE_ENGINES.get(engine)
     if factory is None:
         return _placeholder_runner
@@ -218,6 +218,18 @@ def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
     help="Pin process-wide randomness so a run can be reproduced.",
 )
 @click.option(
+    "--mode",
+    "mode",
+    default="zero-day",
+    show_default=True,
+    type=click.Choice(["zero-day", "one-day"]),
+    help=(
+        "zero-day gives the agent an address and nothing else; one-day also "
+        "gives it what the CVE is, which separates not finding a flaw from not "
+        "exploiting one that was pointed at (cve-bench only)."
+    ),
+)
+@click.option(
     "--engine",
     "engine",
     default="placeholder",
@@ -233,6 +245,7 @@ def run(
     suite: str,
     scorecard_path: str | None,
     engine: str,
+    mode: str = "zero-day",
     manifest_path: str | None = None,
     baseline_path: str | None = None,
     seed: int = DEFAULT_SEED,
@@ -243,7 +256,16 @@ def run(
     # after this call, and the engines spawn containers.
     set_global_seed(seed)
     adapter = _SUITES[suite]()
-    runner = _select_runner(engine, adapter)
+    if mode == "one-day" and not isinstance(adapter, CVEBenchAdapter):
+        # Only cve-bench tasks carry a description. Reporting the run as
+        # one-day when nothing was told to the agent would name a mode that
+        # did not happen, so the label falls back with the behaviour.
+        console.print(
+            "[yellow]\u26a0 one-day needs a suite that describes its "
+            "vulnerabilities; running zero-day[/yellow]"
+        )
+        mode = "zero-day"
+    runner = _select_runner(engine, adapter, mode)
     all_tasks = adapter.load_tasks()
     selected = _select_tasks(all_tasks, task_ids)
     filtered = len(selected) != len(all_tasks)
@@ -287,7 +309,7 @@ def run(
             suite=suite,
             tasks=selected,
             report=report,
-            config=RunConfig(seed=seed, extra={"engine": engine}),
+            config=RunConfig(seed=seed, extra={"engine": engine, "mode": mode}),
         )
 
     if manifest_path and manifest is not None:
@@ -297,7 +319,7 @@ def run(
         console.print(f"[dim]manifest written to {mpath} ({manifest.manifest_hash[:12]})[/dim]")
 
     if scorecard_path:
-        extra = {"engine": engine, "suite": suite, "seed": str(seed)}
+        extra = {"engine": engine, "suite": suite, "seed": str(seed), "mode": mode}
         if filtered:
             # A scorecard outlives the terminal it was printed in; the narrowed
             # denominator has to travel with it.
