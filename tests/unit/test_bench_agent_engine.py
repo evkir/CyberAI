@@ -20,7 +20,9 @@ from http.server import HTTPServer
 import pytest
 
 from cyberai.bench.agent_engine import AttackOutcome, agent_attack, make_agent_runner
+from cyberai.agents.exploit.web_payloads import WebVulnClass
 from cyberai.bench.docker_builder import RunningTarget
+from cyberai.bench.runner import BenchTask
 from cyberai.bench.targets import LocalSuiteAdapter
 
 _SQLI_TASK = "local-sqli-login"
@@ -196,7 +198,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
         def __init__(self, cfg, session):
             pass
 
-        def _run_web_exploit(self, base_url):
+        def _run_web_exploit(self, base_url, classes=None):
             return {}
 
     monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
@@ -223,7 +225,7 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
         def __init__(self, cfg, session):
             pass
 
-        def _run_web_exploit(self, base_url):
+        def _run_web_exploit(self, base_url, classes=None):
             return {}
 
     monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
@@ -268,7 +270,7 @@ def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatc
         def __init__(self, cfg, session):
             pass
 
-        def _run_web_exploit(self, base_url):
+        def _run_web_exploit(self, base_url, classes=None):
             return {
                 "confirmed": 0,
                 "endpoints_tested": 1,
@@ -283,3 +285,69 @@ def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatc
     assert outcome.oob_confirmed == 1
     assert outcome.requests_sent == 10
     assert outcome.solved is True
+
+
+def _recording_agents(monkeypatch):
+    """Patch both agents and return the list the exploit call records into."""
+    seen: list = []
+
+    class _Recon:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session):
+            pass
+
+        def _run_web_exploit(self, base_url, classes=None):
+            seen.append(classes)
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+    return seen
+
+
+def _task_describing(description: str) -> BenchTask:
+    return BenchTask(
+        id="CVE-2024-0001",
+        suite="cve-bench",
+        target="http://t",
+        metadata={"one_day_description": description},
+    )
+
+
+def test_a_zero_day_run_never_reads_the_description(monkeypatch):
+    seen = _recording_agents(monkeypatch)
+
+    agent_attack("http://t", _task_describing("A SQL injection flaw in the login form."))
+
+    # The description travels with every task once the loader keeps it. Reading
+    # it whenever it is present would rewrite what past zero-day scores meant.
+    assert seen == [None]
+
+
+def test_a_one_day_run_leads_with_the_class_the_description_names(monkeypatch):
+    seen = _recording_agents(monkeypatch)
+
+    agent_attack(
+        "http://t",
+        _task_describing("The plugin is vulnerable to path traversal in the file parameter."),
+        one_day=True,
+    )
+
+    assert seen[0] is not None
+    assert seen[0][0] is WebVulnClass.PATH_TRAVERSAL
+
+
+def test_one_day_without_a_description_changes_nothing(monkeypatch):
+    seen = _recording_agents(monkeypatch)
+
+    # Local-suite tasks carry no description; asking for the mode there is not
+    # an error, it simply has nothing to say.
+    agent_attack("http://t", _task_describing(""), one_day=True)
+
+    assert seen == [None]

@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Optional
 
 from cyberai.agents.exploit.agent import ExploitAgent
+from cyberai.agents.exploit.web_payloads import classes_from_description
 from cyberai.agents.recon.agent import ReconAgent
 from cyberai.bench.docker_builder import DockerBuilder
 from cyberai.bench.evaluator import probe_for
@@ -77,7 +78,10 @@ JudgeFn = Callable[[VulnTarget, str], bool]
 
 
 def agent_attack(
-    base_url: str, task: Optional[BenchTask] = None, config: Optional[CyberAIConfig] = None
+    base_url: str,
+    task: Optional[BenchTask] = None,
+    config: Optional[CyberAIConfig] = None,
+    one_day: bool = False,
 ) -> AttackOutcome:
     """Run the agent web path against `base_url` and report proven findings.
 
@@ -92,6 +96,13 @@ def agent_attack(
     it was never allowed to try. Three flags are forced on regardless: the
     two web ones, because the web path is the whole measurement, and the
     out-of-band one, because a blind target is unscoreable without it.
+
+    `one_day` is what makes the second mode a choice rather than a side
+    effect. The description rides along in every task once the loader keeps
+    it, so reading it whenever it is present would have quietly turned every
+    past zero-day number into something else while the label stayed the same.
+    A published score has to stay reproducible by the command that produced
+    it, so the knowledge is used only when the caller asks for it.
     """
     # The bench profile turns on what the measured path needs. use_oob is
     # the third of those: one suite target is blind, so without it the
@@ -106,8 +117,11 @@ def agent_attack(
     )
     session = ScanSession(target=base_url)
 
+    description = str((task.metadata if task else {}).get("one_day_description", ""))
+    classes = classes_from_description(description) if one_day and description else None
+
     ReconAgent(cfg, session)._run_web_recon(base_url)
-    report = ExploitAgent(cfg, session)._run_web_exploit(base_url)
+    report = ExploitAgent(cfg, session)._run_web_exploit(base_url, classes=classes)
 
     return AttackOutcome(
         confirmed=int(report.get("confirmed", 0)),

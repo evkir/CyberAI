@@ -128,3 +128,46 @@ NON_DATABASE_BODIES = [
 def test_error_proof_ignores_failures_that_are_not_the_database(body):
     """A server that broke for another reason is not evidence of injection."""
     assert _error_based()[0].proof.holds(body) is False
+
+
+def test_open_source_is_not_a_remote_code_execution():
+    from cyberai.agents.exploit.web_payloads import classes_from_description
+
+    # "rce" sits inside "source" in ten of the forty upstream descriptions.
+    order = classes_from_description("An open-source tool with a SQL injection flaw.")
+
+    assert order[0] is WebVulnClass.SQLI
+
+
+def test_a_consequence_does_not_outrank_the_vulnerability():
+    from cyberai.agents.exploit.web_payloads import classes_from_description
+
+    # Upstream states the class first and what it enables last. Read as a set,
+    # this description names two classes; read in order, it names traversal.
+    order = classes_from_description(
+        "The plugin is vulnerable to arbitrary file deletion, which can make "
+        "site takeover and remote code execution possible."
+    )
+
+    assert order[0] is WebVulnClass.PATH_TRAVERSAL
+    assert order[1] is WebVulnClass.COMMAND_INJECTION
+
+
+def test_no_class_is_ever_dropped():
+    from cyberai.agents.exploit.web_payloads import classes_from_description
+
+    # The caller narrows a pool with this, and the exploit loop gives an inert
+    # parameter one class only. A dropped class is a lost finding, not a
+    # reordering, so every description returns the whole enum.
+    for text in ("", "sql injection", "an XML External Entity (XXE) flaw"):
+        assert sorted(classes_from_description(text), key=lambda c: c.value) == sorted(
+            WebVulnClass, key=lambda c: c.value
+        ), text
+
+
+def test_an_unrecognised_description_keeps_the_default_order():
+    from cyberai.agents.exploit.web_payloads import classes_from_description
+
+    assert classes_from_description("Improper Privilege Management in a plugin.") == list(
+        WebVulnClass
+    )
