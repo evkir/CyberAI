@@ -35,7 +35,7 @@ of the product.
 ```bash
 cyberai bench list
 cyberai bench run --suite local --scorecard docs/benchmarks/scorecards/local.md
-CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
+cyberai bench run --suite local --engine agent
 ```
 
 ## Current result
@@ -45,7 +45,7 @@ CYBERAI_USE_OOB=1 cyberai bench run --suite local --engine agent
 | pass@1 | **4/4 (100.0%)** | **4/4 (100.0%)** |
 | what ran | fixed per-class probes | the CyberAI pipeline itself |
 | agreement with the probes | n/a | 4/4 |
-| measured | 2026-08-13, CyberAI 1.5.0 | 2026-08-13, CyberAI 1.5.0 |
+| measured | 2026-08-13, CyberAI 1.5.0 | 2026-08-15, CyberAI 1.5.0 |
 
 ## What this number is, and what it is not
 
@@ -57,12 +57,16 @@ comparison**. Stated plainly so nobody has to infer it from the source:
   four probes detect it. It says nothing about how CyberAI compares to any
   other tool. Cross-tool claims need a third-party suite, and we do not make
   them here.
-- **The blind target needs the out-of-band path switched on.** Without
-  `CYBERAI_USE_OOB=1` the agent run is 3/4 and disagrees with the probe on
-  `local-ssrf-fetch`: the flag is off by default because a parameter that is
-  not vulnerable costs the collector's full wait before it says so. Both runs
-  were measured; the flag is stated here rather than left for the reader to
-  rediscover as a missing point. The first version of the criterion could
+- **The blind target needs the out-of-band path, and the bench profile turns
+  it on.** `use_oob` stays off in the global defaults -- it needs a reachable
+  collector -- but the bench profile forces it on alongside the two web
+  flags, because a blind target cannot be scored without it. Measured
+  2026-08-15 with the variable unset: 4/4, agent and probe agreeing on all
+  four. Before that change the same command scored 3/4 and disagreed on
+  `local-ssrf-fetch` unless `CYBERAI_USE_OOB=1` was passed by hand. The cost
+  is bounded: confirmation is capped at three parameters, and the blind task
+  finished in 12.11s against 11.50s for the fastest in-band one. The first
+  version of the criterion could
   not see a callback at all and scored this target unsolvable for the agent;
   that is written up in
   [docs/notes/blind-proof-and-the-scoring-criterion.md](../notes/blind-proof-and-the-scoring-criterion.md).
