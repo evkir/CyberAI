@@ -239,6 +239,132 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
     return endpoints
 
 
+# A target may publish its API root in a Link header instead of at a
+# conventional path (RFC 8288). WordPress does, and nothing else answers.
+_LINK_ENTRY = re.compile(r"<([^>]+)>\s*;\s*(.*)")
+_LINK_REL = re.compile(r'rel\s*=\s*"?([^";]+)"?')
+API_REL_HINTS: tuple[str, ...] = ("api.w.org", "service-desc", "describedby")
+
+
+def spec_url_from_link(headers: Any, base: str) -> Optional[str]:
+    """The API root a `Link` header advertises, re-addressed to `base`.
+
+    Only the path is taken. A target behind Docker names itself by its
+    compose alias -- `Link: <http://target:9090/wp-json/>` -- which does not
+    resolve outside that network, and following it would leave the host we
+    were asked to scan. Same rule `_spec_prefix` already applies to an
+    absolute server URL in a document.
+
+    None when no entry declares an API relation: a `Link` to a stylesheet or
+    a shortlink says nothing about a machine-readable surface.
+    """
+    if not isinstance(headers, dict):
+        return None
+    raw = headers.get("link") or headers.get("Link")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    for entry in raw.split(","):
+        matched = _LINK_ENTRY.match(entry.strip())
+        if matched is None:
+            continue
+        rel = _LINK_REL.search(matched.group(2) or "")
+        if rel is None:
+            continue
+        value = rel.group(1).strip()
+        if not any(hint in value for hint in API_REL_HINTS):
+            continue
+        path = urlparse(matched.group(1).strip()).path or "/"
+        return base.rstrip("/") + "/" + path.strip("/") if path.strip("/") else base.rstrip("/")
+    return None
+
+
+_WP_PLACEHOLDER = re.compile(r"\(\?P<([A-Za-z_][A-Za-z0-9_]*)>[^)]*\)")
+
+
+def parse_wp_rest(spec: Any, base: str) -> list[dict[str, Any]]:
+    """Endpoints declared by a WordPress REST index.
+
+    A different shape for the same fact: routes rather than paths, and a
+    regex group rather than a brace where a value goes. The group is rewritten
+    to the brace form the rest of this module already speaks, so a consumer
+    does not have to know which document a template came from.
+
+    Parameter names are read per operation, not per route: one route declares
+    several methods and each brings its own args, so merging the levels would
+    hand a POST the names only a GET reads. Only the top level of args counts
+    -- the nested properties of an array argument describe the items of a
+    body, not names the route reads.
+    """
+    if not isinstance(spec, dict):
+        return []
+    routes = spec.get("routes")
+    if not isinstance(routes, dict):
+        return []
+    prefix = urlparse(base).path.rstrip("/")
+    root = base[: len(base) - len(prefix)].rstrip("/") if prefix else base.rstrip("/")
+
+    endpoints: list[dict[str, Any]] = []
+    for route, item in routes.items():
+        if not isinstance(route, str) or not isinstance(item, dict):
+            continue
+        path_names = _WP_PLACEHOLDER.findall(route)
+        templated = _WP_PLACEHOLDER.sub(lambda m: "{" + m.group(1) + "}", route)
+        operations = item.get("endpoints")
+        if not isinstance(operations, list):
+            continue
+        for operation in operations:
+            if not isinstance(operation, dict):
+                continue
+            args = operation.get("args")
+            names = list(path_names)
+            if isinstance(args, dict):
+                for name in args:
+                    if isinstance(name, str) and name not in names:
+                        names.append(name)
+            for method in operation.get("methods") or []:
+                if not isinstance(method, str) or method.lower() not in _OPERATIONS:
+                    continue
+                endpoints.append(
+                    _endpoint(
+                        _join(root, prefix, templated),
+                        method.upper(),
+                        names,
+                        path_params=path_names,
+                        source="wp-rest",
+                    )
+                )
+    return endpoints
+
+
+def _parse_spec_document(resp: Any, url: str, base: str) -> Optional[list[dict[str, Any]]]:
+    """Endpoints from one fetched document, or None when it is not a spec.
+
+    Two shapes answer to the same question. An OpenAPI or Swagger document
+    keys its operations under `paths`; a WordPress REST index keys them under
+    `routes`. Neither is guessed at: a body that declares neither key is not
+    a spec, and an empty list from a document that does is still a spec.
+    """
+    if not isinstance(resp, dict):
+        return None
+    status = resp.get("status")
+    if isinstance(status, int) and status >= 400:
+        return None
+    body = resp.get("body")
+    if not isinstance(body, str) or not body.strip():
+        return None
+    try:
+        spec = json.loads(body)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(spec, dict):
+        return None
+    if isinstance(spec.get("paths"), dict):
+        return parse_openapi(spec, base)
+    if isinstance(spec.get("routes"), dict):
+        return parse_wp_rest(spec, url)
+    return None
+
+
 def fetch_openapi(
     base: str,
     fetch: FetchFn,
@@ -248,25 +374,23 @@ def fetch_openapi(
 
     Returns {"spec_url", "endpoints"}; spec_url is None when nothing parsed, so
     a caller can tell "no spec published" from "spec published, no routes".
+
+    The target is asked first. A root that advertises its API root in a Link
+    header has told us where the document is, which beats eight guesses at a
+    conventional path -- and on a target that publishes no spec at any of
+    them, it is the difference between a surface and nothing.
     """
+    advertised = spec_url_from_link((fetch(base) or {}).get("headers"), base)
+    if advertised:
+        endpoints = _parse_spec_document(fetch(advertised), advertised, base)
+        if endpoints is not None:
+            return {"spec_url": advertised, "endpoints": endpoints}
+
     for candidate in candidates:
         url = base.rstrip("/") + candidate
-        resp = fetch(url)
-        if not isinstance(resp, dict):
-            continue
-        status = resp.get("status")
-        if isinstance(status, int) and status >= 400:
-            continue
-        body = resp.get("body")
-        if not isinstance(body, str) or not body.strip():
-            continue
-        try:
-            spec = json.loads(body)
-        except (ValueError, TypeError):
-            continue
-        if not isinstance(spec, dict) or not isinstance(spec.get("paths"), dict):
-            continue
-        return {"spec_url": url, "endpoints": parse_openapi(spec, base)}
+        endpoints = _parse_spec_document(fetch(url), url, base)
+        if endpoints is not None:
+            return {"spec_url": url, "endpoints": endpoints}
     return {"spec_url": None, "endpoints": []}
 
 

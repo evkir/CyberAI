@@ -9,12 +9,14 @@ from cyberai.agents.recon.api_surface import (
     fetch_js_routes,
     fetch_openapi,
     parse_openapi,
+    parse_wp_rest,
     probe_route_params,
     probe_well_known,
     _merge_route,
     routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,
+    spec_url_from_link,
 )
 
 _OAS3 = {
@@ -141,6 +143,128 @@ def test_fetch_openapi_ignores_error_status():
         return {"status": 404, "headers": {}, "body": json.dumps(_SWAGGER2), "url": url}
 
     assert fetch_openapi("http://t", fetch)["spec_url"] is None
+
+
+_WP = {
+    "routes": {
+        "/wp/v2/posts": {
+            "endpoints": [
+                {"methods": ["GET"], "args": {"search": {}, "context": {}}},
+                {"methods": ["POST"], "args": {"title": {}}},
+            ]
+        },
+        "/wp/v2/posts/(?P<parent>[\\d]+)/revisions/(?P<id>[\\d]+)": {
+            "endpoints": [{"methods": ["GET", "DELETE"], "args": {"force": {}}}]
+        },
+        "/batch/v1": {
+            "endpoints": [
+                {
+                    "methods": ["POST"],
+                    "args": {
+                        "requests": {
+                            "type": "array",
+                            "items": {"properties": {"path": {}, "body": {}}},
+                        }
+                    },
+                }
+            ]
+        },
+    }
+}
+
+
+def test_wp_route_regex_becomes_the_template_form_used_everywhere_else():
+    urls = {e["url"] for e in parse_wp_rest(_WP, "http://t/wp-json")}
+    assert "http://t/wp-json/wp/v2/posts/{parent}/revisions/{id}" in urls
+
+
+def test_wp_path_groups_are_named_as_path_params():
+    revisions = [e for e in parse_wp_rest(_WP, "http://t/wp-json") if "{id}" in e["url"]]
+    assert revisions, "the templated route produced no endpoint"
+    assert all(e["path_params"] == ["parent", "id"] for e in revisions)
+    assert all({"parent", "id"} <= set(e["params"]) for e in revisions)
+
+
+def test_each_operation_keeps_its_own_arguments():
+    posts = {
+        e["method"]: e["params"]
+        for e in parse_wp_rest(_WP, "http://t/wp-json")
+        if e["url"] == "http://t/wp-json/wp/v2/posts"
+    }
+    assert posts["GET"] == ["search", "context"]
+    assert posts["POST"] == ["title"], "a POST must not inherit the names a GET reads"
+
+
+def test_nested_argument_properties_are_not_route_parameters():
+    batch = [e for e in parse_wp_rest(_WP, "http://t/wp-json") if e["url"].endswith("/batch/v1")]
+    assert batch and batch[0]["params"] == ["requests"]
+
+
+def test_the_advertised_root_is_read_before_the_conventional_guesses():
+    """A Link header is one request against eight, and the eight are 404 here."""
+    wp = json.dumps(_WP)
+    seen: list[str] = []
+
+    def fetch(url):
+        seen.append(url)
+        if url == "http://t":
+            return {
+                "status": 200,
+                "headers": {"link": '<http://alias/wp-json/>; rel="https://api.w.org/"'},
+                "body": "",
+            }
+        if url == "http://t/wp-json":
+            return {"status": 200, "headers": {}, "body": wp}
+        return {"status": 404, "headers": {}, "body": ""}
+
+    found = fetch_openapi("http://t", fetch)
+    assert found["spec_url"] == "http://t/wp-json"
+    assert found["endpoints"], "the advertised document produced no endpoints"
+    assert not [u for u in seen if u.endswith("/openapi.json")], (
+        "a target that told us where its spec is must not be guessed at"
+    )
+
+
+def test_a_link_to_something_that_is_not_a_spec_does_not_stop_the_probe():
+    spec = json.dumps({"paths": {"/x": {"get": {}}}})
+
+    def fetch(url):
+        if url == "http://t":
+            return {
+                "status": 200,
+                "headers": {"link": '<http://t/api>; rel="describedby"'},
+                "body": "",
+            }
+        if url == "http://t/api":
+            return {"status": 200, "headers": {}, "body": "<html>not a spec</html>"}
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": spec}
+        return {"status": 404, "headers": {}, "body": ""}
+
+    assert fetch_openapi("http://t", fetch)["spec_url"] == "http://t/openapi.json"
+
+
+def test_a_link_header_names_the_api_root():
+    headers = {"link": '<http://target:9090/wp-json/>; rel="https://api.w.org/"'}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
+
+
+def test_the_host_in_a_link_header_is_not_followed():
+    """The document names its compose alias; the scan stays on the target we were given."""
+    headers = {"link": '<http://evil.example/wp-json/>; rel="https://api.w.org/"'}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
+
+
+def test_a_link_that_is_not_an_api_relation_says_nothing():
+    headers = {"link": "</style.css>; rel=preload"}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") is None
+
+
+def test_the_api_relation_is_found_among_several_entries():
+    headers = {
+        "link": '</s/x>; rel="shortlink", <http://target/wp-json/>; rel="https://api.w.org/"'
+    }
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
 
 
 def test_no_spec_anywhere_is_not_a_guess():

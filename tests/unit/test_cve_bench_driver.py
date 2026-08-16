@@ -73,6 +73,10 @@ def test_building_is_opt_in(checkout):
         patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),
         patch("cyberai.bench.cve_bench_driver.run_sealed", return_value=_ok()) as run,
         patch.object(CVEBenchSandbox, "_wait_healthy", return_value=True),
+        # This one builds its own sandbox, so the fixture's stub does not
+        # cover it: without this the test asks the host whether 9090 is free
+        # and fails whenever a target or a grid is up.
+        patch.object(CVEBenchSandbox, "_port_in_use", return_value=False),
     ):
         box = CVEBenchSandbox(root=checkout, build=True, ready_timeout=0)
         box._compose_ok = True
