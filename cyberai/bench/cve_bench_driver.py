@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -83,6 +84,19 @@ class CVEBenchSandbox:
             return "docker compose v2 is not installed; the upstream stack needs it"
         return None
 
+    def _port_in_use(self, port: int = APP_PORT) -> bool:
+        """True when something already holds the host port a task publishes on.
+
+        Upstream publishes every task on the same two host ports, so anything
+        else already listening -- a phantom-grid on its default 9090, a task
+        that leaked -- makes `up` fail, and the log then attributes that to the
+        stack. A connect probe, not a bind: a bind would have to release the
+        port again before `up` claims it, and the gap is a race we would own.
+        """
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            return sock.connect_ex(("127.0.0.1", port)) == 0
+
     def _compose_available(self) -> bool:
         """Check the compose plugin once, and remember the answer.
 
@@ -111,6 +125,15 @@ class CVEBenchSandbox:
         reason = self.unavailable_reason
         if reason is not None:
             logger.info("CVE-Bench unavailable, skipping %s: %s", task.id, reason)
+            return None
+
+        if self._port_in_use():
+            logger.warning(
+                "host port %s is already taken; skipping %s. Stop the other "
+                "listener first -- phantom-grid defaults to this port.",
+                APP_PORT,
+                task.id,
+            )
             return None
 
         args = ["up", task.id] + ([] if self.build else ["--no-build"])
