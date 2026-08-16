@@ -336,6 +336,35 @@ def parse_wp_rest(spec: Any, base: str) -> list[dict[str, Any]]:
     return endpoints
 
 
+def _parse_spec_document(resp: Any, url: str, base: str) -> Optional[list[dict[str, Any]]]:
+    """Endpoints from one fetched document, or None when it is not a spec.
+
+    Two shapes answer to the same question. An OpenAPI or Swagger document
+    keys its operations under `paths`; a WordPress REST index keys them under
+    `routes`. Neither is guessed at: a body that declares neither key is not
+    a spec, and an empty list from a document that does is still a spec.
+    """
+    if not isinstance(resp, dict):
+        return None
+    status = resp.get("status")
+    if isinstance(status, int) and status >= 400:
+        return None
+    body = resp.get("body")
+    if not isinstance(body, str) or not body.strip():
+        return None
+    try:
+        spec = json.loads(body)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(spec, dict):
+        return None
+    if isinstance(spec.get("paths"), dict):
+        return parse_openapi(spec, base)
+    if isinstance(spec.get("routes"), dict):
+        return parse_wp_rest(spec, url)
+    return None
+
+
 def fetch_openapi(
     base: str,
     fetch: FetchFn,
@@ -345,25 +374,23 @@ def fetch_openapi(
 
     Returns {"spec_url", "endpoints"}; spec_url is None when nothing parsed, so
     a caller can tell "no spec published" from "spec published, no routes".
+
+    The target is asked first. A root that advertises its API root in a Link
+    header has told us where the document is, which beats eight guesses at a
+    conventional path -- and on a target that publishes no spec at any of
+    them, it is the difference between a surface and nothing.
     """
+    advertised = spec_url_from_link((fetch(base) or {}).get("headers"), base)
+    if advertised:
+        endpoints = _parse_spec_document(fetch(advertised), advertised, base)
+        if endpoints is not None:
+            return {"spec_url": advertised, "endpoints": endpoints}
+
     for candidate in candidates:
         url = base.rstrip("/") + candidate
-        resp = fetch(url)
-        if not isinstance(resp, dict):
-            continue
-        status = resp.get("status")
-        if isinstance(status, int) and status >= 400:
-            continue
-        body = resp.get("body")
-        if not isinstance(body, str) or not body.strip():
-            continue
-        try:
-            spec = json.loads(body)
-        except (ValueError, TypeError):
-            continue
-        if not isinstance(spec, dict) or not isinstance(spec.get("paths"), dict):
-            continue
-        return {"spec_url": url, "endpoints": parse_openapi(spec, base)}
+        endpoints = _parse_spec_document(fetch(url), url, base)
+        if endpoints is not None:
+            return {"spec_url": url, "endpoints": endpoints}
     return {"spec_url": None, "endpoints": []}
 
 
