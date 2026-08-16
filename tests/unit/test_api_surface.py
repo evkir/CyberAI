@@ -200,6 +200,50 @@ def test_nested_argument_properties_are_not_route_parameters():
     assert batch and batch[0]["params"] == ["requests"]
 
 
+def test_a_link_entry_without_a_bracket_or_a_rel_is_skipped():
+    """Both halves of an entry are required; neither is assumed present."""
+    assert spec_url_from_link({"link": "no-brackets-here; rel=preload"}, "http://t") is None
+    assert spec_url_from_link({"link": "</x>; nofollow"}, "http://t") is None
+
+
+def test_a_document_that_is_not_a_wp_index_yields_nothing():
+    assert parse_wp_rest("not a dict", "http://t") == []
+    assert parse_wp_rest({"paths": {}}, "http://t") == []
+
+
+def test_a_wp_index_full_of_wrong_types_is_read_for_what_it_does_declare():
+    """A document is untrusted input: every level may hold something else."""
+    spec = {
+        "routes": {
+            7: {"endpoints": []},
+            "/bad-item": "not a dict",
+            "/bad-endpoints": {"endpoints": "not a list"},
+            "/bad-operation": {"endpoints": ["not a dict"]},
+            "/head-only": {"endpoints": [{"methods": ["HEAD", "OPTIONS"], "args": {"a": {}}}]},
+            "/good": {"endpoints": [{"methods": ["GET"], "args": {"q": {}}}]},
+        }
+    }
+    endpoints = parse_wp_rest(spec, "http://t/wp-json")
+    assert [e["url"] for e in endpoints] == ["http://t/wp-json/good"], (
+        "only the operations this module can act on survive"
+    )
+
+
+def test_a_body_that_is_not_a_json_object_is_not_a_spec():
+    def fetch(url):
+        if url == "http://t":
+            return {"status": 200, "headers": {}, "body": ""}
+        if url == "http://t/openapi.json":
+            return {"status": 200, "headers": {}, "body": "   "}
+        if url == "http://t/swagger.json":
+            return {"status": 200, "headers": {}, "body": "[1, 2, 3]"}
+        if url == "http://t/api/openapi.json":
+            return {"status": 200, "headers": {}, "body": '{"info": {}}'}
+        return {"status": 404, "headers": {}, "body": ""}
+
+    assert fetch_openapi("http://t", fetch)["spec_url"] is None
+
+
 def test_the_advertised_root_is_read_before_the_conventional_guesses():
     """A Link header is one request against eight, and the eight are 404 here."""
     wp = json.dumps(_WP)
