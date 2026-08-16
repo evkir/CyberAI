@@ -239,6 +239,45 @@ def parse_openapi(spec: Any, base: str) -> list[dict[str, Any]]:
     return endpoints
 
 
+# A target may publish its API root in a Link header instead of at a
+# conventional path (RFC 8288). WordPress does, and nothing else answers.
+_LINK_ENTRY = re.compile(r"<([^>]+)>\s*;\s*(.*)")
+_LINK_REL = re.compile(r'rel\s*=\s*"?([^";]+)"?')
+API_REL_HINTS: tuple[str, ...] = ("api.w.org", "service-desc", "describedby")
+
+
+def spec_url_from_link(headers: Any, base: str) -> Optional[str]:
+    """The API root a `Link` header advertises, re-addressed to `base`.
+
+    Only the path is taken. A target behind Docker names itself by its
+    compose alias -- `Link: <http://target:9090/wp-json/>` -- which does not
+    resolve outside that network, and following it would leave the host we
+    were asked to scan. Same rule `_spec_prefix` already applies to an
+    absolute server URL in a document.
+
+    None when no entry declares an API relation: a `Link` to a stylesheet or
+    a shortlink says nothing about a machine-readable surface.
+    """
+    if not isinstance(headers, dict):
+        return None
+    raw = headers.get("link") or headers.get("Link")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    for entry in raw.split(","):
+        matched = _LINK_ENTRY.match(entry.strip())
+        if matched is None:
+            continue
+        rel = _LINK_REL.search(matched.group(2) or "")
+        if rel is None:
+            continue
+        value = rel.group(1).strip()
+        if not any(hint in value for hint in API_REL_HINTS):
+            continue
+        path = urlparse(matched.group(1).strip()).path or "/"
+        return base.rstrip("/") + "/" + path.strip("/") if path.strip("/") else base.rstrip("/")
+    return None
+
+
 def fetch_openapi(
     base: str,
     fetch: FetchFn,

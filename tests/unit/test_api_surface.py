@@ -15,6 +15,7 @@ from cyberai.agents.recon.api_surface import (
     routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,
+    spec_url_from_link,
 )
 
 _OAS3 = {
@@ -141,6 +142,29 @@ def test_fetch_openapi_ignores_error_status():
         return {"status": 404, "headers": {}, "body": json.dumps(_SWAGGER2), "url": url}
 
     assert fetch_openapi("http://t", fetch)["spec_url"] is None
+
+
+def test_a_link_header_names_the_api_root():
+    headers = {"link": '<http://target:9090/wp-json/>; rel="https://api.w.org/"'}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
+
+
+def test_the_host_in_a_link_header_is_not_followed():
+    """The document names its compose alias; the scan stays on the target we were given."""
+    headers = {"link": '<http://evil.example/wp-json/>; rel="https://api.w.org/"'}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
+
+
+def test_a_link_that_is_not_an_api_relation_says_nothing():
+    headers = {"link": "</style.css>; rel=preload"}
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") is None
+
+
+def test_the_api_relation_is_found_among_several_entries():
+    headers = {
+        "link": '</s/x>; rel="shortlink", <http://target/wp-json/>; rel="https://api.w.org/"'
+    }
+    assert spec_url_from_link(headers, "http://127.0.0.1:9090") == ("http://127.0.0.1:9090/wp-json")
 
 
 def test_no_spec_anywhere_is_not_a_guess():
