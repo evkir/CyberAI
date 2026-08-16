@@ -9,6 +9,7 @@ from cyberai.agents.recon.api_surface import (
     fetch_js_routes,
     fetch_openapi,
     parse_openapi,
+    parse_wp_rest,
     probe_route_params,
     probe_well_known,
     _merge_route,
@@ -142,6 +143,61 @@ def test_fetch_openapi_ignores_error_status():
         return {"status": 404, "headers": {}, "body": json.dumps(_SWAGGER2), "url": url}
 
     assert fetch_openapi("http://t", fetch)["spec_url"] is None
+
+
+_WP = {
+    "routes": {
+        "/wp/v2/posts": {
+            "endpoints": [
+                {"methods": ["GET"], "args": {"search": {}, "context": {}}},
+                {"methods": ["POST"], "args": {"title": {}}},
+            ]
+        },
+        "/wp/v2/posts/(?P<parent>[\\d]+)/revisions/(?P<id>[\\d]+)": {
+            "endpoints": [{"methods": ["GET", "DELETE"], "args": {"force": {}}}]
+        },
+        "/batch/v1": {
+            "endpoints": [
+                {
+                    "methods": ["POST"],
+                    "args": {
+                        "requests": {
+                            "type": "array",
+                            "items": {"properties": {"path": {}, "body": {}}},
+                        }
+                    },
+                }
+            ]
+        },
+    }
+}
+
+
+def test_wp_route_regex_becomes_the_template_form_used_everywhere_else():
+    urls = {e["url"] for e in parse_wp_rest(_WP, "http://t/wp-json")}
+    assert "http://t/wp-json/wp/v2/posts/{parent}/revisions/{id}" in urls
+
+
+def test_wp_path_groups_are_named_as_path_params():
+    revisions = [e for e in parse_wp_rest(_WP, "http://t/wp-json") if "{id}" in e["url"]]
+    assert revisions, "the templated route produced no endpoint"
+    assert all(e["path_params"] == ["parent", "id"] for e in revisions)
+    assert all({"parent", "id"} <= set(e["params"]) for e in revisions)
+
+
+def test_each_operation_keeps_its_own_arguments():
+    posts = {
+        e["method"]: e["params"]
+        for e in parse_wp_rest(_WP, "http://t/wp-json")
+        if e["url"] == "http://t/wp-json/wp/v2/posts"
+    }
+    assert posts["GET"] == ["search", "context"]
+    assert posts["POST"] == ["title"], "a POST must not inherit the names a GET reads"
+
+
+def test_nested_argument_properties_are_not_route_parameters():
+    batch = [e for e in parse_wp_rest(_WP, "http://t/wp-json") if e["url"].endswith("/batch/v1")]
+    assert batch and batch[0]["params"] == ["requests"]
 
 
 def test_a_link_header_names_the_api_root():

@@ -278,6 +278,64 @@ def spec_url_from_link(headers: Any, base: str) -> Optional[str]:
     return None
 
 
+_WP_PLACEHOLDER = re.compile(r"\(\?P<([A-Za-z_][A-Za-z0-9_]*)>[^)]*\)")
+
+
+def parse_wp_rest(spec: Any, base: str) -> list[dict[str, Any]]:
+    """Endpoints declared by a WordPress REST index.
+
+    A different shape for the same fact: routes rather than paths, and a
+    regex group rather than a brace where a value goes. The group is rewritten
+    to the brace form the rest of this module already speaks, so a consumer
+    does not have to know which document a template came from.
+
+    Parameter names are read per operation, not per route: one route declares
+    several methods and each brings its own args, so merging the levels would
+    hand a POST the names only a GET reads. Only the top level of args counts
+    -- the nested properties of an array argument describe the items of a
+    body, not names the route reads.
+    """
+    if not isinstance(spec, dict):
+        return []
+    routes = spec.get("routes")
+    if not isinstance(routes, dict):
+        return []
+    prefix = urlparse(base).path.rstrip("/")
+    root = base[: len(base) - len(prefix)].rstrip("/") if prefix else base.rstrip("/")
+
+    endpoints: list[dict[str, Any]] = []
+    for route, item in routes.items():
+        if not isinstance(route, str) or not isinstance(item, dict):
+            continue
+        path_names = _WP_PLACEHOLDER.findall(route)
+        templated = _WP_PLACEHOLDER.sub(lambda m: "{" + m.group(1) + "}", route)
+        operations = item.get("endpoints")
+        if not isinstance(operations, list):
+            continue
+        for operation in operations:
+            if not isinstance(operation, dict):
+                continue
+            args = operation.get("args")
+            names = list(path_names)
+            if isinstance(args, dict):
+                for name in args:
+                    if isinstance(name, str) and name not in names:
+                        names.append(name)
+            for method in operation.get("methods") or []:
+                if not isinstance(method, str) or method.lower() not in _OPERATIONS:
+                    continue
+                endpoints.append(
+                    _endpoint(
+                        _join(root, prefix, templated),
+                        method.upper(),
+                        names,
+                        path_params=path_names,
+                        source="wp-rest",
+                    )
+                )
+    return endpoints
+
+
 def fetch_openapi(
     base: str,
     fetch: FetchFn,
