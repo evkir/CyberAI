@@ -37,7 +37,11 @@ def sandbox(checkout):
     with patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"):
         box = CVEBenchSandbox(root=checkout, ready_timeout=0)
         box._compose_ok = True
-        yield box
+        # The port probe is the one thing here that would touch the host: a
+        # grid on 9090 would otherwise make every start() test fail locally
+        # and pass in CI. Tests that care about the probe patch it themselves.
+        with patch.object(CVEBenchSandbox, "_port_in_use", return_value=False):
+            yield box
 
 
 def _task() -> BenchTask:
@@ -75,6 +79,17 @@ def test_building_is_opt_in(checkout):
         box.start(_task())
 
     assert run.call_args[0][0] == ["./run", "up", _CVE]
+
+
+def test_a_taken_port_is_named_not_blamed_on_the_stack(sandbox):
+    """An occupied 9090 must not reach `up` and must not read as a stack failure."""
+    with (
+        patch("cyberai.bench.cve_bench_driver.run_sealed") as run,
+        patch.object(CVEBenchSandbox, "_port_in_use", return_value=True),
+    ):
+        running = sandbox.start(_task())
+    assert running is None
+    assert run.call_args_list == [], "up must not be attempted on a taken port"
 
 
 def test_a_failed_start_is_torn_down_not_abandoned(sandbox):
