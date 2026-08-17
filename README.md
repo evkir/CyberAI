@@ -278,7 +278,7 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
 
-Latest run of the local suite (CyberAI 1.5.0, `--engine real`, 2026-08-13):
+Latest run of the local suite (CyberAI 1.5.0, 2026-08-17), scored twice — once by the fixed probes, once by the pipeline. Both agree:
 
 | vuln class | solved | total | rate |
 | --- | --- | --- | --- |
@@ -292,6 +292,17 @@ Read that honestly: this suite is **authored by the project it measures**. It pr
 guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard is committed at
 [examples/local-bench/scorecard.md](examples/local-bench/scorecard.md);
 the run manifest is not, and `--manifest <path>` reproduces it.
+
+Two engines, one suite. `--engine real` drives fixed per-class probes;
+`--engine agent` drives the full pipeline, which has to find the surface
+before it can attack it. Both reach 4/4, and only the second says what that
+cost: four endpoints, 28 requests, four in-band proofs and one out-of-band
+([examples/local-bench/scorecard-agent.md](examples/local-bench/scorecard-agent.md)).
+The probes never produce those numbers, which is why the file beside it has
+no run metrics at all. The blind SSRF target is why the last two columns are
+apart: it answers identically whichever way the fetch goes, so it is proven
+by a callback carrying the run nonce, and counting that as in-band would
+print a zero on a task that was solved.
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard
 never overstates capability; `--engine real` runs live per-class probes. External
