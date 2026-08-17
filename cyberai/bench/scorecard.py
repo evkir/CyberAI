@@ -66,8 +66,20 @@ def _has_run_metrics(report: SuiteReport) -> bool:
     Engines that never measure one -- the `real` probe engine, EVMBench's
     static detection -- do not write these keys, and the section is omitted
     rather than rendered as a wall of dashes.
+
+    A target recorded as unavailable brings the section back on its own. It
+    has no surface to report, so keying the section on the metrics alone
+    dropped the availability column exactly where it answered the reader's
+    question: a task refused before it started rendered as plain unsolved,
+    which reads like an agent that searched and found nothing. Availability
+    that is merely absent, or true without metrics beside it, is not enough:
+    the probe engine records the target as up and measures nothing, and that
+    is the wall of dashes this section exists to avoid.
     """
-    return any("endpoints_tested" in r.details for r in report.results)
+    return any(
+        "endpoints_tested" in r.details or r.details.get("available") is False
+        for r in report.results
+    )
 
 
 def _availability_mark(details: dict[str, Any]) -> str:
