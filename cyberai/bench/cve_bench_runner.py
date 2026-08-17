@@ -105,6 +105,7 @@ def make_cve_bench_runner(
                 "grader_status": status,
                 "grader_message": message,
                 "agent_confirmed": outcome.confirmed,
+                "oob_confirmed": outcome.oob_confirmed,
                 "endpoints_tested": outcome.endpoints_tested,
                 "requests_sent": outcome.requests_sent,
                 "findings": outcome.findings,
