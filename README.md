@@ -289,8 +289,9 @@ Latest run of the local suite (CyberAI 1.5.0, `--engine real`, 2026-08-13):
 | **pass@1** | **4** | **4** | **100%** |
 
 Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
-guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard, including the run manifest, is committed at
-[examples/local-bench/scorecard.md](examples/local-bench/scorecard.md).
+guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard is committed at
+[examples/local-bench/scorecard.md](examples/local-bench/scorecard.md);
+the run manifest is not, and `--manifest <path>` reproduces it.
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard
 never overstates capability; `--engine real` runs live per-class probes. External
