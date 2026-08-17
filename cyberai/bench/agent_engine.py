@@ -109,6 +109,16 @@ def agent_attack(
     # agent fails a task it solves. The cost is bounded -- oob_max_params
     # caps confirmation at 3 parameters, _OOB_MAX_WAIT at 5s each -- so a
     # task pays at most 15s for a capability it needs to be scored fairly.
+    # A fourth flag was measured and rejected. use_api_discovery grows the
+    # surface from 19 endpoints to 252 on CVE-2024-5084, and the request
+    # budget then caps at 400 spent with 236 endpoints never reached --
+    # tested coverage FALLS from 19 to 16 while proofs stay at zero (two
+    # scorecards, 2026-08-17, seed 1337, zero-day: 19 endpoints / 153
+    # requests / 47.0s without it, 16 / 400 / 64.6s with it). Budget is
+    # spent in discovery order, so a wider surface displaces targets the
+    # run was already exercising. The flag stays reachable through
+    # CYBERAI_USE_API_DISCOVERY for anyone who wants that trade; the
+    # measured profile does not take it.
     cfg = config or replace(
         CyberAIConfig.from_env(),
         use_web_recon=True,
