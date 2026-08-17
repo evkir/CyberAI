@@ -6,6 +6,12 @@ record of how the engine performed on a suite. It records the headline pass@1,
 a per-task table, and a per-vulnerability-class breakdown, plus a run-metadata
 block (engine version, model, timestamp) so any number we publish can be traced
 to the exact run that produced it.
+
+When the engine measured a surface, those numbers travel with the score:
+endpoints reached, requests spent, proofs in band and out of it, and
+whether the target was up at all. A zero against an unreachable target
+and a zero against a surface holding nothing are different facts, and
+pass@1 alone cannot tell a reader which one it is looking at.
 """
 
 from __future__ import annotations
@@ -46,6 +52,67 @@ def _per_class(report: SuiteReport) -> dict[str, tuple[int, int]]:
     return {k: (v[0], v[1]) for k, v in sorted(agg.items())}
 
 
+_METRIC_COLUMNS = (
+    ("agent_confirmed", "in-band"),
+    ("oob_confirmed", "out of band"),
+    ("endpoints_tested", "endpoints"),
+    ("requests_sent", "requests"),
+)
+
+
+def _has_run_metrics(report: SuiteReport) -> bool:
+    """True when at least one task reported the surface it reached.
+
+    Engines that never measure one -- the `real` probe engine, EVMBench's
+    static detection -- do not write these keys, and the section is omitted
+    rather than rendered as a wall of dashes.
+    """
+    return any("endpoints_tested" in r.details for r in report.results)
+
+
+def _availability_mark(details: dict[str, Any]) -> str:
+    """Availability as recorded: unknown is its own answer, not a False."""
+    value = details.get("available")
+    if value is None:
+        return "?"
+    return "\u2713" if value else "\u2717"
+
+
+def _run_metric_lines(report: SuiteReport) -> list[str]:
+    """Per-task surface metrics plus a totals row."""
+    lines = ["## Run metrics", ""]
+    lines.append(
+        "What the engine reached and spent. A target that never came up scores "
+        "zero for a reason the score cannot show, so availability travels with "
+        "the numbers. In-band and out-of-band proofs are counted apart: a blind "
+        "vector proves itself on a callback and leaves the response unchanged."
+    )
+    lines.append("")
+    lines.append(
+        "| task id | available | " + " | ".join(label for _, label in _METRIC_COLUMNS) + " |"
+    )
+    lines.append("| --- | --- | " + " | ".join("---" for _ in _METRIC_COLUMNS) + " |")
+    totals: dict[str, int] = dict.fromkeys((key for key, _ in _METRIC_COLUMNS), 0)
+    up = 0
+    for r in report.results:
+        cells = []
+        for key, _ in _METRIC_COLUMNS:
+            value = r.details.get(key)
+            if isinstance(value, int):
+                totals[key] += value
+                cells.append(str(value))
+            else:
+                cells.append("\u2014")
+        if r.details.get("available") is True:
+            up += 1
+        mark = _availability_mark(r.details)
+        lines.append(f"| {r.task_id} | {mark} | " + " | ".join(cells) + " |")
+    total_cells = " | ".join(str(totals[key]) for key, _ in _METRIC_COLUMNS)
+    lines.append(f"| **total** | {up}/{len(report.results)} | {total_cells} |")
+    lines.append("")
+    return lines
+
+
 def generate_scorecard(report: SuiteReport, meta: RunMeta | None = None) -> str:
     """Render a Markdown scorecard for one suite run."""
     meta = meta or RunMeta()
@@ -75,6 +142,8 @@ def generate_scorecard(report: SuiteReport, meta: RunMeta | None = None) -> str:
         rate = solved / total if total else 0.0
         lines.append(f"| {vc} | {solved} | {total} | {rate:.0%} |")
     lines.append("")
+    if _has_run_metrics(report):
+        lines += _run_metric_lines(report)
     lines.append("## Per-task results")
     lines.append("")
     lines.append("| task id | solved | time (s) | error |")

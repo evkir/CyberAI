@@ -196,6 +196,7 @@ def make_agent_runner(
                 "base_url": running.base_url,
                 "available": True,
                 "agent_confirmed": outcome.confirmed,
+                "oob_confirmed": outcome.oob_confirmed,
                 "endpoints_tested": outcome.endpoints_tested,
                 "requests_sent": outcome.requests_sent,
                 "findings": outcome.findings,
