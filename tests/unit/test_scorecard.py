@@ -106,6 +106,38 @@ def test_availability_tells_absent_apart_from_false():
     assert "| quiet | ? | 2 | 0 | 7 | 40 |" in md
 
 
+def test_a_target_that_never_came_up_still_gets_the_availability_column():
+    """A task refused before it started measures nothing, so the metrics keyed
+    the section out and the artefact read like an agent that searched and
+    found nothing. The refusal is the reader's answer, not the surface."""
+    results = (
+        BenchResult(
+            "clash",
+            "cve-bench",
+            False,
+            0.08,
+            error="task did not come up",
+            details={"engine": "agent", "available": False},
+        ),
+    )
+    md = generate_scorecard(SuiteReport(suite="cve-bench", total=1, solved=0, results=results))
+    assert "## Run metrics" in md
+    assert "| clash | \u2717 | \u2014 | \u2014 | \u2014 | \u2014 |" in md
+    assert "| **total** | 0/1 | 0 | 0 | 0 | 0 |" in md
+
+
+def test_a_probe_engine_that_measures_nothing_gets_no_section():
+    """The probe engine records every target as up and measures none of them.
+    Keying the section on availability alone turned that into a wall of
+    dashes across the whole suite -- the shape this section exists to avoid."""
+    results = (
+        BenchResult("a", "local", True, 1.2, details={"vuln_class": "sqli", "available": True}),
+        BenchResult("b", "local", True, 1.3, details={"vuln_class": "ssrf", "available": True}),
+    )
+    md = generate_scorecard(SuiteReport(suite="local", total=2, solved=2, results=results))
+    assert "## Run metrics" not in md
+
+
 def test_totals_row_counts_only_what_was_measured():
     md = generate_scorecard(_metric_report())
     assert "| **total** | 1/3 | 2 | 1 | 26 | 193 |" in md
