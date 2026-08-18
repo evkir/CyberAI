@@ -157,13 +157,30 @@ class LLMClient:
         }
         return url, payload
 
+    def _ollama_failure(self, response) -> RuntimeError:
+        """Turn an ollama error response into a message that says what to do.
+
+        A pulled-model default cannot be right for everyone: any name we ship
+        is absent from someone's library, and the report agent swallows the
+        exception by design, so a bare "HTTP 404" reached nobody. Name the
+        model and the command that fixes it.
+        """
+        detail = response.text[:300]
+        if response.status_code == 404:
+            return RuntimeError(
+                f"ollama has no model '{self.config.model}': "
+                f"run `ollama pull {self.config.model}`, "
+                f"or pick an installed one with --model. ({detail})"
+            )
+        return RuntimeError(f"ollama HTTP {response.status_code}: {detail}")
+
     def _call_ollama(
         self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
     ) -> str:
         url, payload = self._ollama_request(messages, system)
         response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
         if response.status_code != 200:
-            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
+            raise self._ollama_failure(response)
         data = response.json()
         self._record_usage(
             agent_name,
@@ -334,7 +351,7 @@ class LLMClient:
         payload["format"] = self._schema_all_required(schema)
         response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
         if response.status_code != 200:
-            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
+            raise self._ollama_failure(response)
         data = response.json()
         self._record_usage(
             agent_name,
