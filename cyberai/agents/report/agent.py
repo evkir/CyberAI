@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 import json
 
 from cyberai.core.base_agent import BaseAgent, Tool
+from cyberai.core.llm_usage import llm_usage_record
 from cyberai.core.types import ReportSection
 
 from .json_exporter import export_json
@@ -92,6 +93,18 @@ class ReportAgent(BaseAgent):
                 f"Judge: score={verdict.hallucination_score:.2f} supported={verdict.supported}"
             )
 
+        # Last, because the summary and the judge above are themselves model
+        # calls: recording earlier would report a number the reader can see is
+        # wrong. JSON is re-exported for the same reason -- it was written
+        # before either of them ran.
+        usage = self._record_llm_usage()
+        if usage is not None:
+            md_content = self._append_llm_usage(md_content, usage)
+            with open(md_path, "w") as f:
+                f.write(md_content)
+            json_path = export_json(self.session, output_dir)
+            self.kb.set("report.json_path", json_path, agent=self.AGENT_NAME)
+
         result = {
             "status": "done",
             "markdown": md_path,
@@ -101,6 +114,53 @@ class ReportAgent(BaseAgent):
         if verdict_dump is not None:
             result["judge_verdict"] = verdict_dump
         return result
+
+    def _record_llm_usage(self) -> dict | None:
+        """Write llm.usage before the documents are closed, and return it.
+
+        The orchestrator writes the same key after every phase has finished,
+        which is after this agent has already saved its files: the report
+        carried an empty key while the session dump carried the numbers. The
+        shape comes from core/llm_usage so the two writers cannot disagree.
+        """
+        tracker = getattr(self.llm, "cost_tracker", None)
+        if tracker is None:
+            return None
+        record = llm_usage_record(self.config.llm, tracker, client_built=self.llm is not None)
+        self.kb.set("llm.usage", record, agent=self.AGENT_NAME)
+        return record
+
+    def _append_llm_usage(self, md: str, record: dict) -> str:
+        """Append what the model did, including nothing and why.
+
+        Written like the section and the verdict above rather than re-rendered:
+        the document at this point already carries both, and rebuilding it from
+        the session would drop them.
+        """
+        lines = [
+            md,
+            "",
+            "---",
+            "",
+            "## Model Participation",
+            "",
+            f"**Provider:** {record.get('provider', '')}  ",
+            f"**Model:** `{record.get('model', '')}`  ",
+            f"**Calls answered:** {record.get('calls', 0)}  ",
+            f"**Calls attempted:** {record.get('attempts', 0)}",
+        ]
+        reason = record.get("zero_reason")
+        if reason:
+            lines += ["", f"No model output reached this report: `{reason}`."]
+        agents = record.get("by_agent") or []
+        if agents:
+            lines += ["", "Asked by: " + ", ".join(f"`{a}`" for a in agents)]
+        tokens_in = record.get("input_tokens", 0)
+        tokens_out = record.get("output_tokens", 0)
+        if tokens_in or tokens_out:
+            lines += ["", f"Tokens: {tokens_in:,} in / {tokens_out:,} out"]
+        lines.append("")
+        return "\n".join(lines)
 
     def _append_section(self, md: str, section: ReportSection) -> str:
         """Append the LLM executive section as Markdown.

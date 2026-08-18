@@ -32,6 +32,12 @@ class LLMClient:
         # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
         self.budget_usd = budget_usd
 
+    def _record_attempt(self) -> None:
+        """Count the question. _record_usage counts the answer, and only a
+        provider that replied reaches it -- a refusal has to be visible too."""
+        if self.cost_tracker is not None:
+            self.cost_tracker.record_attempt()
+
     def _record_usage(
         self,
         agent_name: str,
@@ -66,6 +72,7 @@ class LLMClient:
         agent_name: str = "unknown",
         cacheable_system: bool = False,
     ) -> str:
+        self._record_attempt()
         if self.config.provider == "openai":
             return self._call_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
@@ -150,13 +157,30 @@ class LLMClient:
         }
         return url, payload
 
+    def _ollama_failure(self, response) -> RuntimeError:
+        """Turn an ollama error response into a message that says what to do.
+
+        A pulled-model default cannot be right for everyone: any name we ship
+        is absent from someone's library, and the report agent swallows the
+        exception by design, so a bare "HTTP 404" reached nobody. Name the
+        model and the command that fixes it.
+        """
+        detail = response.text[:300]
+        if response.status_code == 404:
+            return RuntimeError(
+                f"ollama has no model '{self.config.model}': "
+                f"run `ollama pull {self.config.model}`, "
+                f"or pick an installed one with --model. ({detail})"
+            )
+        return RuntimeError(f"ollama HTTP {response.status_code}: {detail}")
+
     def _call_ollama(
         self, messages: List[Dict], system: Optional[str], agent_name: str = "unknown"
     ) -> str:
         url, payload = self._ollama_request(messages, system)
         response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
         if response.status_code != 200:
-            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
+            raise self._ollama_failure(response)
         data = response.json()
         self._record_usage(
             agent_name,
@@ -177,6 +201,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> "LLMResponse":
         """One tool-enabled round-trip. Ollama tool calling is unsupported."""
+        self._record_attempt()
         tools = tools or []
         if self.config.provider == "openai":
             return self._call_tools_openai(messages, system, tools, agent_name)
@@ -272,6 +297,7 @@ class LLMClient:
         output. Ollama: the schema goes in `format`, which constrains decoding
         server-side. Caller validates via pydantic.
         """
+        self._record_attempt()
         if self.config.provider == "openai":
             return self._structured_openai(
                 messages, schema, schema_name, description, system, agent_name
@@ -325,7 +351,7 @@ class LLMClient:
         payload["format"] = self._schema_all_required(schema)
         response = httpx.post(url, json=payload, timeout=OLLAMA_TIMEOUT)
         if response.status_code != 200:
-            raise RuntimeError(f"ollama HTTP {response.status_code}: {response.text[:300]}")
+            raise self._ollama_failure(response)
         data = response.json()
         self._record_usage(
             agent_name,
@@ -419,6 +445,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> str:
         """Async equivalent of call() — same return type, same provider routing."""
+        self._record_attempt()
         if self.config.provider == "openai":
             return await self._acall_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":

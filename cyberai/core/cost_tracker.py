@@ -48,9 +48,20 @@ class BudgetExceeded(RuntimeError):
 
 @dataclass
 class CostTracker:
-    """Accumulates token usage across all LLM calls in one scan."""
+    """Accumulates token usage across all LLM calls in one scan.
+
+    `calls` records answers, not questions: an entry is appended after the
+    provider replies. A refused call therefore leaves no trace here, which
+    made "the model was never asked" and "the model refused" the same zero.
+    `attempts` counts questions, so the two stay apart.
+    """
 
     calls: List[TokenUsage] = field(default_factory=list)
+    attempts: int = 0
+
+    def record_attempt(self) -> None:
+        """Count one request sent to a provider, whatever its outcome."""
+        self.attempts += 1
 
     def add(
         self,

@@ -65,6 +65,11 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
         # that never found one. Present even when empty, for the same reason as
         # ai_analysis above -- "" or {} is an answer, a KeyError is not.
         "redteam": (session.kb.get("exploit") or {}).get("redteam", {}),
+        # The orchestrator measured provider, calls, attempts and the named
+        # reason for a zero, and no exporter carried them: a machine consumer
+        # could not tell a refused provider from one nobody asked. Present
+        # even when empty, for the same reason as ai_analysis above.
+        "llm_usage": session.kb.get("llm.usage") or {},
         "knowledge_base_keys": list(session.kb.keys()),
     }
 
