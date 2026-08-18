@@ -357,6 +357,42 @@ def _render_redteam(session: PentestSession) -> list[str]:
     return lines + ["---", ""]
 
 
+def _render_llm_usage(session: PentestSession) -> list[str]:
+    """Report what the model actually did, including nothing and why.
+
+    The orchestrator has measured this since llm.usage was introduced and no
+    renderer read the key: a run whose provider refused every request read
+    exactly like a run that had no use for a model. The zero is the point,
+    so the section is written even when there were no calls.
+    """
+    kb = getattr(session, "kb", None)
+    usage = kb.get("llm.usage") if kb is not None else None
+    if not usage:
+        return []
+
+    lines = [
+        "## Model Participation",
+        "",
+        f"**Provider:** {usage.get('provider', '')}  ",
+        f"**Model:** `{usage.get('model', '')}`  ",
+        f"**Calls answered:** {usage.get('calls', 0)}  ",
+        f"**Calls attempted:** {usage.get('attempts', 0)}",
+        "",
+    ]
+    reason = usage.get("zero_reason")
+    if reason:
+        lines += [f"No model output reached this report: `{reason}`.", ""]
+    agents = usage.get("by_agent") or []
+    if agents:
+        lines += ["Asked by: " + ", ".join(f"`{a}`" for a in agents), ""]
+    tokens_in = usage.get("input_tokens", 0)
+    tokens_out = usage.get("output_tokens", 0)
+    if tokens_in or tokens_out:
+        lines += [f"Tokens: {tokens_in:,} in / {tokens_out:,} out", ""]
+    lines += ["---", ""]
+    return lines
+
+
 def render_markdown(session: PentestSession) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     findings = session.findings
@@ -440,6 +476,9 @@ def render_markdown(session: PentestSession) -> str:
     # After the surface section: the analysis reads what those sections
     # list, so it follows them rather than opening the report.
     lines += _render_ai_analysis(session)
+    lines += _render_llm_usage(session)
+    # Last of the body sections: it describes how the report above was made,
+    # which only means something once there is a report to describe.
 
     lines += [
         "## Summary",
