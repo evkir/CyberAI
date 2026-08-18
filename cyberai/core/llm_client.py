@@ -32,6 +32,12 @@ class LLMClient:
         # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
         self.budget_usd = budget_usd
 
+    def _record_attempt(self) -> None:
+        """Count the question. _record_usage counts the answer, and only a
+        provider that replied reaches it -- a refusal has to be visible too."""
+        if self.cost_tracker is not None:
+            self.cost_tracker.record_attempt()
+
     def _record_usage(
         self,
         agent_name: str,
@@ -66,6 +72,7 @@ class LLMClient:
         agent_name: str = "unknown",
         cacheable_system: bool = False,
     ) -> str:
+        self._record_attempt()
         if self.config.provider == "openai":
             return self._call_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
@@ -177,6 +184,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> "LLMResponse":
         """One tool-enabled round-trip. Ollama tool calling is unsupported."""
+        self._record_attempt()
         tools = tools or []
         if self.config.provider == "openai":
             return self._call_tools_openai(messages, system, tools, agent_name)
@@ -272,6 +280,7 @@ class LLMClient:
         output. Ollama: the schema goes in `format`, which constrains decoding
         server-side. Caller validates via pydantic.
         """
+        self._record_attempt()
         if self.config.provider == "openai":
             return self._structured_openai(
                 messages, schema, schema_name, description, system, agent_name
@@ -419,6 +428,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> str:
         """Async equivalent of call() — same return type, same provider routing."""
+        self._record_attempt()
         if self.config.provider == "openai":
             return await self._acall_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":

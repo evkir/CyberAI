@@ -174,9 +174,16 @@ class Orchestrator:
         A bare count of zero reads as "the model had nothing to add", which
         is indistinguishable from a provider that could never have been
         reached. Name the cause instead of leaving the reader to guess.
+
+        `calls` counts answers, so a provider that refused every request left
+        the same zero as a run that never asked. `attempts` separates them:
+        a non-zero attempt count with no call is a refusal, and it outranks
+        the other causes because it is the one thing we measured directly.
         """
         if self.cost_tracker.call_count:
             return None
+        if self.cost_tracker.attempts:
+            return "provider_refused"
         if self.dry_run:
             return "dry_run"
         provider = self.config.llm.provider
@@ -202,6 +209,7 @@ class Orchestrator:
                 "model": self.config.llm.model,
                 "client_built": self._llm is not None,
                 "calls": tracker.call_count,
+                "attempts": tracker.attempts,
                 "input_tokens": sum(c.input_tokens for c in tracker.calls),
                 "output_tokens": sum(c.output_tokens for c in tracker.calls),
                 "cost_usd": round(total_cost(tracker), 6),
