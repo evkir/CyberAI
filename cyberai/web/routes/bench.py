@@ -63,7 +63,7 @@ def trigger_run(suite: str, request: Request) -> dict:
     config.output_dir/scorecard_<suite>.md for a later read.
     """
     config = request.app.state.config
-    if not getattr(config, "web_enable_bench_trigger", False):
+    if not config.web_enable_bench_trigger:
         return {"error": "bench trigger disabled", "suite": suite}
     safe = Path(suite).name
     out = _out_dir(request)

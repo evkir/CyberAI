@@ -108,7 +108,7 @@ class Orchestrator:
     def _with_plan_phase(self, phases: List[ScanPhase]) -> List[ScanPhase]:
         """Insert the flag-gated PLAN phase directly before EXPLOIT."""
         out = list(phases)
-        if not getattr(self.config, "enable_planner", False):
+        if not self.config.enable_planner:
             return out
         if ScanPhase.PLAN in out or ScanPhase.EXPLOIT not in out:
             return out
@@ -149,7 +149,7 @@ class Orchestrator:
         for phase in self.phases:
             self._run_phase(session, phase)
             if session.phases and not session.phases[-1].success:
-                if getattr(self.config, "enable_replan", False):
+                if self.config.enable_replan:
                     self._maybe_replan(session, phase)
                 if session.phases and not session.phases[-1].success:
                     log.warning(f"Phase {phase.value} failed — continuing pipeline")
@@ -345,7 +345,7 @@ class Orchestrator:
         anything to fuzz, and a phase that exists only to be skipped costs the
         CLI, the replay format, and the scorecard a column each.
         """
-        if not getattr(self.config, "use_planned_redteam", False):
+        if not self.config.use_planned_redteam:
             return {}
         from cyberai.agents.redteam.agent import RedTeamAgent
 
@@ -489,7 +489,7 @@ class AsyncOrchestrator(Orchestrator):
         # of it (build_kb_graph, ExploitAgent) silently saw nothing. Reuse the
         # sync agent's method rather than re-deriving the crawl and its
         # findings here — one source of truth for the web surface.
-        if getattr(self.config, "use_web_recon", False):
+        if self.config.use_web_recon:
             from cyberai.agents.recon.agent import ReconAgent
 
             web_agent = ReconAgent(self.config, session, None, self.audit)

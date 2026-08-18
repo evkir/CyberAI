@@ -20,12 +20,12 @@ router = APIRouter()
 
 
 def _machines_dir(request: Request) -> Path | None:
-    raw = getattr(request.app.state.config, "lab_machines_dir", None)
+    raw = request.app.state.config.lab_machines_dir
     return Path(raw) if raw else None
 
 
 def _flag_patterns(request: Request) -> list[str]:
-    return list(getattr(request.app.state.config, "lab_flag_patterns", []) or [])
+    return list(request.app.state.config.lab_flag_patterns or [])
 
 
 @router.get("/lab/machines")
