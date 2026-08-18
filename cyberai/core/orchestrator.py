@@ -20,6 +20,7 @@ from rich.panel import Panel
 
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.logger import AuditLogger, get_logger
+from cyberai.core.llm_usage import llm_usage_record, llm_zero_reason
 from cyberai.core.scan_session import ScanPhase, ScanSession
 
 console = Console()
@@ -171,51 +172,27 @@ class Orchestrator:
     def _llm_zero_reason(self) -> Optional[str]:
         """Why no LLM call happened, or None when at least one did.
 
-        A bare count of zero reads as "the model had nothing to add", which
-        is indistinguishable from a provider that could never have been
-        reached. Name the cause instead of leaving the reader to guess.
-
-        `calls` counts answers, so a provider that refused every request left
-        the same zero as a run that never asked. `attempts` separates them:
-        a non-zero attempt count with no call is a refusal, and it outranks
-        the other causes because it is the one thing we measured directly.
+        Thin wrapper: the reasoning lives in core/llm_usage so the report
+        agent, which writes the same key before its documents are saved,
+        cannot drift from it.
         """
-        if self.cost_tracker.call_count:
-            return None
-        if self.cost_tracker.attempts:
-            return "provider_refused"
-        if self.dry_run:
-            return "dry_run"
-        provider = self.config.llm.provider
-        if provider in ("openai", "anthropic") and not self.config.llm.api_key:
-            return f"no_api_key_for_{provider}"
-        if self._llm is None:
-            return "no_phase_requested_an_llm"
-        return "client_built_but_unused"
+        return llm_zero_reason(
+            self.config.llm,
+            self.cost_tracker,
+            client_built=self._llm is not None,
+            dry_run=self.dry_run,
+        )
 
     def _record_llm_usage(self, session: ScanSession) -> None:
-        """Persist LLM usage into the KB so session exports carry it.
-
-        `client_built` separates "the model was never asked" from "the model
-        was asked and returned nothing" — different facts, different fixes.
-        """
-        from cyberai.core.pricing import total_cost
-
-        tracker = self.cost_tracker
+        """Persist LLM usage into the KB so session exports carry it."""
         session.kb.set(
             "llm.usage",
-            {
-                "provider": self.config.llm.provider,
-                "model": self.config.llm.model,
-                "client_built": self._llm is not None,
-                "calls": tracker.call_count,
-                "attempts": tracker.attempts,
-                "input_tokens": sum(c.input_tokens for c in tracker.calls),
-                "output_tokens": sum(c.output_tokens for c in tracker.calls),
-                "cost_usd": round(total_cost(tracker), 6),
-                "by_agent": sorted({c.agent for c in tracker.calls}),
-                "zero_reason": self._llm_zero_reason(),
-            },
+            llm_usage_record(
+                self.config.llm,
+                self.cost_tracker,
+                client_built=self._llm is not None,
+                dry_run=self.dry_run,
+            ),
             agent="orchestrator",
         )
 
