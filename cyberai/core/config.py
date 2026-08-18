@@ -1,3 +1,17 @@
+"""Typed configuration shared by every agent, CLI entry point and web route.
+
+`CyberAIConfig` is a dataclass: every field declared here exists on every
+instance. Consumers therefore read `config.<field>` directly. A `getattr`
+fallback is not the house style: while the field is declared the fallback is
+unreachable, and it turns a renamed or deleted field into a silent change of
+behaviour instead of an AttributeError at the first read.
+
+Values arrive from three places, in this order: the dataclass defaults below,
+the environment via `from_env()` and the `_env_*` helpers, and the CLI, which
+assigns to declared fields in place (`cyberai/__main__.py`). The CLI never
+introduces a field that is not declared here.
+"""
+
 from dataclasses import dataclass, field
 from typing import Optional, Literal
 from pathlib import Path

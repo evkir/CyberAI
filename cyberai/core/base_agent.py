@@ -169,7 +169,7 @@ class BaseAgent(ABC):
         step to prevent runaway loops (KI-4).
         """
         self._iterations += 1
-        limit = getattr(self.config, "max_agent_iterations", 10)
+        limit = self.config.max_agent_iterations
         if self._iterations > limit:
             raise AgentIterationLimitError(f"{self.AGENT_NAME} exceeded {limit} iterations")
 
