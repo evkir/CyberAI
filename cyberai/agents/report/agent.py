@@ -63,7 +63,7 @@ class ReportAgent(BaseAgent):
         self.kb.set("report.json_path", json_path, agent=self.AGENT_NAME)
 
         # Flag-gated: LLM-generated structured executive section.
-        if getattr(self.config, "use_llm_summary", False) and self.llm is not None:
+        if self.config.use_llm_summary and self.llm is not None:
             section = self._structured_summary(target)
             if section is not None:
                 self.kb.set("report.section", section.model_dump(), agent=self.AGENT_NAME)
@@ -75,13 +75,13 @@ class ReportAgent(BaseAgent):
 
         # Flag-gated: LLM-as-Judge cross-checks the report against KB evidence.
         verdict_dump = None
-        if getattr(self.config, "use_judge", False) and self.llm is not None:
+        if self.config.use_judge and self.llm is not None:
             verdict = judge_report(
                 md_content,
                 self.session,
                 self.llm,
-                threshold=getattr(self.config, "judge_threshold", 0.7),
-                judge_model=getattr(self.config, "judge_model", None),
+                threshold=self.config.judge_threshold,
+                judge_model=self.config.judge_model,
             )
             verdict_dump = verdict.model_dump()
             self.kb.set("report.judge_verdict", verdict_dump, agent=self.AGENT_NAME)

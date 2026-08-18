@@ -66,7 +66,7 @@ class ReconAgent(BaseAgent):
         # 1. nmap
         self._check_iteration_limit()
         nmap_flags = "-sV -T4 --top-ports 1000"
-        max_rps = getattr(self.config, "max_rps", None)
+        max_rps = self.config.max_rps
         if max_rps:
             nmap_flags += f" --max-rate {max_rps}"
         nmap_result = run_nmap(target, flags=nmap_flags)
@@ -78,7 +78,7 @@ class ReconAgent(BaseAgent):
             self._log("nmap_scan complete", nmap_result)
 
         # 1b. Behavioral fingerprint (flag-gated) — honeypot/WAF/tarpit trust.
-        if getattr(self.config, "use_behavioral_fingerprint", False):
+        if self.config.use_behavioral_fingerprint:
             self._check_iteration_limit()
             ports_bf = nmap_result.get("ports", []) if isinstance(nmap_result, dict) else []
             mass_open = (
@@ -141,7 +141,7 @@ class ReconAgent(BaseAgent):
             )
 
         # 6. HTTP attack surface — the injectable points exploitation needs.
-        if getattr(self.config, "use_web_recon", False):
+        if self.config.use_web_recon:
             results["recon.web_surface"] = self._run_web_recon(target)
 
         # Surface open ports as an informational finding
@@ -219,8 +219,8 @@ class ReconAgent(BaseAgent):
         self._check_iteration_limit()
         surface = discover_surface(
             target,
-            api_discovery=getattr(self.config, "use_api_discovery", False),
-            probe_routes=getattr(self.config, "use_route_probing", False),
+            api_discovery=self.config.use_api_discovery,
+            probe_routes=self.config.use_route_probing,
         )
         self.kb.set("recon.web_surface", surface, agent=self.AGENT_NAME)
         self._log("web_surface complete", surface)
