@@ -33,7 +33,6 @@ from cyberai.core.scan_session import (
     Severity,
 )
 
-
 # ── compatibility enum ────────────────────────────────────────────────
 
 

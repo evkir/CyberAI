@@ -19,8 +19,8 @@ from http.server import HTTPServer
 
 import pytest
 
-from cyberai.bench.agent_engine import AttackOutcome, agent_attack, make_agent_runner
 from cyberai.agents.exploit.web_payloads import WebVulnClass
+from cyberai.bench.agent_engine import AttackOutcome, agent_attack, make_agent_runner
 from cyberai.bench.docker_builder import RunningTarget
 from cyberai.bench.runner import BenchTask
 from cyberai.bench.targets import LocalSuiteAdapter

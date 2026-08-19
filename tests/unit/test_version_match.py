@@ -7,7 +7,6 @@ import pytest
 from cyberai.agents.intel.nvd_client import _parse_cves
 from cyberai.agents.intel.version_match import _vtuple, version_applies
 
-
 # -- _vtuple: tolerant leading-numeric parse --
 
 

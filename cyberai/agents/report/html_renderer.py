@@ -3,6 +3,7 @@ HTML report renderer — converts KB data into a styled HTML report.
 """
 
 from __future__ import annotations
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional

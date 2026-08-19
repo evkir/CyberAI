@@ -4,6 +4,7 @@ Full pipeline integration tests with mock targets.
 
 import asyncio
 from unittest.mock import AsyncMock
+
 from cyberai.core.pipeline import AsyncPipeline
 
 MOCK_RECON = {

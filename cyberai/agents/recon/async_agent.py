@@ -5,11 +5,11 @@ Async ReconAgent — parallel nmap + DNS + subdomains + TLS via asyncio.
 import asyncio
 import logging
 
-from cyberai.core.async_base_agent import AsyncBaseAgent
-from cyberai.agents.recon.nmap_tool import run_nmap
 from cyberai.agents.recon.dns_tool import run_dns_async
+from cyberai.agents.recon.nmap_tool import run_nmap
 from cyberai.agents.recon.subdomain_enum import enumerate_subdomains_async
 from cyberai.agents.recon.tls_tool import TLSTool
+from cyberai.core.async_base_agent import AsyncBaseAgent
 
 logger = logging.getLogger("cyberai.recon.async")
 

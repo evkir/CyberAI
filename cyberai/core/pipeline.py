@@ -17,10 +17,11 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Optional
+
 from cyberai.agents.recon.async_agent import (
-    AsyncReconAgent,
-    AsyncIntelAgent,
     AsyncExploitAgent,
+    AsyncIntelAgent,
+    AsyncReconAgent,
 )
 
 logger = logging.getLogger("cyberai.core.pipeline")

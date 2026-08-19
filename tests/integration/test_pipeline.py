@@ -1,6 +1,7 @@
 import pytest
+
 from cyberai.core.config import CyberAIConfig
-from cyberai.core.session import PentestSession, SessionState, Finding, Severity
+from cyberai.core.session import Finding, PentestSession, SessionState, Severity
 
 
 @pytest.fixture

@@ -39,8 +39,8 @@ from cyberai.agents.recon.dns_tool import (  # noqa: E402
     run_dns,
     run_whois,
 )
-from cyberai.agents.recon.subdomain_enum import enumerate_subdomains  # noqa: E402
 from cyberai.agents.recon.nmap_tool import run_nmap  # noqa: E402
+from cyberai.agents.recon.subdomain_enum import enumerate_subdomains  # noqa: E402
 
 register(
     name="nmap_scan",

@@ -4,8 +4,8 @@ Defines fallback behaviours when agents fail.
 """
 
 import logging
-from typing import Callable, Optional
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 logger = logging.getLogger("cyberai.core.recovery")
 

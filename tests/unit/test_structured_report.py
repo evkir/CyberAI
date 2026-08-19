@@ -9,7 +9,6 @@ from cyberai.agents.report.h1_exporter import export_hackerone
 from cyberai.core.llm_client import LLMClient
 from cyberai.core.types import ReportSection
 
-
 # ── ReportSection model ───────────────────────────────────────────────
 
 

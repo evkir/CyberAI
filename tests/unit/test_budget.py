@@ -1,7 +1,8 @@
 """Budget enforcement: LLMClient must raise BudgetExceeded when configured cap is crossed."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from cyberai.core.config import LLMConfig
 from cyberai.core.cost_tracker import BudgetExceeded, CostTracker

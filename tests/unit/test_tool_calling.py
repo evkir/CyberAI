@@ -19,7 +19,6 @@ from cyberai.core.llm_client import (
     format_tool_results,
 )
 
-
 # ── fixtures ──────────────────────────────────────────────────────────
 
 

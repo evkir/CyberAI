@@ -8,13 +8,13 @@ from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.core.types import OpenPort, ReconResult
 
-from .dns_tool import run_dns, run_whois
-from .llm_detector import detect_llm_endpoints
-from .subdomain_enum import enumerate_subdomains, fqdns
-from .web_surface import discover_surface
 from .behavioral import BehavioralFingerprint
 from .behavioral_probe import build_probe_context
+from .dns_tool import run_dns, run_whois
+from .llm_detector import detect_llm_endpoints
 from .nmap_tool import run_nmap
+from .subdomain_enum import enumerate_subdomains, fqdns
+from .web_surface import discover_surface
 
 
 class ReconAgent(BaseAgent):

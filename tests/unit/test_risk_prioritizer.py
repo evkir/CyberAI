@@ -1,4 +1,4 @@
-from cyberai.agents.intel.risk_prioritizer import prioritize, group_by_tier, summarize
+from cyberai.agents.intel.risk_prioritizer import group_by_tier, prioritize, summarize
 
 CVES = [
     {

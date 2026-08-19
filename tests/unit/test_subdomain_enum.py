@@ -1,10 +1,11 @@
 from unittest.mock import patch
+
 from cyberai.agents.recon.subdomain_enum import (
+    DEFAULT_WORDLIST,
+    _resolve,
     enumerate_subdomains,
     fqdns,
-    _resolve,
     load_wordlist,
-    DEFAULT_WORDLIST,
 )
 
 

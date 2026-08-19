@@ -4,11 +4,12 @@ Uses concurrent resolution for speed.
 """
 
 from __future__ import annotations
+
 import asyncio
-import socket
 import concurrent.futures
-from typing import List, Dict, Any
+import socket
 from pathlib import Path
+from typing import Any, Dict, List
 
 import dns.asyncresolver
 

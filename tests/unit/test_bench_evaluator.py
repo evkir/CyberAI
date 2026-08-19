@@ -9,12 +9,12 @@ from cyberai.bench.evaluator import (
     cmdi_solved_from_evidence,
     evaluate,
     probe_cmdi,
-    ssrf_solved_from_evidence,
     probe_for,
     probe_sqli,
     probe_ssrf,
     probe_traversal,
     sqli_solved_from_evidence,
+    ssrf_solved_from_evidence,
     traversal_solved_from_evidence,
 )
 from cyberai.bench.targets import LOCAL_SUITE, VulnClass, VulnTarget
@@ -226,9 +226,9 @@ def test_probe_ssrf_ignores_a_callback_that_is_not_ours():
     outbound request, just not the one it was handed.
     """
     import threading
+    import urllib.request
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from urllib.parse import urlparse
-    import urllib.request
 
     class _NoisyHandler(BaseHTTPRequestHandler):
         def log_message(self, *args):

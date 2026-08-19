@@ -16,7 +16,6 @@ import pytest
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.session import PentestSession
 
-
 # ---------------------------------------------------------------------------
 # Config & sessions
 # ---------------------------------------------------------------------------

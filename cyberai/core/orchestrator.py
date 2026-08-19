@@ -19,8 +19,8 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cyberai.core.config import CyberAIConfig
-from cyberai.core.logger import AuditLogger, get_logger
 from cyberai.core.llm_usage import llm_usage_record, llm_zero_reason
+from cyberai.core.logger import AuditLogger, get_logger
 from cyberai.core.scan_session import ScanPhase, ScanSession
 
 console = Console()

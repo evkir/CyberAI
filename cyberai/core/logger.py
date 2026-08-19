@@ -1,9 +1,10 @@
-from typing import Any, List, Dict, Optional
-import logging
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from rich.console import Console
 from rich.logging import RichHandler
 

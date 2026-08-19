@@ -4,6 +4,7 @@ Produces ranked list with threshold filtering and tier grouping.
 """
 
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
 
 from .cve_scorer import CVEScore, score_all

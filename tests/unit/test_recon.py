@@ -37,9 +37,10 @@ def test_recon_logs_nmap_failure_visibly(monkeypatch):
     """A nmap error must be surfaced as a FAILED log line, never masked
     as 'nmap_scan complete'."""
     from unittest.mock import MagicMock, patch
+
     from cyberai.agents.recon.agent import ReconAgent
-    from cyberai.core.scan_session import ScanSession
     from cyberai.core.config import CyberAIConfig
+    from cyberai.core.scan_session import ScanSession
 
     session = ScanSession(target="t.local")
     agent = ReconAgent(CyberAIConfig(), session, MagicMock(), MagicMock())
@@ -65,9 +66,10 @@ def test_recon_logs_nmap_success(monkeypatch):
     """The success branch must log 'nmap_scan complete' (coverage for the
     else-arm of the failure-visibility guard)."""
     from unittest.mock import MagicMock, patch
+
     from cyberai.agents.recon.agent import ReconAgent
-    from cyberai.core.scan_session import ScanSession
     from cyberai.core.config import CyberAIConfig
+    from cyberai.core.scan_session import ScanSession
 
     session = ScanSession(target="t.local")
     agent = ReconAgent(CyberAIConfig(), session, MagicMock(), MagicMock())

@@ -15,11 +15,11 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from cyberai.core.config import CyberAIConfig
-from cyberai.web.routes.report import router as report_router
-from cyberai.web.routes.session import router as session_router
 from cyberai.web.routes.bench import router as bench_router
 from cyberai.web.routes.lab import router as lab_router
 from cyberai.web.routes.regression import router as regression_router
+from cyberai.web.routes.report import router as report_router
+from cyberai.web.routes.session import router as session_router
 
 logger = logging.getLogger("cyberai.web")
 

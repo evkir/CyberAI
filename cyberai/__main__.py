@@ -5,17 +5,17 @@ from __future__ import annotations
 import os
 
 import click
-
-from cyberai.version import __version__
 from rich.console import Console
 from rich.panel import Panel
 
-from .core.config import CyberAIConfig, LLMConfig
-from .core.orchestrator import Orchestrator
-from .core.scan_session import ScanPhase
+from cyberai.version import __version__
+
 from .cli.bench import bench
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
+from .core.config import CyberAIConfig, LLMConfig
+from .core.orchestrator import Orchestrator
+from .core.scan_session import ScanPhase
 
 console = Console()
 

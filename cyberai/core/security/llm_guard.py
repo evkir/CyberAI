@@ -1,6 +1,7 @@
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 from .injection_detector import scan_messages
-from .input_sanitizer import sanitize_llm_input, validate_json_output, redact_sensitive
+from .input_sanitizer import redact_sensitive, sanitize_llm_input, validate_json_output
 
 
 class SecurityError(Exception):

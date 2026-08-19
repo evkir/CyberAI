@@ -17,13 +17,11 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from cyberai.bench.runner import BenchResult, run_suite
-from cyberai.bench.targets import LocalSuiteAdapter
 from cyberai.bench.agent_engine import make_agent_runner
+from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.cve_bench import CVEBenchAdapter
 from cyberai.bench.cve_bench_runner import make_cve_bench_runner
 from cyberai.bench.engine_runner import make_engine_runner
-from cyberai.bench.ctf_loader import CTFAdapter
 from cyberai.bench.regression_gate import check_regression, load_baseline
 from cyberai.bench.run_manifest import (
     DEFAULT_SEED,
@@ -31,7 +29,9 @@ from cyberai.bench.run_manifest import (
     build_manifest,
     set_global_seed,
 )
+from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
+from cyberai.bench.targets import LocalSuiteAdapter
 
 console = Console()
 

@@ -15,8 +15,8 @@ inside a container, invisible to coverage).
 
 from __future__ import annotations
 
-from cyberai.bench.apps import cmdi_ping, path_traversal, sqli_login, ssrf_fetch
 from cyberai.bench import evaluator
+from cyberai.bench.apps import cmdi_ping, path_traversal, sqli_login, ssrf_fetch
 from cyberai.bench.targets import LOCAL_SUITE, VulnClass
 
 

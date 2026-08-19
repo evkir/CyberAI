@@ -3,10 +3,10 @@ Exponential backoff with jitter for external API calls.
 Handles NVD API rate limiting (429) and transient errors.
 """
 
-import time
-import random
 import logging
-from typing import Callable, Any, Optional, Type
+import random
+import time
+from typing import Any, Callable, Optional, Type
 
 logger = logging.getLogger("cyberai.utils.backoff")
 

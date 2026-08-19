@@ -13,7 +13,6 @@ from cyberai.core.base_agent import (
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.scan_session import ScanSession
 
-
 # ── a minimal concrete agent for testing ──────────────────────────────
 
 

@@ -17,7 +17,6 @@ from cyberai.agents.web3.immunefi_report import (
 )
 from cyberai.core.types import ReportSection
 
-
 # --- exporter --------------------------------------------------------------
 
 

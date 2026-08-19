@@ -3,9 +3,9 @@ Agent timeout enforcement with graceful fallback.
 Prevents runaway agents from hanging the pipeline.
 """
 
-import signal
 import functools
-from typing import Callable, Any, Optional
+import signal
+from typing import Any, Callable, Optional
 
 
 class AgentTimeoutError(Exception):

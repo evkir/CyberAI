@@ -6,7 +6,8 @@ Extracts repeated safety logic from every agent into clean decorators.
 import functools
 import logging
 from typing import Callable
-from cyberai.core.safety import InputSanitizer, AgentTrustBoundary
+
+from cyberai.core.safety import AgentTrustBoundary, InputSanitizer
 
 logger = logging.getLogger("cyberai.safety")
 

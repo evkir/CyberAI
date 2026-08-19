@@ -1,8 +1,8 @@
 from cyberai.core.security.injection_detector import detect_injection, scan_messages
 from cyberai.core.security.input_sanitizer import (
+    redact_sensitive,
     sanitize_target,
     sanitize_text,
-    redact_sensitive,
     validate_json_output,
 )
 

@@ -5,8 +5,8 @@ Scope validation + input sanitization + trust boundaries.
 
 import ipaddress
 import re
-from typing import List
 from dataclasses import dataclass, field
+from typing import List
 
 
 @dataclass
