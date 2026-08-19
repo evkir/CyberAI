@@ -38,7 +38,10 @@ class OOBInteraction:
     """
 
     interaction_id: str
-    protocol: str  # dns | http | https
+    # Whatever the grid put in the row's `type`, lowercased -- the parser
+    # does not map or validate it. dns | http | https in practice, and
+    # "unknown" when the field is absent.
+    protocol: str
     source_ip: str
     timestamp: str
     payload: str = ""
