@@ -154,8 +154,12 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
             async with ClientSession(read, write) as session:
                 init = await session.initialize()
                 result.connected = True
-                result.server_name = init.serverInfo.name
-                result.server_version = init.serverInfo.version
+                # by_alias keeps the wire spelling. mcp 1.x names the field
+                # serverInfo, 2.0 renamed the python attribute to server_info;
+                # the wire name is the stable one -- same reason _dump() uses it.
+                info = init.model_dump(mode="json", by_alias=True)["serverInfo"]
+                result.server_name = info["name"]
+                result.server_version = info["version"]
                 surface = await inventory(session)
                 result.tools = surface["tools"]
                 result.prompts = surface["prompts"]
