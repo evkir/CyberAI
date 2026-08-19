@@ -17,6 +17,7 @@ from .service_mapper import (
     cve_is_relevant,
 )
 from .version_match import classify_cve
+from .tls_cve_mapper import TLSCVEMapper
 from cyberai.core.types import CVEEntry, IntelResult
 
 
@@ -63,7 +64,29 @@ class IntelAgent(BaseAgent):
             )
         )
 
+    def _enrich_tls_findings(self) -> None:
+        """Attach CVE context to the TLS findings recon left in the KB.
+
+        TLSCVEMapper existed with no product caller: recon wrote recon.tls,
+        the mapper knew how to read it, and nothing joined them. The findings
+        list from TLSTool.run is already the shape the mapper expects.
+        """
+        tls_data = self.kb.get("recon.tls", {}) or {}
+        findings = tls_data.get("findings", []) if isinstance(tls_data, dict) else []
+        if not findings:
+            return
+        enriched = TLSCVEMapper().enrich(findings)
+        self.kb.set("intel.tls_findings", enriched, agent=self.AGENT_NAME)
+        with_cves = sum(1 for f in enriched if f.get("cves"))
+        self._log(f"TLS: {with_cves}/{len(enriched)} findings mapped to CVEs")
+
     def run(self, target: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # TLS findings carry their own CVE context and do not depend on nmap.
+        # This runs before the port checks below because those return early:
+        # an HTTPS target with no open ports in the nmap result would
+        # otherwise drop TLS data that recon already put in the KB.
+        self._enrich_tls_findings()
+
         nmap_data = self.kb.get("recon.nmap", {}) or {}
         ports = nmap_data.get("ports", []) if isinstance(nmap_data, dict) else []
 
