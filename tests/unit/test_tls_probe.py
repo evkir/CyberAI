@@ -59,6 +59,95 @@ def _make_cert(tmp_path, not_after_days: int, name: str = "localhost"):
     return str(cert_path), str(key_path)
 
 
+def _make_ca_signed(tmp_path, not_after_days: int, name: str = "localhost"):
+    """
+    Write a CA and a leaf it signed, plus the CA bundle to trust it with.
+
+    The self-signed certificates above can never exercise the trusted path,
+    so the branch that parses a verified certificate went untested. OpenSSL
+    will not accept a chain without subject and authority key identifiers,
+    nor a CA without keyCertSign, so both are set here rather than
+    discovered as a verification failure.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_name = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, "CyberAI Test Root"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, ISSUER_ORG),
+        ]
+    )
+    ca_ski = x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key())
+    ca = (
+        x509.CertificateBuilder()
+        .subject_name(ca_name)
+        .issuer_name(ca_name)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(ca_ski, critical=False)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    leaf_name = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, name),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, ISSUER_ORG),
+        ]
+    )
+    leaf = (
+        x509.CertificateBuilder()
+        .subject_name(leaf_name)
+        .issuer_name(ca_name)
+        .public_key(leaf_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=not_after_days))
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(ca_ski),
+            critical=False,
+        )
+        .add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()),
+            critical=False,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    ca_path = tmp_path / f"ca-{not_after_days}.pem"
+    cert_path = tmp_path / f"signed-{not_after_days}.pem"
+    key_path = tmp_path / f"signed-{not_after_days}.key"
+    ca_path.write_bytes(ca.public_bytes(serialization.Encoding.PEM))
+    cert_path.write_bytes(leaf.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        leaf_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+    return str(cert_path), str(key_path), str(ca_path)
+
+
 class _TLSServer:
     """One-shot TLS listener on 127.0.0.1, serving a given cert."""
 
@@ -107,6 +196,62 @@ def tls_server(tmp_path):
 
     for server in servers:
         server.close()
+
+
+@pytest.fixture
+def trusted_tls_server(tmp_path, monkeypatch):
+    """A TLS server whose certificate the probe will actually trust."""
+    servers = []
+
+    def _start(not_after_days: int):
+        cert, key, ca = _make_ca_signed(tmp_path, not_after_days)
+        # create_default_context reads SSL_CERT_FILE, so the CA is trusted
+        # without the probe needing a test-only parameter.
+        monkeypatch.setenv("SSL_CERT_FILE", ca)
+        server = _TLSServer(cert, key)
+        servers.append(server)
+        return server.port
+
+    yield _start
+
+    for server in servers:
+        server.close()
+
+
+class TestTrustedCertificate:
+    def test_verified_certificate_is_valid_and_dated(self, trusted_tls_server):
+        port = trusted_tls_server(90)
+        result = probe_tls("localhost", port=port, timeout=5)
+
+        assert result.cert_valid
+        assert not result.cert_error
+        assert result.cert_expiry_days == 89
+        assert not result.is_expired
+        assert not result.is_expiring_soon
+
+    def test_verified_certificate_yields_its_names(self, trusted_tls_server):
+        port = trusted_tls_server(90)
+        result = probe_tls("localhost", port=port, timeout=5)
+
+        assert result.cert_subject == "localhost"
+        assert result.cert_issuer == ISSUER_ORG
+
+    def test_trusted_certificate_expiring_soon_is_flagged(self, trusted_tls_server):
+        """The HIGH finding depends on this window, and only a trusted
+        certificate reaches the stdlib date parsing that measures it."""
+        port = trusted_tls_server(20)
+        result = probe_tls("localhost", port=port, timeout=5)
+
+        assert result.cert_valid
+        assert result.is_expiring_soon
+        assert not result.is_expired
+
+    def test_trusted_server_produces_no_findings(self, trusted_tls_server):
+        port = trusted_tls_server(90)
+        out = TLSTool().run(f"localhost:{port}")
+
+        assert out["cert_valid"] is True
+        assert out["findings"] == []
 
 
 class TestProbeAgainstRealServer:
