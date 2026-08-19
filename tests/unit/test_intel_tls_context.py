@@ -8,6 +8,11 @@ the same path the orchestrator takes.
 
 The recon.tls value below is the shape TLSTool.run actually returns: a dict
 carrying a findings list of severity/issue/detail dicts.
+
+Mutation-checked. Removing the call, or moving it below the no-ports early
+return, reddens the three positive arms; dropping the empty-findings guard
+reddens only the negative one. The position of the call is load-bearing, not
+decorative.
 """
 
 from __future__ import annotations
