@@ -11,7 +11,9 @@ substring over issue and detail, and prose alone never matched.
 
 import logging
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
+from cyberai.agents.recon.tls_probe import DEFAULT_PORT as DEFAULT_TLS_PORT
 from cyberai.agents.recon.tls_probe import TLSProbeResult, probe_tls
 from cyberai.core.decorators import log_agent_action, sanitize_input
 
@@ -37,6 +39,27 @@ class TLSFinding:
     severity: str  # CRITICAL | HIGH | MEDIUM | LOW
     issue: str
     detail: str
+
+
+def _split_target(target: str) -> tuple[str, int]:
+    """
+    Split a pipeline target into host and TLS port.
+
+    Targets arrive as whole URLs ("http://localhost:3000"), as host:port,
+    or as a bare hostname. Handing any of the first two to the resolver
+    fails with "Name or service not known", which is why the TLS phase
+    reported a probe failure for every target that carried a scheme.
+
+    An explicit port wins over 443: TLS is not only served there, and a
+    target named with a port is the port the operator meant.
+    """
+    raw = target.strip()
+    if "//" not in raw:
+        raw = f"//{raw}"
+    parts = urlsplit(raw)
+    host = parts.hostname or target.strip()
+    port = parts.port or (80 if parts.scheme == "http" else DEFAULT_TLS_PORT)
+    return host, port
 
 
 def _weak_tokens(cipher: str) -> list[str]:
@@ -108,11 +131,12 @@ class TLSTool:
     @log_agent_action
     def run(self, domain: str) -> dict:
         """Probe domain TLS config, return structured findings."""
-        result = probe_tls(domain)
+        host, port = _split_target(domain)
+        result = probe_tls(host, port=port)
 
         if not result.reachable:
             return {
-                "error": f"TLS probe failed for {domain}: {result.error or 'no handshake'}",
+                "error": f"TLS probe failed for {host}:{port}: {result.error or 'no handshake'}",
                 "findings": [],
             }
 
