@@ -20,7 +20,6 @@ from cyberai.agents.redteam.payloads import (
 )
 from cyberai.integrations.phantom_grid import OOBInteraction
 
-
 # ── payload corpus ────────────────────────────────────────────────────
 
 

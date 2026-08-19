@@ -1,10 +1,11 @@
 import pytest
+
 from cyberai.agents.intel.cve_scorer import (
-    score_cve,
-    score_all,
-    CVEScore,
-    EXPLOIT_WEIGHT,
     EPSS_WEIGHT,
+    EXPLOIT_WEIGHT,
+    CVEScore,
+    score_all,
+    score_cve,
 )
 
 CRITICAL_CVE = {

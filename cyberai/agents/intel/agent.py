@@ -7,18 +7,18 @@ from typing import Any, Dict, List, Optional
 
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
-
-from .nvd_client import get_cve, search_cves
-from .epss_client import get_epss_scores
-from .service_mapper import (
-    ports_to_queries,
-    score_to_severity,
-    product_tokens,
-    cve_is_relevant,
-)
-from .version_match import classify_cve
-from .tls_cve_mapper import TLSCVEMapper
 from cyberai.core.types import CVEEntry, IntelResult
+
+from .epss_client import get_epss_scores
+from .nvd_client import get_cve, search_cves
+from .service_mapper import (
+    cve_is_relevant,
+    ports_to_queries,
+    product_tokens,
+    score_to_severity,
+)
+from .tls_cve_mapper import TLSCVEMapper
+from .version_match import classify_cve
 
 
 class IntelAgent(BaseAgent):

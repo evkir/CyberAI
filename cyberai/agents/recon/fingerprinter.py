@@ -4,6 +4,7 @@ with banner grabbing and service version hints.
 """
 
 from __future__ import annotations
+
 import socket
 from typing import Any, Dict, List, Optional
 

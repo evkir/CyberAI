@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict
+from typing import Dict, List
 
 # Map common services to better NVD search keywords
 SERVICE_KEYWORDS = {

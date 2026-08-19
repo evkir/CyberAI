@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from cyberai.agents.recon.api_surface import (
+    _merge_route,
     discover_api_surface,
     fetch_js_routes,
     fetch_openapi,
@@ -12,7 +13,6 @@ from cyberai.agents.recon.api_surface import (
     parse_wp_rest,
     probe_route_params,
     probe_well_known,
-    _merge_route,
     routes_from_concatenated_base,
     routes_from_javascript,
     script_urls,

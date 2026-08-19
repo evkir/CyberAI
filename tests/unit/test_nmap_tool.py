@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from cyberai.agents.recon import nmap_tool
-from cyberai.agents.recon.nmap_tool import validate_flags, run_nmap
-
+from cyberai.agents.recon.nmap_tool import run_nmap, validate_flags
 
 # ── flag whitelist ────────────────────────────────────────────────────
 

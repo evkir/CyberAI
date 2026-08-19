@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-
-import httpx
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from cyberai.bench.cve_bench_driver import CVEBenchSandbox

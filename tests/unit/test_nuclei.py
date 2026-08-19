@@ -19,7 +19,6 @@ from cyberai.agents.exploit.searchsploit import (
     parse_output,
 )
 
-
 # ── nuclei JSONL parser ───────────────────────────────────────────────
 
 # Real v3.8.0 line shapes captured from a live run.

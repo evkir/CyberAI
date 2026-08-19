@@ -1,13 +1,15 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
 from cyberai.agents.report.html_renderer import (
-    render_html_report,
-    _render_phases,
+    _DETAIL_LIMIT,
+    _detail_rows,
+    _escape,
     _render_attack_paths,
     _render_chain,
-    _escape,
-    _detail_rows,
-    _DETAIL_LIMIT,
+    _render_phases,
+    render_html_report,
 )
 
 SESSION = {

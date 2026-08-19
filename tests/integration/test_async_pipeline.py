@@ -5,9 +5,9 @@ Uses mocked agents — no live targets needed.
 
 import asyncio
 from unittest.mock import AsyncMock, patch
+
 from cyberai.core.async_base_agent import AsyncBaseAgent
 from cyberai.core.pipeline import AsyncPipeline, PipelineResult
-
 
 # ── AsyncBaseAgent unit tests ──────────────────────────────────────
 
@@ -134,15 +134,15 @@ class TestAsyncOrchestrator:
     """
 
     def _orchestrator(self):
-        from cyberai.core.orchestrator import AsyncOrchestrator
         from cyberai.core.config import CyberAIConfig
+        from cyberai.core.orchestrator import AsyncOrchestrator
 
         return AsyncOrchestrator(config=CyberAIConfig(), dry_run=False)
 
     def test_dry_run_completes_all_four_phases(self):
         """Without dry_run mocks below, prove the happy path runs end-to-end."""
-        from cyberai.core.orchestrator import AsyncOrchestrator
         from cyberai.core.config import CyberAIConfig
+        from cyberai.core.orchestrator import AsyncOrchestrator
 
         orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=True)
         session = asyncio.run(orch.run("dryrun.local"))
@@ -340,7 +340,7 @@ class TestAsyncOrchestrator:
 
     def test_sync_intel_runs_under_to_thread(self):
         """Intel/exploit/report stay sync; AsyncOrchestrator must offload them."""
-        from cyberai.core.scan_session import ScanSession, ScanPhase
+        from cyberai.core.scan_session import ScanPhase, ScanSession
 
         orch = self._orchestrator()
         session = ScanSession(target="t.local")
@@ -357,8 +357,8 @@ class TestAsyncOrchestrator:
 
     def test_phase_failure_does_not_abort_remaining_phases(self):
         """Sync Orchestrator continues past a failed phase — async must too."""
-        from cyberai.core.orchestrator import AsyncOrchestrator
         from cyberai.core.config import CyberAIConfig
+        from cyberai.core.orchestrator import AsyncOrchestrator
 
         orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=False)
 

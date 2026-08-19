@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-import json
 
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.llm_usage import llm_usage_record

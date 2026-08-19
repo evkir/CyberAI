@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from cyberai.agents.intel import epss_client
 from cyberai.agents.intel.epss_client import get_epss_scores
 from cyberai.agents.intel.risk_prioritizer import prioritize
-
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "epss_log4shell.json"
 

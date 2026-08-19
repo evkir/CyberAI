@@ -6,10 +6,10 @@ Each session event is HMAC-signed — any modification is detectable.
 import hashlib
 import hmac
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import List
-import os
 
 SESSION_SECRET = os.getenv("CYBERAI_SESSION_SECRET", "dev-secret-change-in-prod")
 

@@ -16,7 +16,6 @@ from click.testing import CliRunner
 
 from cyberai.__main__ import cli
 
-
 pytestmark = pytest.mark.smoke
 
 

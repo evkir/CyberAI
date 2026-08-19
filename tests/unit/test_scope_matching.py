@@ -2,7 +2,6 @@
 
 import json
 
-
 from cyberai.agents.exploit.safety_validator import (
     _matches_entry,
     _split_scope,

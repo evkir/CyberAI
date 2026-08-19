@@ -14,7 +14,6 @@ from cyberai.bench.evaluator import evaluate
 from cyberai.bench.runner import BenchResult, run_suite
 from cyberai.bench.targets import LocalSuiteAdapter, VulnClass
 
-
 # Markers a successful engine run would surface, keyed by vuln class.
 _MARKER = "CMDI-TOK-99"
 _SECRET = "root:x:0:0:bench-secret"

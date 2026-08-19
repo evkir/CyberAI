@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import cyberai.agents.web3.agent as ag
-from cyberai.agents.web3.agent import SmartContractAgent
 from cyberai.agents.web3.aderyn_tool import parse_aderyn_json
+from cyberai.agents.web3.agent import SmartContractAgent
 from cyberai.agents.web3.slither_tool import parse_slither_json
 from cyberai.core.scan_session import ScanSession
 

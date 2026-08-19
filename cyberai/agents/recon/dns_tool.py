@@ -1,8 +1,9 @@
 import asyncio
+from typing import Any, Dict, List
+
 import dns.asyncresolver
 import dns.resolver
 import whois
-from typing import Dict, Any, List
 
 
 def run_whois(target: str) -> Dict[str, Any]:

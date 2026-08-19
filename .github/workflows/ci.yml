@@ -107,3 +107,24 @@ jobs:
           pip install -e ".[dev]"
       - name: Run mypy --strict
         run: mypy
+
+  mcp-1x:
+    name: MCP surface on mcp 1.x
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install at the lower bound the manifest promises
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+          pip install -e .
+          pip install "mcp>=1.0,<2"
+      - name: Serve and probe on the 1.x SDK
+        run: |
+          python -c "import importlib.metadata as m; assert m.version('mcp').startswith('1.'), m.version('mcp'); print('mcp', m.version('mcp'))"
+          pytest tests/unit/test_mcp.py tests/unit/test_mcp_sdk_compat.py tests/integration/test_mcp_scan.py tests/integration/test_mcp_stdio_roundtrip.py -v --tb=short

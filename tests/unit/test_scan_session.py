@@ -1,4 +1,4 @@
-from cyberai.core.scan_session import ScanSession, ScanState, ScanPhase, PhaseResult
+from cyberai.core.scan_session import PhaseResult, ScanPhase, ScanSession, ScanState
 
 
 def test_session_created_state():

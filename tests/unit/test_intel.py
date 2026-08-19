@@ -1,5 +1,5 @@
-from cyberai.agents.intel.service_mapper import ports_to_queries, score_to_severity
 from cyberai.agents.intel.nvd_client import _parse_cves
+from cyberai.agents.intel.service_mapper import ports_to_queries, score_to_severity
 
 
 def test_ports_to_queries_http():
@@ -28,8 +28,8 @@ def test_parse_cves_empty():
 def test_parse_cves_falls_back_to_cvss_v2():
     """Legacy CVEs with only CVSS v2 metrics must still yield score+vector so
     the exploit agent renders real Vector/Complexity (regression: v2 dropped)."""
-    from cyberai.agents.intel.agent import _normalize
     from cyberai.agents.exploit.cvss_analyzer import analyze_attack_vector
+    from cyberai.agents.intel.agent import _normalize
 
     vuln = {
         "cve": {
@@ -222,7 +222,7 @@ def test_parse_cpe_absent_yields_empty_list():
 
 # ── version-aware CVE relevance (severity FP reduction) ───────────────
 
-from cyberai.agents.intel.service_mapper import product_tokens, cve_is_relevant  # noqa: E402
+from cyberai.agents.intel.service_mapper import cve_is_relevant, product_tokens  # noqa: E402
 
 
 def test_product_tokens_from_sv_ports():

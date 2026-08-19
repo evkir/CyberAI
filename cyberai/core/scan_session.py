@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional
 
 from cyberai.core.knowledge_base import KnowledgeBase
 
-
 # ── enums ─────────────────────────────────────────────────────────────
 
 

@@ -9,8 +9,8 @@ def test_legacy_imports_still_work():
     from cyberai.core.session import (
         Finding,  # noqa: F401 — shim must re-export this legacy name
         PentestSession,  # noqa: F401 — shim must re-export this legacy name
-        Severity,
         SessionState,
+        Severity,
     )
 
     assert Severity.CRITICAL == "CRITICAL"
@@ -53,6 +53,7 @@ def test_pentestsession_set_state_legacy_method():
 
 def test_session_module_emits_deprecation_warning():
     import importlib
+
     import cyberai.core.session as legacy
 
     with warnings.catch_warnings(record=True) as w:

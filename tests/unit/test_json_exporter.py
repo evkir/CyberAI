@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from cyberai.core.scan_session import ScanSession
 from cyberai.agents.report.json_exporter import export_json
+from cyberai.core.scan_session import ScanSession
 
 
 def test_export_json_uses_session_id(tmp_path: Path) -> None:

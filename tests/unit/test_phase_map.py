@@ -21,8 +21,8 @@ import importlib
 
 import pytest
 
-from cyberai.core.phase_map import PHASE_TOOLS
 from cyberai.core.orchestrator import Orchestrator
+from cyberai.core.phase_map import PHASE_TOOLS
 from cyberai.core.scan_session import ScanPhase
 
 ALL_MODULES = [(phase, mod) for phase, (_, mods) in PHASE_TOOLS.items() for mod in mods]

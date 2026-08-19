@@ -8,7 +8,6 @@ import json
 from cyberai.mcp.server import call_tool, list_tools
 from cyberai.mcp.tools import TOOL_REGISTRY, register
 
-
 # ── registry ──────────────────────────────────────────────────────────
 
 

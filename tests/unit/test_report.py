@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from cyberai.core.session import PentestSession, Finding, Severity
+
 from cyberai.agents.report.markdown_renderer import render_markdown
+from cyberai.core.session import Finding, PentestSession, Severity
 
 
 def make_finding(title, severity, agent="test", cve=None):

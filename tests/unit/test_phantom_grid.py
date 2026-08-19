@@ -1,14 +1,14 @@
 import logging
-from unittest.mock import patch, MagicMock
-from cyberai.integrations.phantom_grid import PhantomGridClient, OOBInteraction
+from unittest.mock import MagicMock, patch
+
 from cyberai.integrations.oob_payloads import (
-    generate_ssrf_payloads,
-    generate_xxe_payloads,
-    generate_ssti_payloads,
     generate_rce_oob_payloads,
+    generate_ssrf_payloads,
+    generate_ssti_payloads,
+    generate_xxe_payloads,
     get_all_payloads,
 )
-
+from cyberai.integrations.phantom_grid import OOBInteraction, PhantomGridClient
 
 # ── phantom-grid client tests ────────────────────────────────────────
 

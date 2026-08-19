@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-
 from cyberai.agents.intel.agent import IntelAgent, IntelAgentV2, _normalize
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.scan_session import ScanSession, Severity

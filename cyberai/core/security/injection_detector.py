@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 # Known prompt injection patterns
 INJECTION_PATTERNS = [
