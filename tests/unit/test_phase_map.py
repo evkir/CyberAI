@@ -1,9 +1,11 @@
 """PHASE_TOOLS must describe the pipeline that exists, not the one that did.
 
-Nothing executes this table on the main CLI path, so a module can be deleted
-or a phase can grow new tools and the plan keeps printing the old design.
-That is what happened: the exploit row named two modules that had been
-deleted months earlier, and the intel row named two its agent never imported.
+Nothing in the product reads this table, so a module can be deleted or a
+phase can grow new tools and the description keeps naming the old design.
+That is what happened while it still backed a --dry-run printer: the exploit
+row named two modules that had been deleted months earlier, and the intel row
+named two its agent never imported. The printer is gone; the table is not,
+because a wrong description of the pipeline is worse than none.
 
 Scope of the guarantee: these tests check that every named module exists and
 that every phase the orchestrator runs by default has a row. They do NOT
@@ -19,7 +21,7 @@ import importlib
 
 import pytest
 
-from cyberai.cli.dry_run import PHASE_TOOLS
+from cyberai.core.phase_map import PHASE_TOOLS
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanPhase
 

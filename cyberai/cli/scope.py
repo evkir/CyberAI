@@ -87,14 +87,6 @@ def _is_domain(value: str) -> bool:
     return bool(re.match(pattern, value))
 
 
-def format_scope(scope: ScopeConfig) -> str:
-    """Human-readable scope summary for CLI output."""
-    parts = scope.allowed_ips + scope.allowed_domains
-    if not parts:
-        return "no scope defined"
-    return ", ".join(parts)
-
-
 @dataclass
 class ScopeImport:
     """Result of importing a bug-bounty program scope file."""
