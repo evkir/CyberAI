@@ -165,6 +165,26 @@ def test_get_interactions_drops_null_columns_from_data(mock_httpx):
 
 
 @patch("cyberai.integrations.phantom_grid.httpx.Client")
+def test_get_interactions_parses_an_https_row(mock_httpx):
+    """The third protocol the dataclass names, measured against a live grid.
+
+    Until 19.08 the grid wrote the literal HTTP for every capture, so this
+    value could not occur and the comment on OOBInteraction.protocol named
+    something that never arrived. The server now records what the request
+    came in on (phantom-grid 53f9c0a). This side needed no change -- the
+    parser passes the field through -- so the test is a regression pin, not
+    a fix: it fails if _parse ever starts mapping or narrowing the value.
+    """
+    row = dict(_REAL_HTTP_ROW, type="HTTPS")
+    _mock_get(mock_httpx, [row])
+    client = PhantomGridClient()
+    client._available = True
+    i = client.get_interactions("69e0fb21d836")[0]
+    assert i.protocol == "https"
+    assert i.confirmed
+
+
+@patch("cyberai.integrations.phantom_grid.httpx.Client")
 def test_get_interactions_parses_dns_row(mock_httpx):
     row = dict(_REAL_HTTP_ROW, type="DNS", body=None, query_name="tok.grid.local")
     _mock_get(mock_httpx, [row])
