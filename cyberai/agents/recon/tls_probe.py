@@ -18,6 +18,7 @@ A zero default is indistinguishable from "expires today" and would turn every
 unmeasured host into a CRITICAL finding.
 """
 
+import logging
 import socket
 import ssl
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from cryptography import x509
+
+logger = logging.getLogger("cyberai.recon.tls_probe")
 
 DEFAULT_PORT = 443
 DEFAULT_TIMEOUT = 10
@@ -122,15 +125,26 @@ def probe_tls(
             with ctx.wrap_socket(raw, server_hostname=domain) as sock:
                 _fill_from_socket(result, sock)
                 peer = sock.getpeercert() or {}
-                result.cert_valid = True
+                # Verification succeeding is not the same as having parsed a
+                # certificate. Asserting validity before looking at what came
+                # back is how the previous TLS source reported cert_valid=True
+                # for an expired certificate.
+                result.cert_valid = bool(peer)
                 subject = dict(x[0] for x in peer.get("subject", []))
                 issuer = dict(x[0] for x in peer.get("issuer", []))
                 result.cert_subject = subject.get("commonName", "")
                 result.cert_issuer = issuer.get("organizationName", "")
                 not_after = peer.get("notAfter", "")
                 if not_after:
-                    expiry = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
-                    result.cert_expiry_days = _days_until(expiry)
+                    try:
+                        expiry = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
+                        result.cert_expiry_days = _days_until(expiry)
+                    except ValueError:
+                        # A date we cannot read leaves expiry unmeasured,
+                        # which is what None means. It must not abort the
+                        # probe: the version and cipher are already known
+                        # and are worth reporting.
+                        logger.warning(f"{domain}: unreadable certificate expiry {not_after!r}")
         return result
     except ssl.SSLCertVerificationError as exc:
         result.cert_error = exc.verify_message or str(exc.reason)
