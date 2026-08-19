@@ -102,9 +102,6 @@ def _probe_untrusted(result: TLSProbeResult, domain: str, port: int, timeout: in
             _fill_from_socket(result, sock)
             der = sock.getpeercert(binary_form=True)
 
-    if not der:
-        return
-
     cert = x509.load_der_x509_certificate(der)
     result.cert_subject = _name_attr(cert.subject, x509.oid.NameOID.COMMON_NAME)
     result.cert_issuer = _name_attr(cert.issuer, x509.oid.NameOID.ORGANIZATION_NAME)
@@ -154,7 +151,10 @@ def probe_tls(
 
     try:
         _probe_untrusted(result, domain, port, timeout)
-    except (ssl.SSLError, OSError, ValueError) as exc:
+    except (ssl.SSLError, OSError, ValueError, TypeError) as exc:
+        # TypeError included deliberately: the certificate bytes come from
+        # the peer, and a malformed or absent DER must degrade the probe,
+        # not abort the recon phase around it.
         result.error = str(exc)
 
     return result

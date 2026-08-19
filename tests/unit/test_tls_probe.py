@@ -344,6 +344,53 @@ class TestToolOverRealServer:
         assert out["findings"] == []
 
 
+class TestDegradedResponses:
+    """The peer controls these bytes; a bad answer must not abort recon."""
+
+    def test_unreadable_expiry_leaves_the_rest_of_the_probe_intact(
+        self, trusted_tls_server, monkeypatch
+    ):
+        port = trusted_tls_server(90)
+
+        real = ssl.SSLSocket.getpeercert
+
+        def broken_date(self, binary_form=False):
+            peer = real(self, binary_form)
+            if binary_form or not peer:
+                return peer
+            return {**peer, "notAfter": "the thirty-second of Octember"}
+
+        monkeypatch.setattr(ssl.SSLSocket, "getpeercert", broken_date)
+        result = probe_tls("localhost", port=port, timeout=5)
+
+        assert result.cert_valid
+        assert result.cert_expiry_days is None
+        assert not result.is_expired
+        assert result.tls_version.startswith("TLSv1.")
+        assert result.cipher
+
+    def test_second_handshake_failure_is_recorded_not_raised(self, tls_server, monkeypatch):
+        """Verification fails, then the retry cannot connect."""
+        port = tls_server(200)
+
+        real_connect = socket.create_connection
+        seen = {"n": 0}
+
+        def failing_second(address, *args, **kwargs):
+            seen["n"] += 1
+            if seen["n"] > 1:
+                raise OSError("peer closed after the first refusal")
+            return real_connect(address, *args, **kwargs)
+
+        monkeypatch.setattr(socket, "create_connection", failing_second)
+        result = probe_tls("localhost", port=port, timeout=5)
+
+        assert seen["n"] == 2
+        assert "peer closed" in result.error
+        assert result.cert_expiry_days is None
+        assert not result.is_expired
+
+
 class TestWeakCipherTokens:
     def test_rc4_token_is_the_mapper_key(self):
         assert _weak_tokens("ECDHE-RSA-RC4-SHA") == ["RC4"]
