@@ -332,7 +332,7 @@ methodology and the current scorecard.
 |------|------|
 | [phantom-grid](https://github.com/evkir/phantom-grid) | OOB interaction capture |
 | [phantom-intel](https://github.com/evkir/phantom-intel) | CVE intelligence feed |
-| [reality-probe](https://github.com/evkir/reality-probe) | TLS analysis & config auditing |
+| [reality-probe](https://github.com/evkir/reality-probe) | TLS front fitness scoring (standalone) |
 
 ---
 
