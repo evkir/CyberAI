@@ -5,7 +5,7 @@
 |---------------|-----------------------------|
 | phantom-grid  | OOB callbacks DNS/HTTP      |
 | phantom-intel | CVE intel via NVD API 2.0   |
-| reality-probe | TLS analyzer                |
+| reality-probe | Front fitness (not wired)   |
 
 ## phantom-grid
 The grid is a Python/Flask service. There is no `package.json` and no
@@ -34,15 +34,32 @@ poller = PhantomGridPoller(base_url="http://127.0.0.1:9090", max_wait=30.0)
 See `docs/exploit/oob-exploitation-workflow.md` for the token flow.
 
 ## reality-probe
-git clone https://github.com/evkir/reality-probe
-cd reality-probe && pip install -r requirements.txt && python app.py --port 5000
 
-from cyberai.integrations.reality_probe_client import RealityProbeClient
-result = RealityProbeClient().probe("target.htb")
-print(result.score)
+Not wired into the pipeline. The service rates a domain's fitness as a
+Reality/XTLS front — it handshakes with verification disabled, so it never
+reports certificate validity or expiry, and its score measures usability as
+a front rather than TLS security. CyberAI's TLS phase needs the opposite,
+and now runs its own handshake in `cyberai/agents/recon/tls_probe.py`.
+
+Kept here because the service is useful on its own terms:
+
+```bash
+git clone https://github.com/evkir/reality-probe
+cd reality-probe && pip install -r requirements.txt
+python3 reality_probe.py   # listens on 7890, no flags
+```
+
+It is an async API: `POST /api/probe` with a `domains` field (newline-
+separated string) starts a background run and returns immediately; results
+come from polling `GET /api/status`. A run holds a global lock, released by
+`POST /api/stop`. Omitting `domains` scans 1225 built-in domains and holds
+that lock for roughly two minutes.
 
 ## Architecture
+
+```text
 CyberAI
-  ReconAgent   -> reality-probe  (TLS)
+  ReconAgent   -> tls_probe      (TLS, in-tree)
   IntelAgent   -> phantom-intel  (CVE)
   ExploitAgent -> phantom-grid   (OOB)
+```

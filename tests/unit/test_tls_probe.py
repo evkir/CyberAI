@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from cyberai.agents.intel.tls_cve_mapper import TLSCVEMapper
 from cyberai.agents.recon.tls_probe import probe_tls
 from cyberai.agents.recon.tls_tool import TLSTool, _weak_tokens
 
@@ -175,7 +176,13 @@ class TestToolOverRealServer:
 
         issues = {f["issue"]: f for f in out["findings"]}
         assert issues["Certificate expired"]["severity"] == "CRITICAL"
-        assert "cert_expired" in issues["Certificate expired"]["detail"]
+
+        # Through the mapper, not against the wording: the finding is only
+        # useful if TLSCVEMapper recognises it. Asserting on the detail
+        # string alone would stay green if the mapper key were renamed.
+        enriched = TLSCVEMapper().enrich(out["findings"])
+        by_issue = {f["issue"]: f for f in enriched}
+        assert by_issue["Certificate expired"]["remediation"] == "Renew certificate immediately"
 
     def test_untrusted_cert_is_medium_not_critical(self, tls_server):
         port = tls_server(200)
