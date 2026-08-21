@@ -63,8 +63,13 @@ def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
         role = msg.get("role", "user")
         content = msg.get("content", "")
 
-        # Only sanitize user/tool messages — not system prompts
-        if role in ("user", "tool", "function"):
+        # Only sanitize user/tool messages — not system prompts.
+        # Content is not always a string: the Anthropic tool path builds
+        # messages as a list of typed blocks (llm_client.py:648). Scrubbing
+        # control characters out of a list is not possible and crashing on
+        # a shape the product itself produces is worse than passing it on,
+        # so non-string content travels unchanged and the caller decides.
+        if role in ("user", "tool", "function") and isinstance(content, str):
             content = sanitize_text(content, MAX_INPUT_LENGTH)
 
         sanitized.append({"role": role, "content": content})
