@@ -117,3 +117,22 @@ def test_the_repository_declares_dependencies_in_one_place():
         p for p in tracked if Path(p).name in {"requirements.txt", "setup.py", "setup.cfg"}
     ]
     assert not manifests, f"dependencies must live in pyproject.toml alone, found: {manifests}"
+
+
+def test_every_declared_dependency_is_imported():
+    """A declared library nobody imports is a download every user pays for.
+
+    jinja2, requests and colorama sat in the manifest with zero import sites in
+    350 tracked files. html_renderer substitutes ``{placeholder}`` tokens with
+    str.replace and never touches a template engine; fastapi pulls jinja2 only
+    under its ``standard`` extra, which this project does not request.
+
+    Same inversion as above, read the other way: the manifest may not grow an
+    entry the code does not reach.
+    """
+    roots = _import_roots()
+    reachable = set()
+    for root in roots:
+        reachable.add(_normalize(_ALIASES.get(root, root)))
+    unused = sorted(_declared() - reachable)
+    assert not unused, f"declared in pyproject but imported nowhere: {unused}"
