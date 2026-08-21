@@ -13,7 +13,7 @@ intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
 pipeline over a shared knowledge base. 24,169 lines of Python under
 `cyberai/` plus 24,088 lines of tests, 2001 of which pass at `v1.5.0` in
 the pre-commit gate (15 slow ones deselected there and run separately),
-`mypy --strict` clean on the typed core (`cyberai/core/types.py`), MIT.
+`mypy --strict` clean on the typed core (`cyberai/core/types.py`), Apache-2.0.
 
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.
@@ -187,6 +187,6 @@ pip install cyberai
 cyberai bench run --suite local --engine real
 ```
 
-Source: <https://github.com/evkir/CyberAI> · MIT · issues and PRs welcome.
+Source: <https://github.com/evkir/CyberAI> · Apache-2.0 · issues and PRs welcome.
 
 CyberAI is developed alongside mas-sentry-toolkit under MASec Lab.

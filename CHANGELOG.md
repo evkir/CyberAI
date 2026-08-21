@@ -2,6 +2,33 @@
 
 All notable changes to CyberAI are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **Licence: MIT to Apache-2.0.** Releases up to and including v1.5.0 were
+  published under the MIT License and remain available under those terms
+  permanently, on both GitHub and PyPI; the change is not retroactive and
+  withdraws nothing already granted. From v1.6.0 onward the project is
+  distributed under the Apache License, Version 2.0. Apache adds an explicit
+  patent grant and a termination clause on patent litigation, which matter
+  for a repository that carries original protocol research, and it clears the
+  policy blocks that keep copyleft tooling out of enterprise security teams.
+  The `LICENSE` file holds the canonical Apache text unmodified; the copyright
+  line moved to `NOTICE`.
+
+### Added
+
+- **Contributor License Agreement** (`CLA.md`), adapted from the Apache ICLA
+  v2.0 with a relicensing clause, so future commercial components can ship
+  without collecting consent from each contributor one at a time. Signatures
+  are collected in the pull request description; a template was added under
+  `.github/`. No CLA bot: the widely deployed action was archived upstream in
+  March 2026 and the surviving fork is explicitly not a community successor.
+- **`docs/licensing.md`** — why CyberAI is Apache while mas-sentry-toolkit is
+  AGPL, what the CLA grants, and the planned transfer of rights to MASec Lab
+  LLC once it is registered.
+
 ## [1.5.0] - 2026-08-12
 
 ### The HTTP surface, and the vectors a response cannot prove

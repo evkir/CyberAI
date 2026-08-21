@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "CyberAI — AI-native multi-agent pentest platform"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "Apache-2.0"
 authors = [
     { name = "evkir" },
 ]
@@ -16,7 +16,7 @@ keywords = ["pentest", "security", "ai", "multi-agent", "offensive-security"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
