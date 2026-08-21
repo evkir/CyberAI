@@ -14,7 +14,7 @@ First stable release of CyberAI — AI-native multi-agent pentest platform.
 ## Quick Start
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 cyberai scan 10.10.10.1 --scope 10.10.10.0/24 --dry-run
 ```
 
