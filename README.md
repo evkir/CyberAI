@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-v1.5.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-1999%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2075%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-core%20typed-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -150,7 +150,8 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 - **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
   Bugcrowd briefs (`cyberai scope import`).
 - **Audit trail** — every agent action logged to JSONL with full
-  inputs/outputs; sessions are replayable. The log is not signed.
+  inputs/outputs; sessions are replayable. Every line is HMAC-signed —
+  `cyberai audit-verify <file>` reports any line edited after the run.
 
 ---
 
@@ -250,6 +251,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 | `CYBERAI_ENABLE_MODEL_ROUTING` | Per-phase model selection |
 | `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
 | `CYBERAI_OUTPUT_DIR` | Report output directory |
+| `CYBERAI_SESSION_SECRET` | Audit-trail signing key; unset means a published fallback |
 
 The `scan` command overrides the main flags per run, in either direction:
 

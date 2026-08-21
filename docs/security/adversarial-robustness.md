@@ -35,6 +35,17 @@ the authorized scope aborts the phase. When no scope is supplied the run
 proceeds and records a warning — absence of scope is not treated as denial.
 Recon and intel are not gated by this check.
 
+### 5. Signed audit trail
+Every line of `reports/audit_*.jsonl` carries an HMAC-SHA256 signature over
+the rest of that line. Editing any recorded field invalidates it.
+`cyberai audit-verify <file>` checks a trail line by line and exits non-zero
+on any failure, so it can gate a pipeline.
+
+The key is read from `CYBERAI_SESSION_SECRET` at the time of signing. When
+that variable is unset a fallback published in this repository is used, and
+the signature then detects accidental corruption only: anyone who has read
+the source can forge a line. Set the variable per engagement.
+
 ## Known Limitations
 
 - Pattern-based injection detection is bypassable with obfuscation.
@@ -44,15 +55,14 @@ Recon and intel are not gated by this check.
   but not sanitised.
 - Agent KB namespace permissions are declared in `AgentTrustBoundary` but never
   enforced: no agent write path validates its namespace.
-- The audit trail is not signed. Anyone able to write to `reports/audit_*.jsonl`
-  can alter it undetectably.
+- A signature proves the trail was not edited after the fact. It does not
+  prove the run recorded everything: an event never logged leaves no trace.
 - The SQLite audit backend is never constructed by the CLI or the orchestrator.
   Only the JSONL trail is written.
 - The rate limiter is per-session, not per-IP.
 
 ## Future Work
 
-- HMAC-signed audit events.
 - Either enforce KB namespace boundaries or remove the unused machinery.
 - Semantic injection detection (LLM-based classifier).
 - Read-only agent mode for passive recon.
