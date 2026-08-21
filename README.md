@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-v1.5.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-1999%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2075%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-core%20typed-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -37,10 +37,10 @@ Two things set it apart from "LLM wrapper over nmap":
   confirmed through out-of-band callbacks captured by
   [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
   response diffs.
-- **Agent-trust-aware design.** Every banner and tool output is treated as
-  untrusted input: sanitized, injection-scanned, and parsed before it ever
-  reaches the LLM context. Adversarial thinking is a design input, not a
-  disclaimer.
+- **Agent-trust-aware design.** Every phase output is injection-scanned before
+  it propagates; hits become MEDIUM findings in the report. Adversarial
+  thinking is a design input, not a disclaimer — the gaps are named in
+  [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md).
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
 maps detectors to Immunefi severity tiers for smart-contract audits.
@@ -107,10 +107,10 @@ flowchart LR
 
 </details>
 
-> **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
+> **Trust boundary** — injection-scan at every phase edge, both pipelines.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
 
-**Observability:** SQLite audit log · session export/import · `cyberai replay`
+**Observability:** JSONL audit log · session export/import · `cyberai replay`
 **Interfaces:** CLI · FastAPI dashboard (SSE) · MCP server (Claude Desktop)
 
 ### Agents
@@ -143,15 +143,15 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 
 ## Security design
 
-- **Agent trust boundaries** — each agent runs with minimal permissions.
-- **Untrusted input handling** — banners sanitized, length-capped, marked
-  `UNTRUSTED` before LLM context.
+- **Untrusted input handling** — nmap targets sanitized before the command
+  line is built; TLS tool inputs length-capped and pattern-blocked.
 - **Prompt-injection detection** — 33-pattern detector at every phase boundary;
   hits become MEDIUM findings, visible in the report.
 - **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
   Bugcrowd briefs (`cyberai scope import`).
-- **Audit trail** — every agent action logged (JSONL or SQLite) with full
-  inputs/outputs; sessions are replayable.
+- **Audit trail** — every agent action logged to JSONL with full
+  inputs/outputs; sessions are replayable. Every line is HMAC-signed —
+  `cyberai audit-verify <file>` reports any line edited after the run.
 
 ---
 
@@ -251,6 +251,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 | `CYBERAI_ENABLE_MODEL_ROUTING` | Per-phase model selection |
 | `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
 | `CYBERAI_OUTPUT_DIR` | Report output directory |
+| `CYBERAI_SESSION_SECRET` | Audit-trail signing key; unset means a published fallback |
 
 The `scan` command overrides the main flags per run, in either direction:
 

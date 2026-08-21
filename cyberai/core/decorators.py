@@ -1,13 +1,16 @@
 """
-Safety check decorators — DRY pattern for agent protection.
-Extracts repeated safety logic from every agent into clean decorators.
+Tool-level decorators.
+
+Applied to the TLS tool only. Two further decorators once lived here,
+require_scope and enforce_trust_boundary; neither was ever applied, and both
+were removed with the classes they called.
 """
 
 import functools
 import logging
 from typing import Callable
 
-from cyberai.core.safety import AgentTrustBoundary, InputSanitizer
+from cyberai.core.safety import InputSanitizer
 
 logger = logging.getLogger("cyberai.safety")
 
@@ -27,46 +30,6 @@ def sanitize_input(func: Callable):
         return func(*clean_args, **clean_kwargs)
 
     return wrapper
-
-
-def require_scope(scope_validator):
-    """
-    Decorator factory: validates target is in scope before execution.
-
-    Usage:
-        @require_scope(validator)
-        def scan(target: str): ...
-    """
-
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # First positional arg assumed to be target
-            target = args[0] if args else kwargs.get("target", "")
-            if not scope_validator.is_in_scope(target):
-                logger.warning(f"OUT_OF_SCOPE: {target} blocked")
-                return {"error": f"Target {target} is not in authorized scope"}
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def enforce_trust_boundary(agent_name: str):
-    """
-    Decorator: validate KB write permissions before agent stores results.
-    """
-
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(self, key: str, value, *args, **kwargs):
-            AgentTrustBoundary.validate_write(agent_name, key)
-            return func(self, key, value, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def log_agent_action(func: Callable):

@@ -1,39 +1,12 @@
 """
-Multi-agent safety protocol.
-Scope validation + input sanitization + trust boundaries.
+Input sanitisation for tool arguments.
+
+Scope enforcement lives in agents/exploit/safety_validator.py, which the
+orchestrator calls before the exploit phase. The scope and trust-boundary
+classes that once sat here had no call site and were removed.
 """
 
-import ipaddress
 import re
-from dataclasses import dataclass, field
-from typing import List
-
-
-@dataclass
-class ScopeConfig:
-    allowed_ips: List[str] = field(default_factory=list)
-    allowed_domains: List[str] = field(default_factory=list)
-    excluded_ips: List[str] = field(default_factory=list)
-    authorized: bool = False
-
-
-class ScopeValidator:
-    def __init__(self, scope: ScopeConfig):
-        self.scope = scope
-
-    def is_in_scope(self, target: str) -> bool:
-        if not self.scope.authorized:
-            return False
-        for allowed in self.scope.allowed_ips:
-            try:
-                if ipaddress.ip_address(target) in ipaddress.ip_network(allowed, strict=False):
-                    return True
-            except ValueError:
-                pass
-        for domain in self.scope.allowed_domains:
-            if target == domain or target.endswith(f".{domain}"):
-                return True
-        return False
 
 
 class InputSanitizer:
@@ -52,23 +25,3 @@ class InputSanitizer:
             if re.search(pattern, text, re.IGNORECASE):
                 return "[BLOCKED: potential injection in input]"
         return text[:10000]
-
-
-class AgentTrustBoundary:
-    AGENT_KB_PERMISSIONS = {
-        "recon": ["recon"],
-        "intel": ["intel"],
-        "exploit": ["exploit"],
-        "report": ["report"],
-        "orchestrator": ["recon", "intel", "exploit", "report", "meta"],
-    }
-
-    @classmethod
-    def can_write(cls, agent: str, key: str) -> bool:
-        allowed = cls.AGENT_KB_PERMISSIONS.get(agent, [])
-        return any(key.startswith(k) for k in allowed)
-
-    @classmethod
-    def validate_write(cls, agent: str, key: str):
-        if not cls.can_write(agent, key):
-            raise PermissionError(f"Agent '{agent}' not allowed to write to KB key '{key}'")

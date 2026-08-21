@@ -8,10 +8,14 @@ from typing import Any, Dict, List, Optional
 from rich.console import Console
 from rich.logging import RichHandler
 
+from cyberai.core.session_signing import SessionSigner
+
 console = Console()
 
 
-def get_logger(name: str, log_file: str = None) -> logging.Logger:
+def get_logger(
+    name: str, log_file: str = None, signer: Optional[SessionSigner] = None
+) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
@@ -25,14 +29,24 @@ def get_logger(name: str, log_file: str = None) -> logging.Logger:
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(JsonFormatter())
+        file_handler.setFormatter(JsonFormatter(signer))
         logger.addHandler(file_handler)
 
     return logger
 
 
 class JsonFormatter(logging.Formatter):
-    """Every agent action logged as structured JSON for audit trail"""
+    """Every agent action logged as structured JSON for audit trail.
+
+    When a signer is supplied, each line gains a trailing `sig` field over
+    the rest of the line. The signature is computed here rather than at the
+    call site because `timestamp` is set here: signing earlier would cover a
+    different record than the one that reaches disk.
+    """
+
+    def __init__(self, signer: Optional[SessionSigner] = None):
+        super().__init__()
+        self.signer = signer
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
@@ -45,6 +59,8 @@ class JsonFormatter(logging.Formatter):
             log_entry["agent"] = record.agent
         if hasattr(record, "data"):
             log_entry["data"] = record.data
+        if self.signer is not None:
+            log_entry["sig"] = self.signer.sign(log_entry)
         return json.dumps(log_entry)
 
 
@@ -64,7 +80,8 @@ class AuditLogger:
         db_path: Optional[str] = None,
     ):
         log_path = f"{output_dir}/audit_{session_id}.jsonl"
-        self.logger = get_logger(f"cyberai.audit.{session_id}", log_path)
+        self.signer = SessionSigner()
+        self.logger = get_logger(f"cyberai.audit.{session_id}", log_path, signer=self.signer)
         self.session_id = session_id
         self.db_path = db_path
         if db_path:
