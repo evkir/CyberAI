@@ -2,7 +2,7 @@
 
 ## Setup
 git clone https://github.com/evkir/CyberAI
-cd CyberAI && pip install -r requirements.txt
+cd CyberAI && pip install -e ".[test,dev]"
 
 ## Tests
 pytest tests/unit/ -v

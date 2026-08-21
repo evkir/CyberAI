@@ -28,16 +28,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-          pip install -e .
+          pip install -e ".[test]"
 
       - name: Run unit tests
         run: |
@@ -69,9 +67,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-          pip install -e .
+          pip install -e ".[test]"
       - name: Run smoke tests
         run: |
           pytest tests/ -v --tb=short -m smoke
@@ -120,9 +116,7 @@ jobs:
       - name: Install at the lower bound the manifest promises
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-          pip install -e .
+          pip install -e ".[test]"
           pip install "mcp>=1.0,<2"
       - name: Serve and probe on the 1.x SDK
         run: |
