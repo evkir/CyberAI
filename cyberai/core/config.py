@@ -87,6 +87,12 @@ class LLMConfig:
     base_url: Optional[str] = None
     max_tokens: int = 4096
     temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
+    # Trust boundary settings, consumed by LLMClient when it builds its
+    # TrustGuard. None means 'not configured here' and defers to the
+    # environment, not 'use the safe default' — the two are different
+    # answers and a caller reading this field needs to tell them apart.
+    injection_policy: Optional[str] = None
+    injection_threshold: Optional[int] = None
 
     @staticmethod
     def default_model_for(provider: str) -> str:
@@ -201,9 +207,23 @@ class CyberAIConfig:
             enable_model_routing=_env_bool("CYBERAI_ENABLE_MODEL_ROUTING", False),
         )
         out = os.getenv("CYBERAI_OUTPUT_DIR")
+        # Left as None when unset or unparseable, so TrustGuard can tell
+        # 'not configured' from a real choice. Garbage in the variable
+        # must not abort a scan on startup.
+        policy = os.getenv("CYBERAI_INJECTION_POLICY") or None
+        raw_threshold = os.getenv("CYBERAI_INJECTION_THRESHOLD", "")
+        try:
+            threshold = int(raw_threshold)
+        except ValueError:
+            threshold = None
         output_dir = Path(out) if out else Path("reports/")
         return cls(
-            llm=LLMConfig(provider=provider, model=model),
+            llm=LLMConfig(
+                provider=provider,
+                model=model,
+                injection_policy=policy,
+                injection_threshold=threshold,
+            ),
             routing=routing,
             output_dir=output_dir,
             verbose=_env_bool("CYBERAI_VERBOSE", False),

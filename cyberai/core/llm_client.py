@@ -36,7 +36,10 @@ class LLMClient:
         self.budget_usd = budget_usd
         # The trust boundary. Every entry point consults it before the
         # provider branch; see _guard.
-        self.guard = TrustGuard()
+        self.guard = TrustGuard(
+            policy=config.injection_policy,
+            threshold=config.injection_threshold,
+        )
         # None means the guard has not run yet, not that it ran and
         # found nothing. Rule 18.
         self.last_guard_verdict: Optional["GuardVerdict"] = None

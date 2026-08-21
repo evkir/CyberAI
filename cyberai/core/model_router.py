@@ -17,6 +17,7 @@ phases so future LLM-bound work routes correctly without a contract change.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, Optional
 
 from cyberai.core.config import LLMConfig, RoutingConfig
@@ -77,13 +78,15 @@ class ModelRouter:
             provider = self._base.provider
             base_url = self._base.base_url
             api_key = self._base.api_key
-        phase_cfg = LLMConfig(
+        # Derive from the base config rather than rebuilding it field by
+        # field: every setting not named here used to be silently dropped,
+        # so a routed client ran with defaults the user never chose.
+        phase_cfg = replace(
+            self._base,
             provider=provider,
             model=model,
             api_key=api_key,
             base_url=base_url,
-            max_tokens=self._base.max_tokens,
-            temperature=self._base.temperature,
         )
         if self._air_gapped:
             from cyberai.core.egress_guard import assert_air_gapped

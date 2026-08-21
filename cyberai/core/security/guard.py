@@ -139,7 +139,16 @@ class TrustGuard:
 
     def __init__(self, policy: str | None = None, threshold: int | None = None) -> None:
         self.policy = policy if policy in POLICIES else policy_from_env()
-        self.threshold = threshold if threshold is not None else threshold_from_env()
+        # isinstance, not 'is not None': the threshold ends up in a
+        # numeric comparison inside the boundary, so a non-integer here
+        # raises TypeError in the middle of guarding a call rather than
+        # at construction. Policy already degrades to the default on a
+        # bad value; the threshold now behaves the same way. bool is an
+        # int subclass and is not a threshold.
+        if isinstance(threshold, int) and not isinstance(threshold, bool):
+            self.threshold = threshold
+        else:
+            self.threshold = threshold_from_env()
 
     def inspect(self, messages: List[Dict[str, Any]]) -> GuardVerdict:
         """Return the verdict and the messages that may be sent."""

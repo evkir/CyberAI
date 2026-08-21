@@ -139,3 +139,31 @@ def test_verdict_event_carries_no_message_bodies():
     assert HOSTILE not in str(event)
     assert event["policy"] == ANNOTATE
     assert event["triggered"] is True
+
+
+def test_a_non_numeric_threshold_degrades_instead_of_crashing(monkeypatch):
+    """A bad threshold must fail at construction time, not mid-inspection.
+
+    The value reaches a `score >= threshold` comparison inside the boundary.
+    Accepting anything non-None meant a MagicMock config took down the whole
+    call with a TypeError raised from the guard itself.
+    """
+    from unittest.mock import MagicMock
+
+    monkeypatch.delenv("CYBERAI_INJECTION_THRESHOLD", raising=False)
+    guard = TrustGuard(policy=ANNOTATE, threshold=MagicMock())
+    assert guard.threshold == DEFAULT_THRESHOLD
+    assert guard.inspect(_msgs("22/tcp open ssh")).triggered is False
+
+
+def test_a_boolean_is_not_a_threshold(monkeypatch):
+    monkeypatch.delenv("CYBERAI_INJECTION_THRESHOLD", raising=False)
+    assert TrustGuard(policy=ANNOTATE, threshold=True).threshold == DEFAULT_THRESHOLD
+
+
+def test_zero_is_a_real_threshold(monkeypatch):
+    """Zero means 'flag everything', which is a choice, not an absent value."""
+    monkeypatch.delenv("CYBERAI_INJECTION_THRESHOLD", raising=False)
+    guard = TrustGuard(policy=ANNOTATE, threshold=0)
+    assert guard.threshold == 0
+    assert guard.inspect(_msgs("22/tcp open ssh")).triggered is True
