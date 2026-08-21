@@ -1,17 +1,16 @@
 """
---scope flag handler with IP range validation.
-Parses CIDR ranges and domain lists, builds ScopeConfig.
+Bug-bounty scope file importers.
+
+Parses HackerOne and Bugcrowd scope exports into a ScopeImport, which
+`cyberai scope import` prints. The --scope CLI flag does not pass through
+here: __main__.py hands the raw list to Orchestrator.run.
 """
 
-import ipaddress
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List
 from urllib.parse import urlparse
-
-from cyberai.core.safety import ScopeConfig
 
 # Asset types from HackerOne/Bugcrowd that map to network-scannable targets.
 # Non-network types (mobile app IDs, source repos, hardware, "other") are
@@ -35,56 +34,6 @@ SCANNABLE_BC_CATEGORIES = {
     "cidr",
     "wildcard",
 }
-
-
-def parse_scope(scope_str: str) -> ScopeConfig:
-    """
-    Parse --scope value into ScopeConfig.
-
-    Accepts:
-      - Single IP:      10.10.10.1
-      - CIDR range:     10.10.10.0/24
-      - Domain:         target.htb
-      - Comma-separated mix: 10.10.10.1,target.htb,192.168.1.0/24
-    """
-    if not scope_str:
-        return ScopeConfig(authorized=False)
-
-    entries = [e.strip() for e in scope_str.split(",") if e.strip()]
-    ips: List[str] = []
-    domains: List[str] = []
-
-    for entry in entries:
-        if _is_ip_or_cidr(entry):
-            ips.append(entry)
-        elif _is_domain(entry):
-            domains.append(entry)
-        else:
-            raise ValueError(f"Invalid scope entry: '{entry}'")
-
-    return ScopeConfig(
-        allowed_ips=ips,
-        allowed_domains=domains,
-        authorized=True,
-    )
-
-
-def validate_scope_entry(entry: str) -> bool:
-    """Returns True if entry is a valid IP, CIDR, or domain."""
-    return _is_ip_or_cidr(entry) or _is_domain(entry)
-
-
-def _is_ip_or_cidr(value: str) -> bool:
-    try:
-        ipaddress.ip_network(value, strict=False)
-        return True
-    except ValueError:
-        return False
-
-
-def _is_domain(value: str) -> bool:
-    pattern = r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
-    return bool(re.match(pattern, value))
 
 
 @dataclass
