@@ -3,7 +3,7 @@
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
 ![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.5.0-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-2075%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-core%20typed-blue)
@@ -367,7 +367,11 @@ By using CyberAI you agree to operate within these bounds.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Releases up to and including v1.5.0 were published under MIT and remain
+available under those terms. Contributions require a signed
+[CLA](CLA.md); the reasoning is in [docs/licensing.md](docs/licensing.md).
 
 <div align="center">
 <sub>Part of the <a href="https://github.com/evkir">evkir</a> security toolchain.</sub>
