@@ -384,6 +384,31 @@ def replay(session_id: str) -> None:
     raise SystemExit(run_replay(session_id, config))
 
 
+@cli.command("audit-verify")
+@click.argument("audit_file", type=click.Path(exists=True))
+def audit_verify(audit_file: str) -> None:
+    """Check the signatures on an audit trail AUDIT_FILE (reports/audit_*.jsonl).
+
+    Exits non-zero when any line fails, so this can gate a pipeline. Set
+    CYBERAI_SESSION_SECRET to the value used during the run; without it the
+    published fallback key is assumed.
+    """
+    from cyberai.cli.audit_verify import verify_trail
+
+    report = verify_trail(audit_file)
+    style = "green" if report.clean else "red"
+    console.print(Panel(report.summary(), title=audit_file, style=style))
+    for label, nums in (
+        ("tampered", report.tampered),
+        ("unsigned", report.unsigned),
+        ("unreadable", report.unreadable),
+    ):
+        if nums:
+            console.print(f"[red]{label} lines:[/red] {', '.join(str(n) for n in nums)}")
+    if not report.clean:
+        raise SystemExit(1)
+
+
 @cli.group()
 def scope() -> None:
     """Import and inspect bug-bounty program scopes."""

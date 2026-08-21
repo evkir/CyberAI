@@ -1,80 +1,63 @@
-"""
-Tamper-evident session audit trail.
-Each session event is HMAC-signed — any modification is detectable.
+"""Tamper-evident signing for audit-trail events.
+
+Each JSONL line written by AuditLogger carries a `sig` field: an HMAC-SHA256
+over the canonical form of that same line with `sig` removed. Editing any
+field of a recorded event invalidates its signature.
+
+The key comes from CYBERAI_SESSION_SECRET. When that variable is unset a
+published fallback is used, and the signature then detects accidental
+corruption only — anyone who has read this file can forge a line. Set the
+variable per engagement for the guarantee to be worth anything.
+
+Verification has a consumer: `cyberai audit-verify <file>`.
 """
 
 import hashlib
 import hmac
 import json
 import os
-import time
-from dataclasses import dataclass
-from typing import List
 
-SESSION_SECRET = os.getenv("CYBERAI_SESSION_SECRET", "dev-secret-change-in-prod")
+FALLBACK_SECRET = "dev-secret-change-in-prod"
+SIGNATURE_FIELD = "sig"
 
 
-@dataclass
-class AuditEvent:
-    timestamp: float
-    agent: str
-    action: str
-    target: str
-    result_summary: str
-    signature: str = ""
+def session_secret() -> str:
+    """Read the signing key at call time, not at import time.
 
-    def to_dict(self) -> dict:
-        return {
-            "timestamp": self.timestamp,
-            "agent": self.agent,
-            "action": self.action,
-            "target": self.target,
-            "result_summary": self.result_summary,
-        }
+    Reading it at import would freeze whatever the environment held when the
+    module was first touched, which is not necessarily what the operator set
+    for the run.
+    """
+    return os.getenv("CYBERAI_SESSION_SECRET", FALLBACK_SECRET)
 
 
 class SessionSigner:
-    """Signs and verifies audit events using HMAC-SHA256"""
+    """Signs and verifies one audit event, represented as a dict."""
 
-    def __init__(self, secret: str = SESSION_SECRET):
-        self.secret = secret.encode()
+    def __init__(self, secret: str = None):
+        self._secret = secret
 
-    def sign_event(self, event: AuditEvent) -> AuditEvent:
-        payload = json.dumps(event.to_dict(), sort_keys=True).encode()
-        sig = hmac.new(self.secret, payload, hashlib.sha256).hexdigest()
-        event.signature = sig
-        return event
+    @property
+    def secret(self) -> str:
+        return self._secret if self._secret is not None else session_secret()
 
-    def verify_event(self, event: AuditEvent) -> bool:
-        payload = json.dumps(event.to_dict(), sort_keys=True).encode()
-        expected = hmac.new(self.secret, payload, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, event.signature)
+    @staticmethod
+    def _canonical(event: dict) -> bytes:
+        """Serialise an event for signing, excluding the signature itself.
 
-    def verify_trail(self, events: List[AuditEvent]) -> List[bool]:
-        return [self.verify_event(e) for e in events]
+        sort_keys makes the byte string independent of dict ordering, so a
+        reader that parses and re-serialises a line still verifies.
+        """
+        body = {k: v for k, v in event.items() if k != SIGNATURE_FIELD}
+        return json.dumps(body, sort_keys=True, default=str).encode()
 
+    def sign(self, event: dict) -> str:
+        """Return the hex signature for an event."""
+        return hmac.new(self.secret.encode(), self._canonical(event), hashlib.sha256).hexdigest()
 
-class AuditTrail:
-    """Tamper-evident log of all agent actions in a session"""
-
-    def __init__(self):
-        self.signer = SessionSigner()
-        self.events: List[AuditEvent] = []
-
-    def log(self, agent: str, action: str, target: str, result: str):
-        event = AuditEvent(
-            timestamp=time.time(),
-            agent=agent,
-            action=action,
-            target=target,
-            result_summary=result[:500],  # Truncate large outputs
-        )
-        self.events.append(self.signer.sign_event(event))
-
-    def verify_integrity(self) -> bool:
-        """Returns True if audit trail has not been tampered with"""
-        results = self.signer.verify_trail(self.events)
-        return all(results)
-
-    def get_report(self) -> List[dict]:
-        return [{**e.to_dict(), "valid": self.signer.verify_event(e)} for e in self.events]
+    def verify(self, event: dict) -> bool:
+        """True when the event carries a signature matching its contents."""
+        recorded = event.get(SIGNATURE_FIELD)
+        if not isinstance(recorded, str):
+            return False
+        return hmac.compare_digest(self.sign(event), recorded)
