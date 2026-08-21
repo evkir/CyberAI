@@ -66,10 +66,10 @@ def _is_internal(root: str) -> bool:
     return any(_PACKAGE.rglob(f"{root}.py"))
 
 
-def _import_roots() -> dict[str, list[str]]:
-    """Map every top-level import root in the package to its call sites."""
+def _import_roots(where: Path = _PACKAGE) -> dict[str, list[str]]:
+    """Map every top-level import root under a tree to its call sites."""
     roots: dict[str, list[str]] = {}
-    for file in sorted(_PACKAGE.rglob("*.py")):
+    for file in sorted(where.rglob("*.py")):
         tree = ast.parse(file.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -136,3 +136,36 @@ def test_every_declared_dependency_is_imported():
         reachable.add(_normalize(_ALIASES.get(root, root)))
     unused = sorted(_declared() - reachable)
     assert not unused, f"declared in pyproject but imported nowhere: {unused}"
+
+
+_TESTS = _ROOT / "tests"
+
+
+def _declared_for_tests() -> set[str]:
+    raw = tomllib.loads(_MANIFEST.read_text(encoding="utf-8"))
+    out = set()
+    for spec in raw["project"]["optional-dependencies"]["test"]:
+        head = spec.split(">")[0].split("<")[0].split("=")[0].split("[")[0]
+        out.add(_normalize(head))
+    return out
+
+
+def test_every_library_the_tests_import_is_declared():
+    """The test layer may not lean on a library that only arrives in transit.
+
+    tests/integration/test_mcp_scan.py imported anyio while no manifest named
+    it: it rode in behind httpx and mcp, so the suite was green on the shape of
+    someone else's dependency graph. The day that graph shifts the failure
+    lands in CI, not here.
+
+    Checked against dependencies plus the test extra, since a test may legally
+    import anything the package itself installs.
+    """
+    allowed = _declared() | _declared_for_tests()
+    undeclared = {}
+    for root, sites in _import_roots(_TESTS).items():
+        if root in sys.stdlib_module_names or root == "cyberai":
+            continue
+        if _normalize(_ALIASES.get(root, root)) not in allowed:
+            undeclared[root] = sites[:3]
+    assert not undeclared, f"tests import undeclared libraries: {undeclared}"
