@@ -6,9 +6,11 @@ import httpx
 
 from .config import LLMConfig
 from .cost_tracker import BudgetExceeded, CostTracker
+from .security.guard import TrustGuard
 
 if TYPE_CHECKING:
     from .base_agent import Tool
+    from .security.guard import GuardVerdict
 
 
 # Local models on a 3060 are slow on long exploit prompts; the async path
@@ -32,6 +34,26 @@ class LLMClient:
         self.cost_tracker = cost_tracker
         # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
         self.budget_usd = budget_usd
+        # The trust boundary. Every entry point consults it before the
+        # provider branch; see _guard.
+        self.guard = TrustGuard()
+        # None means the guard has not run yet, not that it ran and
+        # found nothing. Rule 18.
+        self.last_guard_verdict: Optional["GuardVerdict"] = None
+
+    def _guard(self, messages: List[Dict]) -> List[Dict]:
+        """Run the trust boundary and return the messages that may be sent.
+
+        Placed after _record_attempt and before the provider branch, so that
+        a blocked call is still counted as a question asked. Under the deny
+        policy this raises InjectionBlocked and no provider is contacted.
+
+        The last verdict is kept on the client so the caller can read what
+        was decided; it is not a cache and carries no message bodies.
+        """
+        verdict = self.guard.inspect(messages)
+        self.last_guard_verdict = verdict
+        return verdict.messages
 
     def _record_attempt(self) -> None:
         """Count the question. _record_usage counts the answer, and only a
@@ -74,6 +96,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> str:
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return self._call_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
@@ -203,6 +226,7 @@ class LLMClient:
     ) -> "LLMResponse":
         """One tool-enabled round-trip. Ollama tool calling is unsupported."""
         self._record_attempt()
+        messages = self._guard(messages)
         tools = tools or []
         if self.config.provider == "openai":
             return self._call_tools_openai(messages, system, tools, agent_name)
@@ -299,6 +323,7 @@ class LLMClient:
         server-side. Caller validates via pydantic.
         """
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return self._structured_openai(
                 messages, schema, schema_name, description, system, agent_name
@@ -447,6 +472,7 @@ class LLMClient:
     ) -> str:
         """Async equivalent of call() — same return type, same provider routing."""
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return await self._acall_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
