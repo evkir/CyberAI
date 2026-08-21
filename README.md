@@ -37,10 +37,10 @@ Two things set it apart from "LLM wrapper over nmap":
   confirmed through out-of-band callbacks captured by
   [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
   response diffs.
-- **Agent-trust-aware design.** Every banner and tool output is treated as
-  untrusted input: sanitized, injection-scanned, and parsed before it ever
-  reaches the LLM context. Adversarial thinking is a design input, not a
-  disclaimer.
+- **Agent-trust-aware design.** Every phase output is injection-scanned before
+  it propagates; hits become MEDIUM findings in the report. Adversarial
+  thinking is a design input, not a disclaimer — the gaps are named in
+  [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md).
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
 maps detectors to Immunefi severity tiers for smart-contract audits.
@@ -107,10 +107,10 @@ flowchart LR
 
 </details>
 
-> **Trust boundary** — injection-scan + banner sanitizer at every phase edge.
+> **Trust boundary** — injection-scan at every phase edge, both pipelines.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
 
-**Observability:** SQLite audit log · session export/import · `cyberai replay`
+**Observability:** JSONL audit log · session export/import · `cyberai replay`
 **Interfaces:** CLI · FastAPI dashboard (SSE) · MCP server (Claude Desktop)
 
 ### Agents
@@ -143,15 +143,14 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 
 ## Security design
 
-- **Agent trust boundaries** — each agent runs with minimal permissions.
-- **Untrusted input handling** — banners sanitized, length-capped, marked
-  `UNTRUSTED` before LLM context.
+- **Untrusted input handling** — nmap targets sanitized before the command
+  line is built; TLS tool inputs length-capped and pattern-blocked.
 - **Prompt-injection detection** — 33-pattern detector at every phase boundary;
   hits become MEDIUM findings, visible in the report.
 - **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
   Bugcrowd briefs (`cyberai scope import`).
-- **Audit trail** — every agent action logged (JSONL or SQLite) with full
-  inputs/outputs; sessions are replayable.
+- **Audit trail** — every agent action logged to JSONL with full
+  inputs/outputs; sessions are replayable. The log is not signed.
 
 ---
 
