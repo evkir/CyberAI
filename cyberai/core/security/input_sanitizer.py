@@ -50,6 +50,14 @@ def sanitize_banner(banner: str) -> str:
     text = re.sub(r"[\u202a-\u202e\u2066-\u2069]", "", text)
     # Reuse the standard control-char / template scrubber
     text = sanitize_text(text, MAX_BANNER_LENGTH).strip()
+    # Nothing survived the scrub, so there is nothing to mark. Returning the
+    # bare marker here would hand callers a 37-char truthy string for a port
+    # that answered with nothing, whitespace, or pure ANSI noise, making a
+    # closed port indistinguishable from a live service: behavioral_probe
+    # tests the grab result for truthiness before recording it and measures
+    # len() for tarpit latency. No data, no marker.
+    if not text:
+        return ""
     return f"[UNTRUSTED INPUT] {text} [/UNTRUSTED INPUT]"
 
 

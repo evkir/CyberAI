@@ -154,3 +154,36 @@ def test_a_single_phase_runs_without_standing_up_the_audit_logger(tmp_path):
     # And it did so without the orchestrator quietly building one: a logger
     # appearing here would mean the None path was never exercised.
     assert orch.audit is None
+
+
+def test_injection_finding_states_it_is_post_hoc_and_claims_no_prevention():
+    """The finding text must describe what the scan did, not what it did not do.
+
+    The scan runs after ``_dispatch``, i.e. after the agent has already sent
+    data to the provider. Until 23.08 the description told the reader the
+    output "is treated as untrusted before reaching the LLM" -- an untrue
+    statement that shipped into the customer-facing report artefact. Neither
+    existing test read the description, so the claim was unguarded in both
+    directions: reintroducing it would have gone unnoticed.
+    """
+    from cyberai.core.scan_session import ScanPhase, ScanSession, Severity
+
+    orch = Orchestrator(dry_run=True)
+    session = ScanSession(target="t")
+    data = {"banner": "OpenSSH \u202e evil \u202c payload"}
+    orch._check_phase_injection(session, ScanPhase.INTEL, data)
+
+    flagged = [
+        f
+        for f in session.findings
+        if f.severity == Severity.MEDIUM and "Prompt-injection" in f.title
+    ]
+    assert len(flagged) == 1, [f.title for f in session.findings]
+    description = flagged[0].description
+
+    # The retracted claim, verbatim. This is the guard.
+    assert "before reaching the LLM" not in description
+    assert "treated as untrusted" not in description
+    # And the replacement states the timing plainly.
+    assert "post-hoc" in description
+    assert "does not block" in description
