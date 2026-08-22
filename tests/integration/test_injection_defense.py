@@ -70,3 +70,30 @@ def test_sanitized_banner_strips_escape_sequences():
     safe = sanitize_banner(raw)
     assert "\x1b" not in safe
     assert "\u202e" not in safe and "\u202c" not in safe
+
+
+def test_banner_with_no_content_is_not_marked_untrusted():
+    """A grab that yielded nothing must stay falsy, marker or not.
+
+    ``_default_banner_grab`` returns '' on any failure: closed port, timeout,
+    refused connection. A port that answers with only ANSI colour codes or
+    control bytes reduces to the same thing once scrubbed. Wrapping that in
+    the untrusted marker produced a 37-character truthy string, and both
+    consumers in behavioral_probe read exactly those two properties -- the
+    grab result's truthiness decides whether a banner is recorded, and its
+    length feeds the tarpit latency probe. A closed port would have entered
+    the knowledge base as a live service with a 37-byte banner. No data,
+    no marker.
+    """
+    for empty in ("", "   \n\t ", "\x1b[31m\x1b[0m", "\x00\x07"):
+        out = sanitize_banner(empty)
+        assert out == "", repr(out)
+        assert not out
+
+
+def test_banner_with_content_is_still_marked():
+    """The early return must not swallow a real banner."""
+    out = sanitize_banner("SSH-2.0-OpenSSH_9.6")
+    assert out.startswith("[UNTRUSTED INPUT]")
+    assert out.endswith("[/UNTRUSTED INPUT]")
+    assert "OpenSSH_9.6" in out
