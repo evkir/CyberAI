@@ -249,7 +249,14 @@ class Orchestrator:
     def _check_phase_injection(
         self, session: "ScanSession", phase: "ScanPhase", data: Dict[str, Any]
     ) -> None:
-        """Scan a phase's output for prompt-injection before it propagates."""
+        """Record injection signals found in a phase's output.
+
+        This runs after ``_dispatch`` returns, so the agent has already
+        called the model: it is an audit signal, not a barrier. The barrier
+        is ``TrustGuard`` inside ``LLMClient``, which inspects messages on
+        the way to the provider. Nothing here blocks, redacts, or rewrites
+        the phase data, and the finding text must not claim otherwise.
+        """
         import json as _json
 
         from cyberai.core.scan_session import Severity
@@ -269,8 +276,9 @@ class Orchestrator:
             title=f"Prompt-injection signals in {phase.value} output",
             description=(
                 f"Phase output matched {len(result['matches'])} injection "
-                f"pattern(s); risk score {result['risk_score']}/100. Output "
-                f"is treated as untrusted before reaching the LLM."
+                f"pattern(s); risk score {result['risk_score']}/100. This is a "
+                f"post-hoc audit signal recorded after the phase completed: it "
+                f"does not block, redact, or modify the data."
             ),
             agent="orchestrator",
             target=session.target,
