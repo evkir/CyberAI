@@ -89,9 +89,9 @@ class Orchestrator:
         """Phase-appropriate LLM client. Falls back to the shared client when
         routing is disabled (default) — no behavioural change."""
         if self.dry_run:
-            return self.llm
+            return self._with_audit(self.llm)
         if not self.config.routing.enable_model_routing:
-            return self.llm
+            return self._with_audit(self.llm)
         if self._router is None:
             from cyberai.core.model_router import ModelRouter
 
@@ -102,7 +102,19 @@ class Orchestrator:
                 budget_usd=self.config.max_cost_usd,
                 air_gapped=self.config.air_gapped,
             )
-        return self._router.client_for(phase)
+        return self._with_audit(self._router.client_for(phase))
+
+    def _with_audit(self, client):
+        """Point a client at this run's audit logger.
+
+        Done at hand-out rather than at construction: clients are cached and
+        can outlive a session, while AuditLogger is rebuilt per run. A value
+        set once in the constructor would send the second session's guard
+        verdicts into the first session's file.
+        """
+        if client is not None:
+            client.audit = self.audit
+        return client
 
     # ── public API ────────────────────────────────────────────────────
 

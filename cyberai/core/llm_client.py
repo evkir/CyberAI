@@ -6,10 +6,11 @@ import httpx
 
 from .config import LLMConfig
 from .cost_tracker import BudgetExceeded, CostTracker
-from .security.guard import TrustGuard
+from .security.guard import InjectionBlocked, TrustGuard
 
 if TYPE_CHECKING:
     from .base_agent import Tool
+    from .logger import AuditLogger
     from .security.guard import GuardVerdict
 
 
@@ -29,11 +30,16 @@ class LLMClient:
         config: LLMConfig,
         cost_tracker: Optional[CostTracker] = None,
         budget_usd: float = 0.0,
+        audit: Optional["AuditLogger"] = None,
     ):
         self.config = config
         self.cost_tracker = cost_tracker
         # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
         self.budget_usd = budget_usd
+        # Reassignable: the audit logger is rebuilt per session, while a
+        # client can outlive one run in a cache. A constructor-only value
+        # would send the second session's verdicts to the first one's file.
+        self.audit = audit
         # The trust boundary. Every entry point consults it before the
         # provider branch; see _guard.
         self.guard = TrustGuard(
@@ -54,9 +60,23 @@ class LLMClient:
         The last verdict is kept on the client so the caller can read what
         was decided; it is not a cache and carries no message bodies.
         """
-        verdict = self.guard.inspect(messages)
+        try:
+            verdict = self.guard.inspect(messages)
+        except InjectionBlocked as blocked:
+            # A blocked call is the one worth having in the trail. The
+            # exception carries the verdict precisely so the record can
+            # be written before it propagates.
+            self.last_guard_verdict = blocked.verdict
+            self._record_verdict(blocked.verdict)
+            raise
         self.last_guard_verdict = verdict
+        self._record_verdict(verdict)
         return verdict.messages
+
+    def _record_verdict(self, verdict: "GuardVerdict") -> None:
+        """Write one guard decision to the audit trail, when there is one."""
+        if self.audit is not None:
+            self.audit.agent_action("llm_client", "guard_verdict", verdict.as_event())
 
     def _record_attempt(self) -> None:
         """Count the question. _record_usage counts the answer, and only a
