@@ -22,6 +22,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 
+from cyberai.core.security.input_sanitizer import sanitize_banner
+
 from .behavioral import ProbeResult
 
 # Services / ports treated as HTTP(S) for the WAF header probe.
@@ -54,11 +56,26 @@ def _default_http_get(url: str) -> Dict[str, str]:
 
 
 def _default_banner_grab(host: str, port: int) -> str:
-    """Grab a service banner via a short socket read; ``''`` on any failure."""
+    """Grab a service banner via a short socket read; ``''`` on any failure.
+
+    The bytes come off a socket the target controls, so the decoded text is
+    sanitised at the source: ANSI escapes and bidi controls stripped, control
+    characters removed, and the remainder wrapped in an untrusted marker.
+    Sanitising here rather than at each use covers both consumers, the
+    honeypot banner list and the timing probe, from one call site.
+
+    The three things this could have broken were measured first. Honeypot
+    detection matches its default signatures as substrings, so the wrapper
+    does not hide them. ResponseProfile.uniform_shape compares (status,
+    length) pairs, and the marker adds the same constant to every banner, so
+    equality is preserved. _BANNER_BYTES is 256 against a MAX_BANNER_LENGTH
+    of 500, so the length cap inside sanitize_banner can never truncate a
+    signature. An empty grab still returns "" and stays falsy.
+    """
     try:
         with socket.create_connection((host, port), timeout=_CONNECT_TIMEOUT) as sock:
             data = sock.recv(_BANNER_BYTES)
-        return data.decode("utf-8", errors="replace")
+        return sanitize_banner(data.decode("utf-8", errors="replace"))
     except Exception:
         return ""
 

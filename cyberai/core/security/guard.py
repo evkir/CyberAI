@@ -33,6 +33,16 @@ single category. A threshold of 50 therefore requires two independent
 categories to agree before the guard acts, and costs nothing in recall
 against anything the current detector can actually see.
 
+Both figures carry a caveat and are not to be quoted without it. They were
+taken while inspect() scored the *sanitised* copy, so three of the detector's
+categories could not appear in them at all, and the corpus they were taken on
+is not tracked in the repository and no longer exists on the machine that
+produced it. They are therefore a lower bound on the true score distribution,
+kept here as the recorded reason for the current defaults rather than as a
+reproducible measurement. W3 rebuilds the detector against a tracked eval
+corpus and republishes precision and recall; the threshold is revisited there,
+not before.
+
 System prompts are never touched. Only user, tool and function messages are
 attacker-reachable; rewriting our own instructions would be a defect, not a
 defence.
@@ -152,13 +162,19 @@ class TrustGuard:
 
     def inspect(self, messages: List[Dict[str, Any]]) -> GuardVerdict:
         """Return the verdict and the messages that may be sent."""
-        cleaned = sanitize_llm_input(messages)
-
         worst: int | None = None
         categories: List[str] = []
         flagged: List[int] = []
 
-        for i, msg in enumerate(cleaned):
+        # Detection runs on the raw messages, sanitisation afterwards. The
+        # reverse order was measured to blind the detector: sanitize_text
+        # strips {{ }} and <|im_start|>/<|im_end|>, which are three of the
+        # detector's own categories (template_injection, context_manipulation
+        # x2). A payload carrying them scored 75 raw and 25 through the guard,
+        # so adding a template marker to an injection *lowered* its score and
+        # carried it under the threshold. Sanitise what is sent; score what
+        # arrived.
+        for i, msg in enumerate(messages):
             if msg.get("role") not in UNTRUSTED_ROLES:
                 continue
             content = msg.get("content", "")
@@ -172,6 +188,8 @@ class TrustGuard:
                 for match in result["matches"]:
                     if match["type"] not in categories:
                         categories.append(match["type"])
+
+        cleaned = sanitize_llm_input(messages)
 
         triggered = bool(flagged)
         verdict = GuardVerdict(
