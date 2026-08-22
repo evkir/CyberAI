@@ -16,8 +16,7 @@ def test_call_ollama_includes_system_and_num_ctx(monkeypatch):
         return _Resp()
 
     monkeypatch.setattr(lc.httpx, "post", fake_post)
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = None
     out = client._call_ollama([{"role": "user", "content": "hi"}], "SYS")
 
@@ -36,8 +35,7 @@ def test_call_ollama_surfaces_http_error(monkeypatch):
         text = "context length exceeded"
 
     monkeypatch.setattr(lc.httpx, "post", lambda url, json, timeout: _Resp())
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = None
 
     import pytest
@@ -63,8 +61,7 @@ def test_call_ollama_records_usage(monkeypatch):
             }
 
     monkeypatch.setattr(lc.httpx, "post", lambda url, json, timeout: _Resp())
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b", "provider": "ollama"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = CostTracker()
     client.budget_usd = 0
 
@@ -89,8 +86,7 @@ def test_call_ollama_missing_eval_counts_default_zero(monkeypatch):
             return {"message": {"content": "ok"}}
 
     monkeypatch.setattr(lc.httpx, "post", lambda url, json, timeout: _Resp())
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = CostTracker()
     client.budget_usd = 0
 
@@ -134,8 +130,7 @@ def test_acall_ollama_records_usage(monkeypatch):
             return _Resp()
 
     monkeypatch.setattr(lc.httpx, "AsyncClient", _AsyncClient)
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b", "provider": "ollama"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = CostTracker()
     client.budget_usd = 0
 
@@ -187,8 +182,7 @@ def test_ollama_sync_and_async_send_identical_payloads(monkeypatch):
     monkeypatch.setattr(lc.httpx, "post", fake_post)
     monkeypatch.setattr(lc.httpx, "AsyncClient", _AsyncClient)
 
-    client = lc.LLMClient.__new__(lc.LLMClient)
-    client.config = type("C", (), {"base_url": None, "model": "qwen2.5:7b", "provider": "ollama"})()
+    client = lc.LLMClient(lc.LLMConfig(provider="ollama", model="qwen2.5:7b"))
     client.cost_tracker = None
     client.budget_usd = 0
 

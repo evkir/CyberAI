@@ -1,6 +1,7 @@
 from cyberai.core.security.injection_detector import detect_injection, scan_messages
 from cyberai.core.security.input_sanitizer import (
     redact_sensitive,
+    sanitize_llm_input,
     sanitize_target,
     sanitize_text,
     validate_json_output,
@@ -98,3 +99,24 @@ def test_validate_json_missing_keys():
     result = validate_json_output(raw, ["attack_paths"])
     assert result["valid"] is False
     assert "attack_paths" in result["error"]
+
+
+def test_sanitize_llm_input_scrubs_string_content():
+    out = sanitize_llm_input([{"role": "user", "content": "ok\x00bad"}])
+    assert out[0]["content"] == "okbad"
+
+
+def test_sanitize_llm_input_leaves_system_prompts_alone():
+    out = sanitize_llm_input([{"role": "system", "content": "{{keep}}"}])
+    assert out[0]["content"] == "{{keep}}"
+
+
+def test_sanitize_llm_input_passes_block_content_through():
+    """The Anthropic tool path sends content as a list of typed blocks.
+
+    Scrubbing a list is not possible; crashing on a shape the product itself
+    produces (llm_client.py:648) would take the whole call down.
+    """
+    blocks = [{"type": "tool_result", "tool_use_id": "abc", "content": "42"}]
+    out = sanitize_llm_input([{"role": "user", "content": blocks}])
+    assert out[0]["content"] == blocks

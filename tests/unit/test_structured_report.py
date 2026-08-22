@@ -6,6 +6,7 @@ import json
 from unittest.mock import MagicMock
 
 from cyberai.agents.report.h1_exporter import export_hackerone
+from cyberai.core.config import LLMConfig
 from cyberai.core.llm_client import LLMClient
 from cyberai.core.types import ReportSection
 
@@ -76,12 +77,17 @@ def test_h1_roundtrip_steps_present():
 
 
 def _client(provider: str) -> LLMClient:
-    cfg = MagicMock()
-    cfg.provider = provider
-    cfg.api_key = "x"
-    cfg.model = "test-model"
-    cfg.max_tokens = 1024
-    cfg.temperature = 0.0
+    # A real LLMConfig, not a mock: LLMClient reads fields the mock never
+    # declared, and a MagicMock answers every attribute with another mock.
+    # That is how a non-numeric injection threshold reached a numeric
+    # comparison inside the trust boundary.
+    cfg = LLMConfig(
+        provider=provider,
+        api_key="x",
+        model="test-model",
+        max_tokens=1024,
+        temperature=0.0,
+    )
     return LLMClient(cfg)
 
 

@@ -60,7 +60,13 @@ class CostTracker:
     attempts: int = 0
 
     def record_attempt(self) -> None:
-        """Count one request sent to a provider, whatever its outcome."""
+        """Count one question asked, whatever its outcome.
+
+        Not every counted attempt reaches a provider: the trust boundary
+        can block a call under the deny policy, and that call is still a
+        question the pipeline decided to ask. Hiding it here would make a
+        blocked run look cheaper than it was.
+        """
         self.attempts += 1
 
     def add(

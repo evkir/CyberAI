@@ -6,9 +6,12 @@ import httpx
 
 from .config import LLMConfig
 from .cost_tracker import BudgetExceeded, CostTracker
+from .security.guard import InjectionBlocked, TrustGuard
 
 if TYPE_CHECKING:
     from .base_agent import Tool
+    from .logger import AuditLogger
+    from .security.guard import GuardVerdict
 
 
 # Local models on a 3060 are slow on long exploit prompts; the async path
@@ -27,11 +30,53 @@ class LLMClient:
         config: LLMConfig,
         cost_tracker: Optional[CostTracker] = None,
         budget_usd: float = 0.0,
+        audit: Optional["AuditLogger"] = None,
     ):
         self.config = config
         self.cost_tracker = cost_tracker
         # Hard cap on cumulative LLM spend; 0.0 disables enforcement.
         self.budget_usd = budget_usd
+        # Reassignable: the audit logger is rebuilt per session, while a
+        # client can outlive one run in a cache. A constructor-only value
+        # would send the second session's verdicts to the first one's file.
+        self.audit = audit
+        # The trust boundary. Every entry point consults it before the
+        # provider branch; see _guard.
+        self.guard = TrustGuard(
+            policy=config.injection_policy,
+            threshold=config.injection_threshold,
+        )
+        # None means the guard has not run yet, not that it ran and
+        # found nothing. Rule 18.
+        self.last_guard_verdict: Optional["GuardVerdict"] = None
+
+    def _guard(self, messages: List[Dict]) -> List[Dict]:
+        """Run the trust boundary and return the messages that may be sent.
+
+        Placed after _record_attempt and before the provider branch, so that
+        a blocked call is still counted as a question asked. Under the deny
+        policy this raises InjectionBlocked and no provider is contacted.
+
+        The last verdict is kept on the client so the caller can read what
+        was decided; it is not a cache and carries no message bodies.
+        """
+        try:
+            verdict = self.guard.inspect(messages)
+        except InjectionBlocked as blocked:
+            # A blocked call is the one worth having in the trail. The
+            # exception carries the verdict precisely so the record can
+            # be written before it propagates.
+            self.last_guard_verdict = blocked.verdict
+            self._record_verdict(blocked.verdict)
+            raise
+        self.last_guard_verdict = verdict
+        self._record_verdict(verdict)
+        return verdict.messages
+
+    def _record_verdict(self, verdict: "GuardVerdict") -> None:
+        """Write one guard decision to the audit trail, when there is one."""
+        if self.audit is not None:
+            self.audit.agent_action("llm_client", "guard_verdict", verdict.as_event())
 
     def _record_attempt(self) -> None:
         """Count the question. _record_usage counts the answer, and only a
@@ -74,6 +119,7 @@ class LLMClient:
         cacheable_system: bool = False,
     ) -> str:
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return self._call_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
@@ -203,6 +249,7 @@ class LLMClient:
     ) -> "LLMResponse":
         """One tool-enabled round-trip. Ollama tool calling is unsupported."""
         self._record_attempt()
+        messages = self._guard(messages)
         tools = tools or []
         if self.config.provider == "openai":
             return self._call_tools_openai(messages, system, tools, agent_name)
@@ -299,6 +346,7 @@ class LLMClient:
         server-side. Caller validates via pydantic.
         """
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return self._structured_openai(
                 messages, schema, schema_name, description, system, agent_name
@@ -447,6 +495,7 @@ class LLMClient:
     ) -> str:
         """Async equivalent of call() — same return type, same provider routing."""
         self._record_attempt()
+        messages = self._guard(messages)
         if self.config.provider == "openai":
             return await self._acall_openai(messages, system, agent_name)
         elif self.config.provider == "anthropic":
