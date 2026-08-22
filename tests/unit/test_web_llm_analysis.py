@@ -71,3 +71,35 @@ def test_web_analysis_degrades_without_an_llm():
     out = agent._ai_web_analysis("http://127.0.0.1:3000", REPORT)
 
     assert "skipped" in out.lower()
+
+
+def test_web_analysis_marks_the_report_as_target_written():
+    """The report reaches the model inside a provenance marker.
+
+    Every string in the report that matters here was written by the target:
+    the URL, the parameter name, and the proof fragment lifted out of a
+    response body. TrustGuard scrubs control characters on the way to the
+    provider, but scrubbing says nothing about origin -- a parameter named
+    to read as an instruction survives it intact. Until 23.08 the template
+    interpolated the report bare, so the model saw target-authored text and
+    operator-authored text as one undifferentiated block.
+
+    The marker is a statement of provenance, not a sanitizer: it does not
+    make the content safe, it makes its origin legible.
+    """
+    llm = MagicMock()
+    llm.call.return_value = "analysis text"
+    agent = _web_agent(llm)
+    agent._ai_web_analysis("http://127.0.0.1:3000", REPORT)
+    user = llm.call.call_args.kwargs["messages"][0]["content"]
+
+    assert "[UNTRUSTED INPUT]" in user
+    assert "[/UNTRUSTED INPUT]" in user
+
+    # Target-written strings live inside the marked region, not before it.
+    head, _, tail = user.partition("[UNTRUSTED INPUT]")
+    assert "SQLITE_ERROR near syntax" not in head
+    assert "rest/products/search" not in head
+    body, _, _rest = tail.partition("[/UNTRUSTED INPUT]")
+    assert "SQLITE_ERROR near syntax" in body
+    assert "rest/products/search" in body
