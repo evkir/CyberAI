@@ -1,6 +1,6 @@
 # Adversarial Robustness — CyberAI
 
-**Last verified against the code:** 2026-08-21. Every claim below names the
+**Last verified against the code:** 2026-08-24. Every claim below names the
 mechanism that implements it. Claims that could not be traced to a call site
 were moved to Known Limitations rather than softened.
 
@@ -18,11 +18,15 @@ propagates, in both the synchronous and the asynchronous pipeline. A hit does
 not stop the run: it becomes a MEDIUM finding and appears in the report.
 This layer marks untrusted content; it does not filter it.
 
-### 2. Input sanitisation at two tool entry points
+### 2. Input sanitisation at the tool entry points
 `sanitize_target` normalises the nmap target before the command line is built.
-The `sanitize_input` decorator caps strings at 10,000 characters and blocks six
-known injection patterns; it guards the TLS tool. This is per-tool hardening,
-not a pipeline-wide layer.
+The `sanitize_input` decorator inspects every string argument with
+`detect_injection` and refuses the call when it fires; it guards the TLS tool.
+Refusal, not repair: an argument it rewrote would send the tool at a target
+nobody asked for and return the result as if it described the real one.
+`sanitize_banner` wraps what a service says about itself before it is stored,
+at both call sites that read one. This is per-tool hardening, not a
+pipeline-wide layer.
 
 ### 3. Structured output parsing in the report phase
 The report agent and its judge validate model output against a Pydantic schema,
@@ -49,12 +53,16 @@ the source can forge a line. Set the variable per engagement.
 ## Known Limitations
 
 - Pattern-based injection detection is bypassable with obfuscation.
-- Two distinct `InputSanitizer` classes exist, in `core/safety.py` and in
-  `core/security/`. Only the first one is reachable from a tool.
-- `sanitize_banner` has no caller. Banners reach LLM context injection-scanned
-  but not sanitised.
-- Agent KB namespace permissions are declared in `AgentTrustBoundary` but never
-  enforced: no agent write path validates its namespace.
+- One detector answers for the whole project. `core/safety.py` used to carry a
+  second one, six patterns against the canonical thirty-eight; it now reports
+  the canonical verdict and holds no patterns of its own.
+- A single pattern hit blocks a tool argument. The threshold is not tuned
+  against a corpus, so the cost of a false positive is a refused scan.
+- Banners are wrapped as untrusted before storage, and the recon and intel
+  phases contact no model, so no banner reaches a model from those phases. A
+  wrapped banner does reach the report, which is what the marker is for.
+- Agent KB namespace permissions are neither declared nor enforced. Any agent
+  can write any key: the KB validates nothing about the writer.
 - A signature proves the trail was not edited after the fact. It does not
   prove the run recorded everything: an event never logged leaves no trace.
 - The SQLite audit backend is never constructed by the CLI or the orchestrator.
@@ -63,6 +71,6 @@ the source can forge a line. Set the variable per engagement.
 
 ## Future Work
 
-- Either enforce KB namespace boundaries or remove the unused machinery.
+- Enforce KB namespace boundaries, or state plainly that the KB is shared.
 - Semantic injection detection (LLM-based classifier).
 - Read-only agent mode for passive recon.
