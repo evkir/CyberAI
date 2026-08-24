@@ -55,6 +55,23 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
+  architecture:
+    name: Architecture Invariants
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: Run architecture tests
+        run: |
+          pytest tests/architecture/ -v --tb=short
+
   smoke:
     name: Smoke Tests (end-to-end)
     runs-on: ubuntu-latest
