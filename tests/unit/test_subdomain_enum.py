@@ -307,3 +307,23 @@ async def test_the_semaphore_caps_the_queries_in_flight():
         await enumerate_subdomains_async("example.com", wordlist=words, max_concurrent=2)
 
     assert state["peak"] == 2
+
+
+def test_one_failing_name_does_not_sink_the_scan():
+    """The pool swallows per-name failures; nothing else measured that.
+
+    The probe names must resolve to None rather than raise, or the failure
+    happens in _wildcard_ips before the pool is ever built.
+    """
+
+    def resolve(fqdn):
+        if fqdn.split(".")[0] in ("www", "mail"):
+            raise RuntimeError("resolver exploded")
+        return None
+
+    with patch("cyberai.agents.recon.subdomain_enum._resolve", side_effect=resolve):
+        result = enumerate_subdomains("example.com", wordlist=["www", "mail"], max_workers=2)
+
+    assert result["count"] == 0
+    assert result["checked"] == 2
+    assert result["wildcard"] is False
