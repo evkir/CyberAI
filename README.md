@@ -243,6 +243,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 |---|---|
 | `CYBERAI_LLM_PROVIDER` / `CYBERAI_MODEL` | LLM provider and model |
 | `CYBERAI_USE_BEHAVIORAL` | Honeypot/WAF/tarpit fingerprinting in recon |
+| `CYBERAI_USE_PORT_FINGERPRINT` | Banner grab on ports nmap could not name |
 | `CYBERAI_USE_NUCLEI` | Nuclei template exploit engine |
 | `CYBERAI_USE_JUDGE` | LLM-as-Judge report validation |
 | `CYBERAI_ENABLE_REPLAN` | Critic-driven phase replan |
