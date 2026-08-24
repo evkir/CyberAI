@@ -1,3 +1,4 @@
+import asyncio
 import socket
 from unittest.mock import patch
 
@@ -258,3 +259,51 @@ def test_the_timeout_is_in_force_while_resolving():
         socket.setdefaulttimeout(before)
     assert seen
     assert set(seen) == {1.5}
+
+
+def _counting_resolver_class(state):
+    """A dns.asyncresolver.Resolver that records how many queries overlap.
+
+    The probe labels are 16 hex characters; those raise so the zone reads as
+    clean and the wildcard filter leaves the hits alone.
+    """
+
+    class CountingResolver:
+        async def resolve(self, fqdn, rdtype, lifetime=None):
+            label = fqdn.split(".")[0]
+            state["current"] += 1
+            state["peak"] = max(state["peak"], state["current"])
+            try:
+                await asyncio.sleep(0.01)
+            finally:
+                state["current"] -= 1
+            if len(label) == 16 and all(c in "0123456789abcdef" for c in label):
+                raise LookupError("NXDOMAIN")
+            return ["203.0.113.10"]
+
+    return CountingResolver
+
+
+@pytest.mark.asyncio
+async def test_the_async_enumerator_resolves_in_parallel():
+    """A serial rewrite of the gather would still pass every other test."""
+    state = {"current": 0, "peak": 0}
+    words = [f"w{i}" for i in range(8)]
+
+    with patch("dns.asyncresolver.Resolver", new=_counting_resolver_class(state)):
+        result = await enumerate_subdomains_async("example.com", wordlist=words, max_concurrent=4)
+
+    assert state["peak"] == 4
+    assert result["count"] == 8
+    assert result["wildcard"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_semaphore_caps_the_queries_in_flight():
+    state = {"current": 0, "peak": 0}
+    words = [f"w{i}" for i in range(8)]
+
+    with patch("dns.asyncresolver.Resolver", new=_counting_resolver_class(state)):
+        await enumerate_subdomains_async("example.com", wordlist=words, max_concurrent=2)
+
+    assert state["peak"] == 2
