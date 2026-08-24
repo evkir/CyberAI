@@ -8,6 +8,8 @@ from __future__ import annotations
 import socket
 from typing import Any, Dict, List, Optional
 
+from cyberai.core.security.input_sanitizer import sanitize_banner
+
 TIMEOUT = 3.0
 
 BANNER_PROBES: Dict[str, bytes] = {
@@ -61,12 +63,12 @@ def fingerprint_port(
     """
     banner = _grab_banner(host, port, service_hint)
     detected = _detect_service(banner, port)
+    raw = banner[:256].decode("utf-8", errors="replace") if banner else ""
 
     return {
         "port": port,
-        "host": host,
         "service": detected or service_hint or WELL_KNOWN_PORTS.get(port, "unknown"),
-        "banner": banner[:256].decode("utf-8", errors="replace") if banner else "",
+        "banner": sanitize_banner(raw),
         "version": _extract_version(banner),
     }
 
@@ -75,11 +77,29 @@ def fingerprint_ports(
     host: str,
     ports: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Fingerprint a list of port dicts from nmap output."""
+    """Enrich nmap port dicts with banner data without overwriting nmap.
+
+    Only ports nmap left without a ``product`` are probed: a port -sV already
+    identified needs nothing from a banner grab, and paying an extra connect
+    for it would change the network profile for no data.
+
+    The merge is field by field on purpose. ``{**p, **fp}`` pushes this
+    module's fallbacks over nmap's measured ``service`` and ``version``, and
+    those two fields are what ``intel/version_match`` reads to decide whether
+    a CVE covers the running build.
+
+    A port this function cannot probe is returned unchanged rather than
+    dropped: the caller writes the returned list back into the knowledge
+    base, so a skipped port would disappear from the scan result entirely.
+    """
     results = []
     for p in ports:
         port_num = p.get("port") or p.get("portid")
         if not port_num:
+            results.append(p)
+            continue
+        if (p.get("product") or "").strip():
+            results.append(p)
             continue
         try:
             fp = fingerprint_port(
@@ -87,9 +107,17 @@ def fingerprint_ports(
                 int(port_num),
                 service_hint=p.get("service", ""),
             )
-            results.append({**p, **fp})
         except Exception:
             results.append(p)
+            continue
+        enriched = dict(p)
+        if not (enriched.get("service") or "").strip():
+            enriched["service"] = fp["service"]
+        if not (enriched.get("version") or "").strip():
+            enriched["version"] = fp["version"]
+        if fp["banner"]:
+            enriched["banner"] = fp["banner"]
+        results.append(enriched)
     return results
 
 
