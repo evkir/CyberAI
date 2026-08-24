@@ -29,7 +29,10 @@ INJECTION_PATTERNS = [
     (r"\{\{.*?\}\}", "template_injection"),
     (r"\$\{.*?\}", "template_injection"),
     # Context manipulation
-    (r"(assistant|ai|system)\s*:", "context_manipulation"),
+    # Anchored to a line start: this is a chat role prefix, not a substring.
+    # Unanchored it fired on the tail of a hostname before its port number,
+    # so masec.ai:443 and api.system:8443 scored as context manipulation.
+    (r"(?m)^\s*(assistant|ai|system)\s*:", "context_manipulation"),
     (r"\[system\]", "context_manipulation"),
     (r"<\|im_start\|>", "context_manipulation"),
     (r"<\|im_end\|>", "context_manipulation"),
