@@ -1,3 +1,4 @@
+import socket
 from unittest.mock import patch
 
 import pytest
@@ -213,3 +214,47 @@ async def test_the_async_probe_goes_through_the_async_resolver():
     assert len(asked) == 4
     assert result["wildcard"] is True
     assert result["found"] == []
+
+
+def test_the_process_default_timeout_survives_a_scan():
+    before = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(7.0)
+        with patch("cyberai.agents.recon.subdomain_enum._resolve", return_value=None):
+            enumerate_subdomains("example.com", wordlist=["www"], timeout=1.5)
+        assert socket.getdefaulttimeout() == 7.0
+    finally:
+        socket.setdefaulttimeout(before)
+
+
+def test_the_process_default_timeout_survives_a_raising_resolver():
+    before = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(7.0)
+        with patch(
+            "cyberai.agents.recon.subdomain_enum._resolve", side_effect=RuntimeError("boom")
+        ):
+            with pytest.raises(RuntimeError):
+                enumerate_subdomains("example.com", wordlist=["www"], timeout=1.5)
+        assert socket.getdefaulttimeout() == 7.0
+    finally:
+        socket.setdefaulttimeout(before)
+
+
+def test_the_timeout_is_in_force_while_resolving():
+    """Restoring is only correct if the timeout applied in the first place."""
+    seen = []
+
+    def resolve(fqdn):
+        seen.append(socket.getdefaulttimeout())
+        return None
+
+    before = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(7.0)
+        with patch("cyberai.agents.recon.subdomain_enum._resolve", side_effect=resolve):
+            enumerate_subdomains("example.com", wordlist=["www"], timeout=1.5)
+    finally:
+        socket.setdefaulttimeout(before)
+    assert seen
+    assert set(seen) == {1.5}

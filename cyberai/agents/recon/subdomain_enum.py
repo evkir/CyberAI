@@ -97,25 +97,34 @@ def enumerate_subdomains(
 
     Returns:
         dict with found subdomains and stats
+
+    getaddrinfo takes no timeout argument, so the only lever is the process
+    wide default. It is restored on the way out: measured 24.08, a single
+    call left the process default at 1.5 where it had been None, and every
+    later raw socket in the run — banner grabs, TLS probes, client probes —
+    silently inherited a recon setting none of them asked for.
     """
     words = wordlist or DEFAULT_WORDLIST
     targets = [f"{w}.{domain}" for w in words]
     found: List[Dict[str, Any]] = []
 
+    previous_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
+    try:
+        wildcard = _wildcard_ips(domain)
 
-    wildcard = _wildcard_ips(domain)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_map = {pool.submit(_resolve, fqdn): fqdn for fqdn in targets}
-        for future in concurrent.futures.as_completed(future_map):
-            _ = future_map[future]
-            try:
-                result = future.result()
-                if result:
-                    found.append(result)
-            except Exception:
-                pass
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_map = {pool.submit(_resolve, fqdn): fqdn for fqdn in targets}
+            for future in concurrent.futures.as_completed(future_map):
+                _ = future_map[future]
+                try:
+                    result = future.result()
+                    if result:
+                        found.append(result)
+                except Exception:
+                    pass
+    finally:
+        socket.setdefaulttimeout(previous_timeout)
 
     found = _drop_wildcard(found, wildcard)
     found.sort(key=lambda x: x["fqdn"])
