@@ -90,6 +90,31 @@ def test_the_enriched_list_is_the_one_stored_in_the_knowledge_base(recon_patches
 
 
 @pytest.mark.unit
+def test_the_audit_counts_what_happened_not_what_was_offered(recon_patches):
+    """The trail is signed, so a number in it has to mean what it says.
+
+    The first live run recorded "ports: 5" for a scan that opened exactly one
+    connection and got nothing back from it. That number was the length of the
+    input list, which describes the offer rather than the work.
+    """
+    scan = _nmap()
+    scan["ports"].append(
+        {"port": 5432, "service": "postgresql", "product": "PostgreSQL DB", "version": "9.6"}
+    )
+    agent, _ = _agent(use_port_fingerprint=True)
+
+    with (
+        patch("cyberai.agents.recon.agent.run_nmap", return_value=scan),
+        patch("cyberai.agents.recon.agent.fingerprint_ports", return_value=_ENRICHED_PORTS),
+        patch.object(agent, "_log") as log,
+    ):
+        agent.run("t.local")
+
+    recorded = [c.args[1] for c in log.call_args_list if c.args[0] == "port_fingerprint complete"]
+    assert recorded == [{"probed": 1, "banners": 1, "skipped_identified": 1}]
+
+
+@pytest.mark.unit
 def test_a_mass_open_scan_is_not_probed(recon_patches):
     """The port list of a tunnelled scan describes the tunnel, not the host.
 

@@ -245,6 +245,11 @@ def _parse_ports(xml_output: str) -> list:
                     "port": int(port),
                     "protocol": proto,
                     "service": _svc_attr(svc_attrs, "name"),
+                    # How nmap arrived at that name. "probed" means -sV read
+                    # the service; "table" means it looked the port number up
+                    # in nmap-services and guessed. Empty means the scan did
+                    # not say, which is not the same as either.
+                    "service_method": _svc_attr(svc_attrs, "method"),
                     "product": _svc_attr(svc_attrs, "product"),
                     "version": _svc_attr(svc_attrs, "version"),
                     "state": state,

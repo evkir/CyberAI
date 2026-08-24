@@ -240,6 +240,35 @@ def test_parse_ports_captures_product_and_version():
     assert ports[0]["version"] == "6.6.1p1 Ubuntu"
 
 
+def test_parse_ports_captures_how_nmap_named_the_service():
+    """The fingerprinter needs to know a reading from a lookup.
+
+    nmap reports both under the same attribute name, so a parser that drops
+    ``method`` leaves every consumer unable to tell "-sV read this" from "the
+    port number is listed as this in nmap-services".
+    """
+    ports = nmap_tool._parse_ports(_XML_SV_PORT)
+    assert ports[0]["service_method"] == "probed"
+
+
+def test_parse_ports_reports_a_table_lookup_as_such():
+    xml = (
+        '<port protocol="tcp" portid="3000">'
+        '<state state="open" reason="syn-ack"/>'
+        '<service name="ppp" method="table" conf="3"/>'
+        "</port>"
+    )
+    ports = nmap_tool._parse_ports(xml)
+    assert ports[0]["service"] == "ppp"
+    assert ports[0]["service_method"] == "table"
+
+
+def test_parse_ports_leaves_the_method_empty_when_nmap_omits_it():
+    """Empty means the scan did not say, which is neither a read nor a guess."""
+    ports = nmap_tool._parse_ports(_XML_ONE_PORT)
+    assert ports[0]["service_method"] == ""
+
+
 def test_parse_ports_missing_product_version_defaults_empty():
     """Self-closing <service name=.../> (no -sV data) yields empty strings,
     never missing keys, so downstream consumers stay total."""

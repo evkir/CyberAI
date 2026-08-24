@@ -237,12 +237,24 @@ class ReconAgent(BaseAgent):
         if not ports:
             return nmap_result
         if nmap_result.get("mass_open"):
-            self._log("port_fingerprint skipped: mass_open scan", {"ports": len(ports)})
+            self._log("port_fingerprint skipped: mass_open scan", {"open_ports": len(ports)})
             return nmap_result
         self._check_iteration_limit()
-        enriched = {**nmap_result, "ports": fingerprint_ports(target, ports)}
-        self._log("port_fingerprint complete", {"ports": len(ports)})
-        return enriched
+        probed = [p for p in ports if not (p.get("product") or "").strip()]
+        fingerprinted = fingerprint_ports(target, ports)
+        # Counted from the result, not from the input. Logging len(ports) said
+        # "5" for a scan that opened one connection and learned nothing from
+        # it, and the audit trail is signed: a number in it that describes the
+        # wrong quantity is worse than no number.
+        self._log(
+            "port_fingerprint complete",
+            {
+                "probed": len(probed),
+                "banners": sum(1 for p in fingerprinted if p.get("banner")),
+                "skipped_identified": len(ports) - len(probed),
+            },
+        )
+        return {**nmap_result, "ports": fingerprinted}
 
     def _run_web_recon(self, target: str) -> Dict[str, Any]:
         """Crawl the web target and record the injectable surface it exposes.
