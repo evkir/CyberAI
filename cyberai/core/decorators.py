@@ -10,24 +10,38 @@ import functools
 import logging
 from typing import Callable
 
-from cyberai.core.safety import InputSanitizer
+from cyberai.core.safety import InputSanitizer, ToolInputBlocked
 
 logger = logging.getLogger("cyberai.safety")
 
 
 def sanitize_input(func: Callable):
-    """
-    Decorator: sanitize all string arguments before passing to agent tool.
-    Blocks prompt injection attempts automatically.
+    """Refuse a tool call whose string arguments carry an injection payload.
+
+    Refuse, not rewrite. The decorator used to replace a flagged argument with
+    a placeholder string and call the tool anyway, which turned an attack into
+    a scan of a hostname nobody asked for and reported the result as if it
+    described the target.
+
+    Raising is safe for the caller that has one: AsyncBaseAgent.run_tool turns
+    any exception from a tool into an error dict, so a blocked argument shows
+    up as a failed tool call rather than an aborted phase.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        clean_args = [InputSanitizer.sanitize(a) if isinstance(a, str) else a for a in args]
-        clean_kwargs = {
-            k: InputSanitizer.sanitize(v) if isinstance(v, str) else v for k, v in kwargs.items()
-        }
-        return func(*clean_args, **clean_kwargs)
+        for value in list(args) + list(kwargs.values()):
+            if not isinstance(value, str):
+                continue
+            verdict = InputSanitizer.inspect(value)
+            if verdict["is_injection"]:
+                categories = sorted({m["type"] for m in verdict["matches"]})
+                logger.warning(
+                    f"[{func.__qualname__}] input blocked: "
+                    f"risk={verdict['risk_score']} categories={','.join(categories)}"
+                )
+                raise ToolInputBlocked(categories, verdict["risk_score"])
+        return func(*args, **kwargs)
 
     return wrapper
 

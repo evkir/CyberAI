@@ -24,6 +24,7 @@ PHASE_TOOLS: dict[str, tuple[str, tuple[str, ...]]] = {
             "cyberai.agents.recon.web_surface",
             "cyberai.agents.recon.llm_detector",
             "cyberai.agents.recon.behavioral",
+            "cyberai.agents.recon.fingerprinter",
         ),
     ),
     "intel": (

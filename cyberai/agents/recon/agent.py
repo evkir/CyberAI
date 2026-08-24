@@ -11,6 +11,7 @@ from cyberai.core.types import OpenPort, ReconResult
 from .behavioral import BehavioralFingerprint
 from .behavioral_probe import build_probe_context
 from .dns_tool import run_dns, run_whois
+from .fingerprinter import fingerprint_ports
 from .llm_detector import detect_llm_endpoints
 from .nmap_tool import run_nmap
 from .subdomain_enum import enumerate_subdomains, fqdns
@@ -70,6 +71,7 @@ class ReconAgent(BaseAgent):
         if max_rps:
             nmap_flags += f" --max-rate {max_rps}"
         nmap_result = run_nmap(target, flags=nmap_flags)
+        nmap_result = self._fingerprint_open_ports(target, nmap_result)
         self.kb.set("recon.nmap", nmap_result, agent=self.AGENT_NAME)
         results["recon.nmap"] = nmap_result
         if nmap_result.get("error"):
@@ -208,6 +210,51 @@ class ReconAgent(BaseAgent):
             "kb_keys": list(results.keys()),
             "ports": ports,
         }
+
+    def _fingerprint_open_ports(self, target: str, nmap_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Name the ports -sV could not, and return the scan to be stored.
+
+        Flag-gated because it changes the network profile: everything recon
+        does after nmap is passive, and this opens a connection to every port
+        nmap left without a product.
+
+        The enriched scan comes back as a new dict rather than being written
+        into the one nmap returned. In-place mutation would make the call
+        order invisible -- the KB holds the reference it was handed, so a
+        later mutation silently rewrites what was already recorded, and
+        nothing could tell a run that enriched before the write from one that
+        enriched after it.
+
+        A mass-open scan is skipped outright. nmap_tool flags those because
+        the port list is a tunnel artefact rather than a host, and probing it
+        would mean hundreds of connections against ports that do not exist.
+        """
+        if not self.config.use_port_fingerprint:
+            return nmap_result
+        if not isinstance(nmap_result, dict) or nmap_result.get("error"):
+            return nmap_result
+        ports = nmap_result.get("ports") or []
+        if not ports:
+            return nmap_result
+        if nmap_result.get("mass_open"):
+            self._log("port_fingerprint skipped: mass_open scan", {"open_ports": len(ports)})
+            return nmap_result
+        self._check_iteration_limit()
+        probed = [p for p in ports if not (p.get("product") or "").strip()]
+        fingerprinted = fingerprint_ports(target, ports)
+        # Counted from the result, not from the input. Logging len(ports) said
+        # "5" for a scan that opened one connection and learned nothing from
+        # it, and the audit trail is signed: a number in it that describes the
+        # wrong quantity is worse than no number.
+        self._log(
+            "port_fingerprint complete",
+            {
+                "probed": len(probed),
+                "banners": sum(1 for p in fingerprinted if p.get("banner")),
+                "skipped_identified": len(ports) - len(probed),
+            },
+        )
+        return {**nmap_result, "ports": fingerprinted}
 
     def _run_web_recon(self, target: str) -> Dict[str, Any]:
         """Crawl the web target and record the injectable surface it exposes.

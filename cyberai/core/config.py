@@ -140,6 +140,10 @@ class CyberAIConfig:
     use_exploit_memory: bool = False
     # Flag-gated: profile response timing/patterns to detect honeypot/WAF/tarpit.
     use_behavioral_fingerprint: bool = False
+    # Flag-gated: grab banners from the ports -sV could not name. Off by
+    # default because it changes the network profile, not because it is slow:
+    # recon is otherwise passive once nmap has run.
+    use_port_fingerprint: bool = False
     # Flag-gated: crawl a web target for injectable endpoints and parameters.
     use_web_recon: bool = False
     # Flag-gated: attack the discovered HTTP surface directly (non-blind).
@@ -242,6 +246,7 @@ class CyberAIConfig:
             enable_planner=_env_bool("CYBERAI_ENABLE_PLANNER", False),
             use_exploit_memory=_env_bool("CYBERAI_USE_EXPLOIT_MEMORY", False),
             use_behavioral_fingerprint=_env_bool("CYBERAI_USE_BEHAVIORAL", False),
+            use_port_fingerprint=_env_bool("CYBERAI_USE_PORT_FINGERPRINT", False),
             use_web_recon=_env_bool("CYBERAI_USE_WEB_RECON", False),
             use_web_exploit=_env_bool("CYBERAI_USE_WEB_EXPLOIT", False),
             use_oob=_env_bool("CYBERAI_USE_OOB", False),
