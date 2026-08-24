@@ -247,10 +247,14 @@ async def enumerate_subdomains_async(
     timeout: float = 2.0,
 ) -> Dict[str, Any]:
     """
-    Async subdomain brute force — drop-in equivalent of enumerate_subdomains.
+    Async subdomain brute force. Same return shape as enumerate_subdomains.
 
-    Concurrency limited via asyncio.Semaphore so we don't hammer the
-    upstream resolver. Same return shape as the sync version.
+    Not a drop-in equivalent, despite the shape. This path asks dnspython for
+    A records; the sync path calls getaddrinfo, which follows nsswitch and
+    /etc/hosts and returns both address families. A host with only an AAAA
+    record is found by one and missed by the other, and the two do not
+    necessarily reach the same nameserver. Concurrency is capped by an
+    asyncio.Semaphore so the upstream resolver is not hammered.
     """
     words = wordlist or DEFAULT_WORDLIST
     targets = [f"{w}.{domain}" for w in words]

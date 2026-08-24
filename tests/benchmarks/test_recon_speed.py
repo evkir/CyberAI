@@ -4,8 +4,11 @@ Benchmark: sync vs async recon paths.
 Measures real wall-clock time on live network calls. Marked @slow + @network
 so it only runs in the nightly workflow or with explicit `pytest -m slow`.
 
-Acceptance: the async path must not be slower than the sync one by more than
-50% OR 50ms absolute, whichever is larger. On clean networks the async path is
+Acceptance applies to the DNS benchmark only: the async path must not be
+slower than the sync one by more than 50% OR 50ms absolute, whichever is
+larger. The subdomain benchmark reports and asserts nothing — its two paths
+use different resolvers with different caching, so wall-clock time there
+measures the cache rather than the code. On clean networks the async path is
 typically 2-5x faster. The absolute grace covers the near-zero-latency regime
 (local caching resolvers / captive DNS) where responses return in a few ms and
 async's fixed overhead — event-loop setup and gather — dominates the ratio,
@@ -66,8 +69,22 @@ def test_dns_async_is_not_slower_than_sync():
     assert async_median <= budget, f"async DNS regressed: {async_median:.3f}s > {budget:.3f}s"
 
 
-def test_subdomain_enum_async_is_not_slower_than_sync():
-    """ThreadPool(20) vs Semaphore(20) — same concurrency target, different mechanism."""
+def test_subdomain_enum_speed_is_recorded():
+    """Prints both paths side by side and asserts nothing.
+
+    The threshold this test used to carry compared a warm system resolver
+    against a cache-less dnspython, not ThreadPool(20) against Semaphore(20).
+    getaddrinfo answers 48 cached NXDOMAINs out of systemd-resolved in about
+    70ms, while dns.asyncresolver keeps no cache and sends 48 real queries,
+    so the ratio tracked whether the cache was warm. Measured in CI 24.08:
+    sync 0.071s, async 0.191s, speedup 0.37x — a red nightly that said
+    nothing about the code.
+
+    What the ratio was meant to guard, that the async path overlaps its
+    queries instead of serialising them, is asserted with neither network
+    nor clock in tests/unit/test_subdomain_enum.py, where a counting
+    resolver records the peak number of queries in flight.
+    """
     sync_median = _median_time(enumerate_subdomains, SUBDOMAIN_TARGET, timeout=1.5)
     async_median = asyncio.run(
         _median_time_async(enumerate_subdomains_async, SUBDOMAIN_TARGET, timeout=1.5)
@@ -77,9 +94,4 @@ def test_subdomain_enum_async_is_not_slower_than_sync():
     print(
         f"\n[bench subdomains] sync={sync_median:.3f}s async={async_median:.3f}s "
         f"speedup={ratio:.2f}x"
-    )
-
-    budget = sync_median * 1.5 + GRACE_S
-    assert async_median <= budget, (
-        f"async subdomain enum regressed: {async_median:.3f}s > {budget:.3f}s"
     )
