@@ -215,10 +215,12 @@ def _extract_version(banner: bytes) -> str:
     """
     if not banner:
         return ""
-    try:
-        text = banner[:512].decode("utf-8", errors="replace")
-    except Exception:
-        return ""
+    # No try around the decode: errors="replace" is total over bytes and the
+    # empty case is already gone, so the guard that sat here could not fire on
+    # any input. It could only have swallowed a TypeError from a caller
+    # passing something that is not bytes -- hiding the one bug it might have
+    # caught.
+    text = banner[:512].decode("utf-8", errors="replace")
 
     if text.lstrip().upper().startswith("HTTP/"):
         for line in text.splitlines():
