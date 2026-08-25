@@ -21,6 +21,7 @@ import threading
 import pytest
 
 from cyberai.agents.recon.fingerprinter import (
+    _detect_service,
     _extract_version,
     fingerprint_port,
     fingerprint_ports,
@@ -331,6 +332,45 @@ def test_the_protocol_version_is_not_the_software_version():
     conversation, not what is running, so the status line is never read.
     """
     assert _extract_version(b"HTTP/1.1 200 OK\r\nX-Powered-By: Express\r\n\r\n") == ""
+
+
+@pytest.mark.unit
+def test_a_port_that_refuses_the_connection_yields_a_row_not_an_error():
+    """A closed port is a normal answer. Asserted on ``fingerprint_port``.
+
+    nmap's list goes stale between the scan and the probe on any host that is
+    doing anything, so this is the ordinary case rather than the exotic one.
+    Through ``fingerprint_ports`` it cannot be observed: that function has a
+    guard of its own and returns the untouched row either way, so a test there
+    would pass with this one removed.
+    """
+    closed = socket.socket()
+    closed.bind(("127.0.0.1", 0))
+    port = closed.getsockname()[1]
+    closed.close()
+
+    result = fingerprint_port("127.0.0.1", port, service_hint="ssh")
+
+    assert result["banner"] == ""
+    assert result["version"] == ""
+    assert result["port"] == port
+
+
+@pytest.mark.unit
+def test_a_silent_port_falls_back_to_what_the_number_usually_means():
+    """With no banner there is nothing to read, so the port number is all
+    there is. That is a guess, and it only ever fills a field nmap left
+    empty."""
+    assert _detect_service(b"", 22) == "ssh"
+    assert _detect_service(b"", 61234) is None
+
+
+@pytest.mark.unit
+def test_an_unrecognised_banner_falls_back_the_same_way():
+    """A service that answered with something no signature matches is still
+    unidentified: what it said cannot name it, so the port number is used."""
+    assert _detect_service(b"\x00\x01binary garbage", 3306) == "mysql"
+    assert _detect_service(b"\x00\x01binary garbage", 61234) is None
 
 
 @pytest.mark.unit
