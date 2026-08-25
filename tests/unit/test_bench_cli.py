@@ -62,6 +62,27 @@ def test_bench_run_writes_a_manifest(tmp_path):
     assert data["manifest_hash"]
 
 
+def test_a_run_without_a_model_publishes_no_model(tmp_path):
+    """An engine that never contacts a provider must not name one.
+
+    The placeholder engine reaches no model at all, so every knob describing
+    one is absent rather than defaulted. A placeholder string in these fields
+    reads to anyone diffing two manifests as a value the run selected, and a
+    temperature of 0.0 claims deterministic sampling for a run that sampled
+    nothing. The seed is the exception on purpose: set_global_seed pins one
+    before the adapter loads, so it is always a measured fact.
+    """
+    out = tmp_path / "run.json"
+    result = CliRunner().invoke(bench, ["run", "--manifest", str(out)])
+    assert result.exit_code == 0
+    cfg = json.loads(out.read_text())["config"]
+    assert cfg["model"] is None
+    assert cfg["provider"] is None
+    assert cfg["temperature"] is None
+    assert cfg["max_iterations"] is None
+    assert cfg["seed"] == DEFAULT_SEED
+
+
 def test_a_filtered_run_does_not_fingerprint_as_the_whole_suite(tmp_path):
     """The suite hash describes what ran, or the regression gate would compare
     a one-task run against a three-task baseline and call it a pass."""
