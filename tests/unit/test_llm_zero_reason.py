@@ -6,6 +6,8 @@ those apart, and goes to None the moment a real call is recorded.
 """
 
 from cyberai.core.config import CyberAIConfig
+from cyberai.core.cost_tracker import CostTracker
+from cyberai.core.llm_usage import llm_zero_reason
 from cyberai.core.orchestrator import Orchestrator
 
 
@@ -54,3 +56,30 @@ def test_reason_lands_in_the_session_export():
     orch = Orchestrator(_config("openai"), dry_run=True)
     session = orch.run("example.com")
     assert session.kb.get("llm.usage")["zero_reason"] == "dry_run"
+
+
+def test_a_path_that_uses_no_model_is_not_blamed_on_a_missing_key():
+    """The bench agent path hands its agents no client at all, so a provider
+    key would change nothing. The default provider is a cloud one and the
+    default key is absent, so the missing-key cause answered every such run
+    and sent the reader after a knob that was never the reason."""
+    cfg = _config("openai")
+    reason = llm_zero_reason(cfg.llm, CostTracker(), client_built=False, engine_uses_a_model=False)
+    assert reason == "engine_uses_no_model"
+
+
+def test_the_default_leaves_the_credential_answer_where_it_was():
+    """The pipeline does use a model, and there the missing key is the cause."""
+    cfg = _config("openai")
+    reason = llm_zero_reason(cfg.llm, CostTracker(), client_built=False)
+    assert reason == "no_api_key_for_openai"
+
+
+def test_a_recorded_answer_outranks_a_path_that_takes_no_model():
+    """A path describes intent; a recorded call is a measurement."""
+    tracker = CostTracker()
+    tracker.add("exploit", "qwen", input_tokens=10, output_tokens=5)
+    reason = llm_zero_reason(
+        _config("ollama").llm, tracker, client_built=False, engine_uses_a_model=False
+    )
+    assert reason is None
