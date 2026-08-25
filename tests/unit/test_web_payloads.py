@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from cyberai.agents.exploit.web_payloads import (
+    ProofContext,
     WebVulnClass,
     full_corpus,
     payloads_for,
@@ -41,10 +42,93 @@ def test_traversal_proof_needs_file_contents():
     assert passwd_payload.proof.holds("404 not found: ../../etc/passwd") is False
 
 
-def test_sqli_proof_needs_an_authenticated_response():
-    payload = [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0]
-    assert payload.proof.holds('{"status": "ok", "flag": "FLAG{x}"}') is True
-    assert payload.proof.holds('{"status": "denied"}') is False
+PASSWD_BODY = (
+    "root:x:0:0:root:/root:/bin/bash\n"
+    "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n"
+    "bin:x:2:2:bin:/bin:/usr/sbin/nologin\n"
+)
+
+
+def test_every_traversal_payload_is_proven_by_the_file_it_reads():
+    """No traversal payload may depend on knowing what a specific target holds.
+
+    A proof naming a constant our own bench app plants is confirmed only by
+    that app: against any other host the payload lands and the corpus reports
+    nothing. The shape of /etc/passwd is the opposite -- present on every Linux
+    target, absent from the request -- which is what makes it evidence rather
+    than recognition.
+    """
+    for p in payloads_for(WebVulnClass.PATH_TRAVERSAL):
+        assert p.proof.holds(PASSWD_BODY) is True, f"{p.value!r} cannot be proven off-bench"
+
+
+def _authed_proof():
+    return [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0].proof
+
+
+_REFUSED = '{"status": "denied"}'
+_GRANTED = '{"status": "ok", "user": "admin"}'
+
+
+def test_sqli_proof_reads_the_transition_from_refusal_to_an_answer():
+    """The evidence is that the outcome changed, not that the body says a word.
+
+    A request carries no status code, so no reflection can produce this pair.
+    """
+    ctx = ProofContext(status=200, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_GRANTED, ctx) is True
+
+
+def test_sqli_proof_reads_a_forbidden_baseline_too():
+    ctx = ProofContext(status=200, baseline_status=403, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_GRANTED, ctx) is True
+
+
+def test_sqli_proof_is_silent_on_a_route_that_never_refused_anything():
+    """Measured against Juice Shop 20.2.0 on 2026-08-25.
+
+    /rest/products/search and /api/Products answer untouched requests 200 with
+    a body whose first key is a success status. The reading this replaced fired
+    on both. An endpoint that answers everyone was never an authentication
+    check, so there is nothing here to have bypassed.
+    """
+    ctx = ProofContext(
+        status=200,
+        baseline_status=200,
+        baseline_body='{"status":"success","data":[]}',
+    )
+    assert _authed_proof().holds('{"status":"success","data":[{"id":1}]}', ctx) is False
+
+
+def test_sqli_proof_ignores_a_refusal_that_only_changed_its_wording():
+    """Still refused is still refused, whatever the message says.
+
+    A login route answers a malformed value with a validation message and a
+    wrong password with a rejection -- two different bodies, both 401. Reading
+    the changed content while ignoring the code would score a door that stayed
+    shut as a bypass, and this is the common case: most payloads in the corpus
+    are malformed for most applications.
+    """
+    ctx = ProofContext(status=401, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds('{"status": "denied", "detail": "bad value"}', ctx) is False
+
+
+def test_sqli_proof_needs_the_content_to_change_not_only_the_code():
+    """A route that relaxes its status while saying the same thing granted nothing."""
+    ctx = ProofContext(status=200, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_REFUSED, ctx) is False
+
+
+def test_sqli_proof_fails_closed_when_nothing_was_measured():
+    """No context and an unmeasured baseline are the same answer: not proven.
+
+    `skip_inert_params=False` sends no benign probe, so the baseline is absent
+    rather than 200. A proof reading absence as success would confirm findings
+    on every walk that skipped the measurement.
+    """
+    assert _authed_proof().holds(_GRANTED) is False
+    unmeasured = ProofContext(status=200, baseline_status=None, baseline_body=None)
+    assert _authed_proof().holds(_GRANTED, unmeasured) is False
 
 
 def test_every_payload_carries_a_human_readable_proof():
@@ -127,6 +211,76 @@ NON_DATABASE_BODIES = [
 @pytest.mark.parametrize("body", NON_DATABASE_BODIES)
 def test_error_proof_ignores_failures_that_are_not_the_database(body):
     """A server that broke for another reason is not evidence of injection."""
+    assert _error_based()[0].proof.holds(body) is False
+
+
+# Captured from live containers on 2026-08-25, not composed by hand: the same
+# fault dressed three ways by three stacks, and a corpus fluent in one of them
+# reports the other two clean.
+LIVE_PARSE_ERRORS = [
+    (
+        "bench sqlite, bare message",
+        '{"status": "error", "detail": "near \\"1\\": syntax error"}',
+    ),
+    (
+        "juice shop 20.2.0, html-escaped quotes",
+        "<title>Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</title>",
+    ),
+    (
+        "juice shop, truncated statement",
+        "<title>Error: SQLITE_ERROR: incomplete input</title>",
+    ),
+    (
+        "vampi, sqlalchemy wrapper",
+        "sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unrecognized token: \"'1''\"",
+    ),
+]
+
+
+@pytest.mark.parametrize("stack,body", LIVE_PARSE_ERRORS)
+def test_error_proof_reads_what_our_own_targets_actually_print(stack, body):
+    """The proof has to work on the wording, not on the class name.
+
+    `str(exc)` on a sqlite error carries no class name, so a pattern keyed to
+    `sqlite3.OperationalError` reported our own bench login clean while it was
+    answering 500 with a parse error.
+    """
+    assert _error_based()[0].proof.holds(body) is True, stack
+
+
+# A statement that parsed and then failed for another reason. The distinction
+# is the whole claim of this proof: our text reaching the parser is what makes
+# the parameter an injection point, and a schema or constraint fault says
+# nothing about where our text went.
+PARSED_BUT_BROKEN = [
+    (
+        "vampi answers a legal double quote this way",
+        "sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: "
+        "users\n[SQL: SELECT * FROM users WHERE username = '1\"']",
+    ),
+    ("constraint", "SQLITE_CONSTRAINT: UNIQUE constraint failed: users.email"),
+    ("column", "sqlite3.OperationalError: no such column: foo"),
+    ("connection", "psycopg2.OperationalError: could not connect to server"),
+]
+
+
+@pytest.mark.parametrize("case,body", PARSED_BUT_BROKEN)
+def test_error_proof_ignores_a_query_that_broke_after_it_parsed(case, body):
+    assert _error_based()[0].proof.holds(body) is False, case
+
+
+# `syntax error` belongs to every parser ever written, not to databases.
+NOT_A_DATABASE_PARSER = [
+    "ParserError: near line 3: syntax error",
+    "YAML syntax error in config.yml",
+    "nginx: [emerg] syntax error in /etc/nginx/nginx.conf",
+    "SyntaxError: Unexpected token < in JSON at position 0",
+]
+
+
+@pytest.mark.parametrize("body", NOT_A_DATABASE_PARSER)
+def test_error_proof_ignores_some_other_parser_complaining(body):
+    """A config loader is not a database, however similar the sentence."""
     assert _error_based()[0].proof.holds(body) is False
 
 
