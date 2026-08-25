@@ -41,6 +41,26 @@ def test_traversal_proof_needs_file_contents():
     assert passwd_payload.proof.holds("404 not found: ../../etc/passwd") is False
 
 
+PASSWD_BODY = (
+    "root:x:0:0:root:/root:/bin/bash\n"
+    "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n"
+    "bin:x:2:2:bin:/bin:/usr/sbin/nologin\n"
+)
+
+
+def test_every_traversal_payload_is_proven_by_the_file_it_reads():
+    """No traversal payload may depend on knowing what a specific target holds.
+
+    A proof naming a constant our own bench app plants is confirmed only by
+    that app: against any other host the payload lands and the corpus reports
+    nothing. The shape of /etc/passwd is the opposite -- present on every Linux
+    target, absent from the request -- which is what makes it evidence rather
+    than recognition.
+    """
+    for p in payloads_for(WebVulnClass.PATH_TRAVERSAL):
+        assert p.proof.holds(PASSWD_BODY) is True, f"{p.value!r} cannot be proven off-bench"
+
+
 def test_sqli_proof_needs_an_authenticated_response():
     payload = [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0]
     assert payload.proof.holds('{"status": "ok", "flag": "FLAG{x}"}') is True
