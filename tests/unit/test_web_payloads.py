@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from cyberai.agents.exploit.web_payloads import (
+    ProofContext,
     WebVulnClass,
     full_corpus,
     payloads_for,
@@ -61,10 +62,73 @@ def test_every_traversal_payload_is_proven_by_the_file_it_reads():
         assert p.proof.holds(PASSWD_BODY) is True, f"{p.value!r} cannot be proven off-bench"
 
 
-def test_sqli_proof_needs_an_authenticated_response():
-    payload = [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0]
-    assert payload.proof.holds('{"status": "ok", "flag": "FLAG{x}"}') is True
-    assert payload.proof.holds('{"status": "denied"}') is False
+def _authed_proof():
+    return [p for p in payloads_for(WebVulnClass.SQLI) if "error-based" not in p.tags][0].proof
+
+
+_REFUSED = '{"status": "denied"}'
+_GRANTED = '{"status": "ok", "user": "admin"}'
+
+
+def test_sqli_proof_reads_the_transition_from_refusal_to_an_answer():
+    """The evidence is that the outcome changed, not that the body says a word.
+
+    A request carries no status code, so no reflection can produce this pair.
+    """
+    ctx = ProofContext(status=200, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_GRANTED, ctx) is True
+
+
+def test_sqli_proof_reads_a_forbidden_baseline_too():
+    ctx = ProofContext(status=200, baseline_status=403, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_GRANTED, ctx) is True
+
+
+def test_sqli_proof_is_silent_on_a_route_that_never_refused_anything():
+    """Measured against Juice Shop 20.2.0 on 2026-08-25.
+
+    /rest/products/search and /api/Products answer untouched requests 200 with
+    a body whose first key is a success status. The reading this replaced fired
+    on both. An endpoint that answers everyone was never an authentication
+    check, so there is nothing here to have bypassed.
+    """
+    ctx = ProofContext(
+        status=200,
+        baseline_status=200,
+        baseline_body='{"status":"success","data":[]}',
+    )
+    assert _authed_proof().holds('{"status":"success","data":[{"id":1}]}', ctx) is False
+
+
+def test_sqli_proof_ignores_a_refusal_that_only_changed_its_wording():
+    """Still refused is still refused, whatever the message says.
+
+    A login route answers a malformed value with a validation message and a
+    wrong password with a rejection -- two different bodies, both 401. Reading
+    the changed content while ignoring the code would score a door that stayed
+    shut as a bypass, and this is the common case: most payloads in the corpus
+    are malformed for most applications.
+    """
+    ctx = ProofContext(status=401, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds('{"status": "denied", "detail": "bad value"}', ctx) is False
+
+
+def test_sqli_proof_needs_the_content_to_change_not_only_the_code():
+    """A route that relaxes its status while saying the same thing granted nothing."""
+    ctx = ProofContext(status=200, baseline_status=401, baseline_body=_REFUSED)
+    assert _authed_proof().holds(_REFUSED, ctx) is False
+
+
+def test_sqli_proof_fails_closed_when_nothing_was_measured():
+    """No context and an unmeasured baseline are the same answer: not proven.
+
+    `skip_inert_params=False` sends no benign probe, so the baseline is absent
+    rather than 200. A proof reading absence as success would confirm findings
+    on every walk that skipped the measurement.
+    """
+    assert _authed_proof().holds(_GRANTED) is False
+    unmeasured = ProofContext(status=200, baseline_status=None, baseline_body=None)
+    assert _authed_proof().holds(_GRANTED, unmeasured) is False
 
 
 def test_every_payload_carries_a_human_readable_proof():
