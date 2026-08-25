@@ -214,6 +214,76 @@ def test_error_proof_ignores_failures_that_are_not_the_database(body):
     assert _error_based()[0].proof.holds(body) is False
 
 
+# Captured from live containers on 2026-08-25, not composed by hand: the same
+# fault dressed three ways by three stacks, and a corpus fluent in one of them
+# reports the other two clean.
+LIVE_PARSE_ERRORS = [
+    (
+        "bench sqlite, bare message",
+        '{"status": "error", "detail": "near \\"1\\": syntax error"}',
+    ),
+    (
+        "juice shop 20.2.0, html-escaped quotes",
+        "<title>Error: SQLITE_ERROR: near &quot;&#39;%&#39;&quot;: syntax error</title>",
+    ),
+    (
+        "juice shop, truncated statement",
+        "<title>Error: SQLITE_ERROR: incomplete input</title>",
+    ),
+    (
+        "vampi, sqlalchemy wrapper",
+        "sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unrecognized token: \"'1''\"",
+    ),
+]
+
+
+@pytest.mark.parametrize("stack,body", LIVE_PARSE_ERRORS)
+def test_error_proof_reads_what_our_own_targets_actually_print(stack, body):
+    """The proof has to work on the wording, not on the class name.
+
+    `str(exc)` on a sqlite error carries no class name, so a pattern keyed to
+    `sqlite3.OperationalError` reported our own bench login clean while it was
+    answering 500 with a parse error.
+    """
+    assert _error_based()[0].proof.holds(body) is True, stack
+
+
+# A statement that parsed and then failed for another reason. The distinction
+# is the whole claim of this proof: our text reaching the parser is what makes
+# the parameter an injection point, and a schema or constraint fault says
+# nothing about where our text went.
+PARSED_BUT_BROKEN = [
+    (
+        "vampi answers a legal double quote this way",
+        "sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: "
+        "users\n[SQL: SELECT * FROM users WHERE username = '1\"']",
+    ),
+    ("constraint", "SQLITE_CONSTRAINT: UNIQUE constraint failed: users.email"),
+    ("column", "sqlite3.OperationalError: no such column: foo"),
+    ("connection", "psycopg2.OperationalError: could not connect to server"),
+]
+
+
+@pytest.mark.parametrize("case,body", PARSED_BUT_BROKEN)
+def test_error_proof_ignores_a_query_that_broke_after_it_parsed(case, body):
+    assert _error_based()[0].proof.holds(body) is False, case
+
+
+# `syntax error` belongs to every parser ever written, not to databases.
+NOT_A_DATABASE_PARSER = [
+    "ParserError: near line 3: syntax error",
+    "YAML syntax error in config.yml",
+    "nginx: [emerg] syntax error in /etc/nginx/nginx.conf",
+    "SyntaxError: Unexpected token < in JSON at position 0",
+]
+
+
+@pytest.mark.parametrize("body", NOT_A_DATABASE_PARSER)
+def test_error_proof_ignores_some_other_parser_complaining(body):
+    """A config loader is not a database, however similar the sentence."""
+    assert _error_based()[0].proof.holds(body) is False
+
+
 def test_open_source_is_not_a_remote_code_execution():
     from cyberai.agents.exploit.web_payloads import classes_from_description
 
