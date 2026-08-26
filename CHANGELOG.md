@@ -6,6 +6,12 @@ All notable changes to CyberAI are documented here.
 
 ### Changed
 
+- **Development status: Alpha to Beta.** The classifier said Alpha while the
+  package carried a wired trust boundary, decontaminated benchmark proofs, an
+  architecture-tested README and 2200-odd tests. Beta claims the interfaces
+  are stable enough to build against and that the failure modes are known and
+  written down -- not that the tool is finished.
+
 - **Licence: MIT to Apache-2.0.** Releases up to and including v1.5.0 were
   published under the MIT License and remain available under those terms
   permanently, on both GitHub and PyPI; the change is not retroactive and
