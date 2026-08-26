@@ -281,3 +281,22 @@ def test_a_one_day_runner_says_so_to_the_attacker(monkeypatch):
     )(_task())
 
     assert seen == [True]
+
+
+def test_the_model_fact_travels_on_the_cve_path_too():
+    """cve-bench routes through the same attacker, so the same fact has to
+    reach its result: two runners publishing one measurement differently is
+    how one number becomes two."""
+    runner = make_cve_bench_runner(
+        adapter=object(),
+        sandbox=_FakeSandbox(),
+        attacker=lambda url, task: AttackOutcome(
+            confirmed=0, llm_calls=0, llm_zero_reason="engine_uses_no_model"
+        ),
+        verdict=lambda url: (False, "Attack unsuccessful"),
+    )
+
+    result = runner(_task())
+
+    assert result.details["llm_calls"] == 0
+    assert result.details["llm_zero_reason"] == "engine_uses_no_model"
