@@ -58,6 +58,7 @@ def _apply_feature_overrides(
     replan: bool | None = None,
     planner: bool | None = None,
     air_gapped: bool | None = None,
+    strict_scope: bool | None = None,
     web_recon: bool | None = None,
     web_exploit: bool | None = None,
     oob: bool | None = None,
@@ -100,6 +101,8 @@ def _apply_feature_overrides(
         config.enable_planner = planner
     if air_gapped is not None:
         config.air_gapped = air_gapped
+    if strict_scope is not None:
+        config.strict_scope = strict_scope
     if web_recon is not None:
         config.use_web_recon = web_recon
     if web_exploit is not None:
@@ -162,6 +165,11 @@ def cli() -> None:
 @click.option("--model", default=None, help="LLM model (overrides provider default)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
+@click.option(
+    "--strict-scope/--no-strict-scope",
+    default=None,
+    help="Refuse to exploit when no scope was given, instead of warning",
+)
 @click.option(
     "--auth",
     multiple=True,
@@ -266,6 +274,7 @@ def scan(
     replan: bool | None,
     planner: bool | None,
     air_gapped: bool | None,
+    strict_scope: bool | None,
     web_recon: bool | None,
     web_exploit: bool | None,
     oob: bool | None,
@@ -305,6 +314,7 @@ def scan(
         replan=replan,
         planner=planner,
         air_gapped=air_gapped,
+        strict_scope=strict_scope,
         web_recon=web_recon,
         web_exploit=web_exploit,
         oob=oob,

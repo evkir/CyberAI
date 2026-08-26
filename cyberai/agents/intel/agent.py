@@ -64,12 +64,26 @@ class IntelAgent(BaseAgent):
             )
         )
 
-    def _enrich_tls_findings(self) -> None:
-        """Attach CVE context to the TLS findings recon left in the KB.
+    def _enrich_tls_findings(self, target: str) -> None:
+        """Turn the TLS problems recon found into findings, with CVE context.
 
         TLSCVEMapper existed with no product caller: recon wrote recon.tls,
-        the mapper knew how to read it, and nothing joined them. The findings
-        list from TLSTool.run is already the shape the mapper expects.
+        the mapper knew how to read it, and nothing joined them. Joining them
+        into the knowledge base reproduced the same defect one level up --
+        `intel.tls_findings` had no reader either, and the report renders
+        session.findings, not the KB. So an expired certificate, a negotiated
+        TLS 1.0 and RC4 in the suite were all probed, classified, matched to
+        CVEs, and then left out of the document the client reads.
+
+        The finding is raised here rather than in recon because the CVE
+        context is what makes it actionable, and recon has no mapper. Recon
+        publishes no TLS finding at all, so there is nothing to duplicate.
+
+        Severity travels from the TLS classifier rather than being decided
+        again here: it already knows a deprecated protocol is worse than a
+        weak cipher. An unrecognised level degrades to INFO instead of
+        raising, because a report that loses a finding over a spelling is
+        worse than one that under-rates it.
         """
         tls_data = self.kb.get("recon.tls", {}) or {}
         findings = tls_data.get("findings", []) if isinstance(tls_data, dict) else []
@@ -77,6 +91,26 @@ class IntelAgent(BaseAgent):
             return
         enriched = TLSCVEMapper().enrich(findings)
         self.kb.set("intel.tls_findings", enriched, agent=self.AGENT_NAME)
+
+        for item in enriched:
+            level = str(item.get("severity") or "").upper()
+            severity = getattr(Severity, level, Severity.INFO)
+            cves = [c for c in (item.get("cves") or []) if c]
+            evidence = [item.get("detail", "")]
+            if item.get("remediation"):
+                evidence.append(f"Remediation: {item['remediation']}")
+            if not cves:
+                evidence.append("No CVE maps to this condition; it is a configuration issue")
+            self.session.add_finding(
+                severity=severity,
+                title=item.get("issue") or "TLS configuration issue",
+                description=item.get("detail", ""),
+                agent=self.AGENT_NAME,
+                target=target,
+                cve_ids=cves,
+                evidence=evidence,
+            )
+
         with_cves = sum(1 for f in enriched if f.get("cves"))
         self._log(f"TLS: {with_cves}/{len(enriched)} findings mapped to CVEs")
 
@@ -85,7 +119,8 @@ class IntelAgent(BaseAgent):
         # This runs before the port checks below because those return early:
         # an HTTPS target with no open ports in the nmap result would
         # otherwise drop TLS data that recon already put in the KB.
-        self._enrich_tls_findings()
+
+        self._enrich_tls_findings(target)
 
         nmap_data = self.kb.get("recon.nmap", {}) or {}
         ports = nmap_data.get("ports", []) if isinstance(nmap_data, dict) else []

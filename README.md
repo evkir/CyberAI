@@ -278,6 +278,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 | `CYBERAI_ENABLE_REPLAN` | Critic-driven phase replan |
 | `CYBERAI_USE_EXPLOIT_MEMORY` | Recall similar past exploit chains |
 | `CYBERAI_AIR_GAPPED` | Force local-only (no-egress) LLM path |
+| `CYBERAI_STRICT_SCOPE` | Refuse the exploit phase when no scope was given |
 | `CYBERAI_ENABLE_MODEL_ROUTING` | Per-phase model selection |
 | `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
 | `CYBERAI_OUTPUT_DIR` | Report output directory |
