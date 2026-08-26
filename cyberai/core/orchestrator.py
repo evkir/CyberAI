@@ -328,7 +328,12 @@ class Orchestrator:
         from cyberai.agents.exploit.safety_validator import validate_exploit_scope
 
         paths = session.kb_get("intel", {}).get("ranked_cves", [])
-        v = validate_exploit_scope(session.target, session.authorized_scope, paths)
+        v = validate_exploit_scope(
+            session.target,
+            session.authorized_scope,
+            paths,
+            strict=self.config.strict_scope,
+        )
 
         if not v.passed:
             raise RuntimeError(f"Scope check failed: {v.violations}")
