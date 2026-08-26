@@ -165,9 +165,12 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
   never contacted). Pick `annotate` when a false positive must not corrupt
   legitimate input, `deny` for an engagement where a suspected injection
   should stop the run. `quarantine` is not the default on purpose: it mutates
-  content, and the detector it would run on flagged 42 of 43 real scan
-  reports. A mutating policy on that false-positive rate corrupts the
-  product's own input. It becomes the default when W3 republishes precision.
+  content, and the detector it would run on has no published precision. The
+  figure behind that choice — 42 flagged of 43 real scan reports — was taken
+  on a corpus that is not tracked in this repository and no longer exists. It
+  is kept in `core/security/guard.py` as the recorded reason for the default,
+  not as a reproducible measurement. `quarantine` becomes the default when W3
+  publishes precision and recall on a tracked corpus.
 - **Every verdict is in the audit trail** — policy, threshold, score,
   categories and how many messages were modified, written per call. Message
   bodies stay out of it.
