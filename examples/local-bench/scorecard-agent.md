@@ -6,8 +6,8 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-26T04:44:00Z |
-| engine version | CyberAI 1.5.0 |
+| timestamp | 2026-08-26T05:30:45Z |
+| engine version | CyberAI 1.6.0 |
 | llm calls | 0 |
 | llm zero reason | engine_uses_no_model |
 | note | cyberai bench run |
@@ -42,6 +42,6 @@ What the engine reached and spent. A target that never came up scores zero for a
 | task id | solved | time (s) | error |
 | --- | --- | --- | --- |
 | local-sqli-login | ✓ | 11.48 |  |
-| local-cmdi-ping | ✓ | 11.47 |  |
-| local-path-traversal | ✓ | 11.50 |  |
-| local-ssrf-fetch | ✓ | 12.23 |  |
+| local-cmdi-ping | ✓ | 11.46 |  |
+| local-path-traversal | ✓ | 11.42 |  |
+| local-ssrf-fetch | ✓ | 12.11 |  |

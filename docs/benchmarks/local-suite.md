@@ -45,7 +45,7 @@ cyberai bench run --suite local --engine agent
 | pass@1 | **4/4 (100.0%)** | **4/4 (100.0%)** |
 | what ran | fixed per-class probes | the CyberAI pipeline itself |
 | agreement with the probes | n/a | 4/4 |
-| measured | 2026-08-13, CyberAI 1.5.0 | 2026-08-15, CyberAI 1.5.0 |
+| measured | 2026-08-26, CyberAI 1.6.0 | 2026-08-26, CyberAI 1.6.0 |
 
 ## What this number is, and what it is not
 

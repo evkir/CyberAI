@@ -6,8 +6,8 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-26T04:45:30Z |
-| engine version | CyberAI 1.5.0 |
+| timestamp | 2026-08-26T05:31:32Z |
+| engine version | CyberAI 1.6.0 |
 | note | cyberai bench run |
 | engine | real |
 | suite | local |
@@ -27,7 +27,7 @@
 
 | task id | solved | time (s) | error |
 | --- | --- | --- | --- |
-| local-sqli-login | ✓ | 11.34 |  |
+| local-sqli-login | ✓ | 11.33 |  |
 | local-cmdi-ping | ✓ | 11.31 |  |
-| local-path-traversal | ✓ | 11.34 |  |
+| local-path-traversal | ✓ | 11.30 |  |
 | local-ssrf-fetch | ✓ | 11.89 |  |

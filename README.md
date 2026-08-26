@@ -18,7 +18,7 @@
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
 
-*Real run: the local benchmark suite against four vulnerable targets in Docker — pass@1 4/4. The fourth is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
+*Recorded run of the fixed probes against four vulnerable targets in Docker — pass@1 4/4, which says the targets and the harness work. The pipeline itself scores the same suite 4/4 in 21 requests; both cards are linked below. The fourth target is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
 
 </div>
 
@@ -272,7 +272,8 @@ benchmark required to reproduce the numbers.
 
 ```bash
 cyberai bench list
-cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+cyberai bench run --suite local --engine agent --scorecard reports/scorecard-agent.md
+cyberai bench run --suite local --engine real  --scorecard reports/scorecard.md
 ```
 
 Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
@@ -280,7 +281,7 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
 
-Latest run of the local suite (CyberAI 1.5.0, 2026-08-17), scored twice — once by the fixed probes, once by the pipeline. Both agree:
+Latest run of the local suite (CyberAI 1.6.0, 2026-08-26), scored twice — once by the pipeline that is the product, once by the fixed probes. Both reach 4/4:
 
 | vuln class | solved | total | rate |
 | --- | --- | --- | --- |
@@ -290,21 +291,56 @@ Latest run of the local suite (CyberAI 1.5.0, 2026-08-17), scored twice — once
 | ssrf | 1 | 1 | 100% |
 | **pass@1** | **4** | **4** | **100%** |
 
-Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
-guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard is committed at
-[examples/local-bench/scorecard.md](examples/local-bench/scorecard.md);
-the run manifest is not, and `--manifest <path>` reproduces it.
+What the pipeline spent reaching that score. The probes produce none of these
+numbers, which is why the card beside this one has no metrics section:
 
-Two engines, one suite. `--engine real` drives fixed per-class probes;
-`--engine agent` drives the full pipeline, which has to find the surface
-before it can attack it. Both reach 4/4, and only the second says what that
-cost: four endpoints, 28 requests, four in-band proofs and one out-of-band
-([examples/local-bench/scorecard-agent.md](examples/local-bench/scorecard-agent.md)).
-The probes never produce those numbers, which is why the file beside it has
-no run metrics at all. The blind SSRF target is why the last two columns are
-apart: it answers identically whichever way the fetch goes, so it is proven
-by a callback carrying the run nonce, and counting that as in-band would
-print a zero on a task that was solved.
+| task id | in-band | out of band | endpoints | requests |
+| --- | --- | --- | --- | --- |
+| local-sqli-login | 2 | 0 | 1 | 5 |
+| local-cmdi-ping | 1 | 0 | 1 | 3 |
+| local-path-traversal | 1 | 0 | 1 | 3 |
+| local-ssrf-fetch | 0 | 1 | 1 | 10 |
+| **total** | **4** | **1** | **4** | **21** |
+
+Two engines, one suite, answering different questions. `--engine real` drives
+fixed per-class probes: 4/4 there means the targets are exploitable and the
+harness works — it measures the bench, not the product. `--engine agent`
+drives the full pipeline, which is handed an address and has to discover the
+surface before it can attack it; 4/4 there is the product finding and proving
+four flaws on its own. The second is the number worth publishing, and it is
+the one above.
+
+Read the zero honestly: **the pipeline reaches 4/4 without contacting a
+model.** The agent engine constructs no LLM client on this path, and the card
+records that rather than implying it — `llm calls 0`, `llm zero reason
+engine_uses_no_model`, a proven zero instead of a blank nobody counted.
+Discovery, payload selection and proof are code here, not inference. The
+model earns its place elsewhere: reading a surface larger than four
+endpoints, the analysis and the report. Publishing this suite as evidence of
+a language model solving CTFs would be the easy lie — it solved them with no
+model at all.
+
+In-band and out-of-band are counted apart because of the blind SSRF target:
+it answers identically whichever way the fetch goes, so it is proven by a
+callback carrying the run nonce, and folding that into the in-band column
+would print a zero on a task that was solved.
+
+Read the suite honestly too: it is **authored by the project it measures**.
+It proves the engine works end-to-end against live targets in Docker and
+guards against regression between releases — it is not a competitive result
+and is not comparable to CVE-Bench or CyBench. The one external suite run so
+far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason
+are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md).
+
+Part of an earlier 4/4 was self-referential — the exploitation engine held a
+literal from a target this project wrote. What was wrong, what changed and
+what the numbers did afterwards is written up in
+[docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md).
+
+Both cards are committed:
+[scorecard-agent.md](examples/local-bench/scorecard-agent.md) for the
+pipeline, [scorecard.md](examples/local-bench/scorecard.md) for the probes.
+The run manifest is not, and `--manifest <path>` reproduces it.
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard
 never overstates capability; `--engine real` runs live per-class probes. External
