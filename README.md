@@ -37,9 +37,11 @@ Two things set it apart from "LLM wrapper over nmap":
   confirmed through out-of-band callbacks captured by
   [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
   response diffs.
-- **Agent-trust-aware design.** Every phase output is injection-scanned before
-  it propagates; hits become MEDIUM findings in the report. Adversarial
-  thinking is a design input, not a disclaimer — the gaps are named in
+- **Agent-trust-aware design.** Every message on its way to a model passes one
+  guard, which labels or blocks what scores as an injection before the
+  provider is contacted; each phase's output is separately scanned and a hit
+  becomes a MEDIUM finding. Adversarial thinking is a design input, not a
+  disclaimer — the gaps are named in
   [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md).
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
@@ -82,9 +84,11 @@ including the 15 parameters that ignored every payload and the 10 that
 refused the caller outright:
 [examples/juice-shop/](examples/juice-shop/)
 
-**Trust-aware in one sentence:** if Nmap reads a malicious SSH banner crafted to
-hijack the LLM context, the orchestrator neutralizes that vector *before* the data
-ever reaches the model.
+**Trust-aware in one sentence:** a malicious banner crafted to hijack the model
+is wrapped as untrusted where it is stored, and if it ever reaches a prompt the
+guard in front of the provider labels, redacts or blocks it — under `deny`, no
+request is made at all. Recon and intel contact no model, so a banner from those
+phases reaches one only by way of the report.
 
 
 ---
@@ -107,7 +111,8 @@ flowchart LR
 
 </details>
 
-> **Trust boundary** — injection-scan at every phase edge, both pipelines.
+> **Trust boundary** — one guard inside `LLMClient`, ahead of every provider
+> call; phase edges are audited on top of it, in both pipelines.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
 
 **Observability:** JSONL audit log · session export/import · `cyberai replay`
@@ -143,10 +148,32 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 
 ## Security design
 
-- **Untrusted input handling** — nmap targets sanitized before the command
-  line is built; TLS tool inputs length-capped and pattern-blocked.
-- **Prompt-injection detection** — 33-pattern detector at every phase boundary;
-  hits become MEDIUM findings, visible in the report.
+- **One trust boundary in front of the model** — `TrustGuard.inspect()` sits
+  inside `LLMClient`, ahead of the provider branch, on all four entry points.
+  Nothing reaches OpenAI, Anthropic or Ollama without passing it. It scores
+  the raw message and sanitises the copy it sends: the reverse order was
+  measured to blind the detector, because sanitisation strips three of the
+  categories the detector scores on, so a payload carrying a template marker
+  scored *lower* through the guard than raw. System prompts are never
+  rewritten — only user, tool and function messages are attacker-reachable.
+- **Three policies, one variable** — `CYBERAI_INJECTION_POLICY` selects
+  `annotate` (default: label the content as untrusted, send it, record the
+  verdict), `quarantine` (label, replace each match with
+  `[REDACTED:<category>]`, cap the length), or `deny` (raise; the provider is
+  never contacted). Pick `annotate` when a false positive must not corrupt
+  legitimate input, `deny` for an engagement where a suspected injection
+  should stop the run. `quarantine` is not the default on purpose: it mutates
+  content, and the detector it would run on flagged 42 of 43 real scan
+  reports. A mutating policy on that false-positive rate corrupts the
+  product's own input. It becomes the default when W3 republishes precision.
+- **Every verdict is in the audit trail** — policy, threshold, score,
+  categories and how many messages were modified, written per call. Message
+  bodies stay out of it.
+- **Prompt-injection detection** — 33 patterns across 9 categories. Also run
+  on each phase's *output*, where a hit becomes a MEDIUM finding. That pass
+  is an audit signal, not a barrier: it runs after the agent has already
+  called the model, and it is labelled as such in the code and the report.
+  The barrier is the guard above.
 - **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
   Bugcrowd briefs (`cyberai scope import`).
 - **Audit trail** — every agent action logged to JSONL with full
