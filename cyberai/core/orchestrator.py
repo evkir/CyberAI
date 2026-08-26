@@ -19,12 +19,41 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cyberai.core.config import CyberAIConfig
+from cyberai.core.cost_tracker import BudgetExceeded
+from cyberai.core.egress_guard import EgressViolation
 from cyberai.core.llm_usage import llm_usage_record, llm_zero_reason
 from cyberai.core.logger import AuditLogger, get_logger
 from cyberai.core.scan_session import ScanPhase, ScanSession
 
 console = Console()
 log = get_logger("orchestrator")
+
+# A phase is allowed to fail. Two things are not phase failures at all: they
+# are the end of a guarantee the run was given, and continuing past them
+# turns that guarantee into a suggestion.
+#
+# BudgetExceeded means a spending cap was crossed. Swallowing it per phase
+# leaves the next phase free to spend again, so the cap stops being a cap
+# exactly when it starts to matter. EgressViolation means the air-gapped
+# path was asked to talk to a remote provider; a run that continues after
+# that has already broken the property it was started for.
+#
+# Everything else stays caught. The broad except below is deliberate and
+# stays: a phase dispatches nmap, httpx, subprocesses, three LLM providers
+# and several external binaries, and no honest list of what they raise can
+# be written. Narrowing it would trade a failed phase for a failed run.
+FATAL_TO_THE_RUN = (BudgetExceeded, EgressViolation)
+
+
+def _describe(exc: BaseException) -> str:
+    """Name the failure as well as describe it.
+
+    A recorded phase error of "refused" reads the same whether a target
+    dropped the connection or a defect raised it. The session export, the
+    critic that decides on a retry, and whoever opens session.json all get
+    the type as well, at the cost of one prefix.
+    """
+    return f"{type(exc).__name__}: {exc}"
 
 
 class Orchestrator:
@@ -223,8 +252,14 @@ class Orchestrator:
             session.record_phase(phase, success=True, started=started, data=data)
             console.print(f"[green]✓ {phase.value} done[/green]")
 
+        except FATAL_TO_THE_RUN as exc:
+            session.record_phase(phase, success=False, started=started, error=_describe(exc))
+            console.print(f"[bold red]✗ {phase.value} aborted the run: {exc}[/bold red]")
+            log.error(f"Phase {phase.value} hit a run-level limit", exc_info=True)
+            raise
+
         except Exception as exc:  # noqa: BLE001 — pipeline must survive one bad phase
-            session.record_phase(phase, success=False, started=started, error=str(exc))
+            session.record_phase(phase, success=False, started=started, error=_describe(exc))
             console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
             log.error(f"Phase {phase.value} raised", exc_info=True)
 
@@ -446,8 +481,14 @@ class AsyncOrchestrator(Orchestrator):
                 self._check_phase_injection(session, phase, data)
             session.record_phase(phase, success=True, started=started, data=data)
             console.print(f"[green]✓ {phase.value} done[/green]")
+        except FATAL_TO_THE_RUN as exc:
+            session.record_phase(phase, success=False, started=started, error=_describe(exc))
+            console.print(f"[bold red]✗ {phase.value} aborted the run: {exc}[/bold red]")
+            log.error(f"Phase {phase.value} hit a run-level limit", exc_info=True)
+            raise
+
         except Exception as exc:  # noqa: BLE001
-            session.record_phase(phase, success=False, started=started, error=str(exc))
+            session.record_phase(phase, success=False, started=started, error=_describe(exc))
             console.print(f"[red]✗ {phase.value} error: {exc}[/red]")
             log.error(f"Phase {phase.value} raised", exc_info=True)
 
