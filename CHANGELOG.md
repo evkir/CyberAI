@@ -17,6 +17,30 @@ All notable changes to CyberAI are documented here.
   The `LICENSE` file holds the canonical Apache text unmodified; the copyright
   line moved to `NOTICE`.
 
+### Fixed
+
+- **Benchmark contamination.** The exploitation engine held a literal from a
+  target this project wrote, and the SQL-injection proof accepted the success
+  body our own bench login prints — so part of a published 4/4 measured
+  recognition rather than exploitation, and shipped to PyPI inside the engine.
+  Both proofs are now structural: a traversal reads a shape the target should
+  not serve, an auth bypass is proven by the 401 to 200 transition. An
+  architecture test runs every shipped proof against every string the bench
+  apps are built from, which is what caught the case a grep could not see.
+  Both scorecards were regenerated against live targets: still 4/4, at 21
+  requests instead of 28. Full account in
+  `docs/benchmarks/contamination-2026-08.md`.
+- **Scorecard provenance.** `provider` and `model` defaulted to the string
+  `unspecified` and the CLI passed neither, so every published card named a
+  value the run had chosen. The rows are omitted when nothing was measured.
+  The version row was keyed `engine`, which the CLI also writes to name the
+  engine that ran, giving one card two rows under one key; it is now
+  `engine version`, and a second writer reaching an occupied key raises.
+- **Cause of a zero call count.** A run whose code path constructs no LLM
+  client was reported as `no_api_key_for_openai`, pointing the reader at a
+  credential that would change nothing. The path now answers for itself, above
+  the credential causes.
+
 ### Added
 
 - **Contributor License Agreement** (`CLA.md`), adapted from the Apache ICLA
