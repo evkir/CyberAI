@@ -4,8 +4,8 @@
 ![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
-![Version](https://img.shields.io/badge/version-v1.5.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2075%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2252%20passing-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-core%20typed-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -18,7 +18,7 @@
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
 
-*Real run: the local benchmark suite against four vulnerable targets in Docker — pass@1 4/4. The fourth is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
+*Recorded run of the fixed probes against four vulnerable targets in Docker — pass@1 4/4, which says the targets and the harness work. The pipeline itself scores the same suite 4/4 in 21 requests; both cards are linked below. The fourth target is blind: it counts as solved only when a collector we control records the callback. Reproduce with `cyberai bench run --suite local --engine real`.*
 
 </div>
 
@@ -37,9 +37,11 @@ Two things set it apart from "LLM wrapper over nmap":
   confirmed through out-of-band callbacks captured by
   [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
   response diffs.
-- **Agent-trust-aware design.** Every phase output is injection-scanned before
-  it propagates; hits become MEDIUM findings in the report. Adversarial
-  thinking is a design input, not a disclaimer — the gaps are named in
+- **Agent-trust-aware design.** Every message on its way to a model passes one
+  guard, which labels or blocks what scores as an injection before the
+  provider is contacted; each phase's output is separately scanned and a hit
+  becomes a MEDIUM finding. Adversarial thinking is a design input, not a
+  disclaimer — the gaps are named in
   [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md).
 
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
@@ -82,9 +84,11 @@ including the 15 parameters that ignored every payload and the 10 that
 refused the caller outright:
 [examples/juice-shop/](examples/juice-shop/)
 
-**Trust-aware in one sentence:** if Nmap reads a malicious SSH banner crafted to
-hijack the LLM context, the orchestrator neutralizes that vector *before* the data
-ever reaches the model.
+**Trust-aware in one sentence:** a malicious banner crafted to hijack the model
+is wrapped as untrusted where it is stored, and if it ever reaches a prompt the
+guard in front of the provider labels, redacts or blocks it — under `deny`, no
+request is made at all. Recon and intel contact no model, so a banner from those
+phases reaches one only by way of the report.
 
 
 ---
@@ -107,7 +111,8 @@ flowchart LR
 
 </details>
 
-> **Trust boundary** — injection-scan at every phase edge, both pipelines.
+> **Trust boundary** — one guard inside `LLMClient`, ahead of every provider
+> call; phase edges are audited on top of it, in both pipelines.
 > Findings reach **confidence = 1.0 only when confirmed out-of-band** via phantom-grid.
 
 **Observability:** JSONL audit log · session export/import · `cyberai replay`
@@ -136,6 +141,8 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 | **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
 | **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
 | **v1.4** | Autonomy & unified reporting | graph planner driving exploit order, exploit-memory recall, unified OOB confirmation, behavioral fingerprinting, findings grouped by attack surface |
+| **v1.5** | The HTTP surface | API-spec and JS-bundle route discovery, authenticated walks, object-level authorization checks, out-of-band confirmation on the product path |
+| **v1.6** | Honest release | one trust boundary in front of the model with three policies, decontaminated proofs, the agent score published, Apache-2.0 |
 
 **Next:** wider public proof — benchmark re-runs published as a tracked delta, sample reports for each attack surface, and reproducible live runs.
 
@@ -143,10 +150,32 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 
 ## Security design
 
-- **Untrusted input handling** — nmap targets sanitized before the command
-  line is built; TLS tool inputs length-capped and pattern-blocked.
-- **Prompt-injection detection** — 33-pattern detector at every phase boundary;
-  hits become MEDIUM findings, visible in the report.
+- **One trust boundary in front of the model** — `TrustGuard.inspect()` sits
+  inside `LLMClient`, ahead of the provider branch, on all four entry points.
+  Nothing reaches OpenAI, Anthropic or Ollama without passing it. It scores
+  the raw message and sanitises the copy it sends: the reverse order was
+  measured to blind the detector, because sanitisation strips three of the
+  categories the detector scores on, so a payload carrying a template marker
+  scored *lower* through the guard than raw. System prompts are never
+  rewritten — only user, tool and function messages are attacker-reachable.
+- **Three policies, one variable** — `CYBERAI_INJECTION_POLICY` selects
+  `annotate` (default: label the content as untrusted, send it, record the
+  verdict), `quarantine` (label, replace each match with
+  `[REDACTED:<category>]`, cap the length), or `deny` (raise; the provider is
+  never contacted). Pick `annotate` when a false positive must not corrupt
+  legitimate input, `deny` for an engagement where a suspected injection
+  should stop the run. `quarantine` is not the default on purpose: it mutates
+  content, and the detector it would run on flagged 42 of 43 real scan
+  reports. A mutating policy on that false-positive rate corrupts the
+  product's own input. It becomes the default when W3 republishes precision.
+- **Every verdict is in the audit trail** — policy, threshold, score,
+  categories and how many messages were modified, written per call. Message
+  bodies stay out of it.
+- **Prompt-injection detection** — 33 patterns across 9 categories. Also run
+  on each phase's *output*, where a hit becomes a MEDIUM finding. That pass
+  is an audit signal, not a barrier: it runs after the agent has already
+  called the model, and it is labelled as such in the code and the report.
+  The barrier is the guard above.
 - **Scope enforcement** — wildcard + `!`-exclusion matching honors HackerOne /
   Bugcrowd briefs (`cyberai scope import`).
 - **Audit trail** — every agent action logged to JSONL with full
@@ -272,7 +301,8 @@ benchmark required to reproduce the numbers.
 
 ```bash
 cyberai bench list
-cyberai bench run --suite local --engine real --scorecard reports/scorecard.md
+cyberai bench run --suite local --engine agent --scorecard reports/scorecard-agent.md
+cyberai bench run --suite local --engine real  --scorecard reports/scorecard.md
 ```
 
 Every published number is **reproducible** (targets ship in `cyberai/bench/apps/`),
@@ -280,7 +310,7 @@ Every published number is **reproducible** (targets ship in `cyberai/bench/apps/
 target — never "looks exploited"), and **traceable** (each run emits a scorecard
 with engine version, provider, model, timestamp).
 
-Latest run of the local suite (CyberAI 1.5.0, 2026-08-17), scored twice — once by the fixed probes, once by the pipeline. Both agree:
+Latest run of the local suite (CyberAI 1.6.0, 2026-08-26), scored twice — once by the pipeline that is the product, once by the fixed probes. Both reach 4/4:
 
 | vuln class | solved | total | rate |
 | --- | --- | --- | --- |
@@ -290,21 +320,56 @@ Latest run of the local suite (CyberAI 1.5.0, 2026-08-17), scored twice — once
 | ssrf | 1 | 1 | 100% |
 | **pass@1** | **4** | **4** | **100%** |
 
-Read that honestly: this suite is **authored by the project it measures**. It proves the engine works end-to-end against live targets in Docker and it
-guards against regression between releases — it is not a competitive result and is not comparable to CVE-Bench or CyBench. The one external suite run so far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md). The full scorecard is committed at
-[examples/local-bench/scorecard.md](examples/local-bench/scorecard.md);
-the run manifest is not, and `--manifest <path>` reproduces it.
+What the pipeline spent reaching that score. The probes produce none of these
+numbers, which is why the card beside this one has no metrics section:
 
-Two engines, one suite. `--engine real` drives fixed per-class probes;
-`--engine agent` drives the full pipeline, which has to find the surface
-before it can attack it. Both reach 4/4, and only the second says what that
-cost: four endpoints, 28 requests, four in-band proofs and one out-of-band
-([examples/local-bench/scorecard-agent.md](examples/local-bench/scorecard-agent.md)).
-The probes never produce those numbers, which is why the file beside it has
-no run metrics at all. The blind SSRF target is why the last two columns are
-apart: it answers identically whichever way the fetch goes, so it is proven
-by a callback carrying the run nonce, and counting that as in-band would
-print a zero on a task that was solved.
+| task id | in-band | out of band | endpoints | requests |
+| --- | --- | --- | --- | --- |
+| local-sqli-login | 2 | 0 | 1 | 5 |
+| local-cmdi-ping | 1 | 0 | 1 | 3 |
+| local-path-traversal | 1 | 0 | 1 | 3 |
+| local-ssrf-fetch | 0 | 1 | 1 | 10 |
+| **total** | **4** | **1** | **4** | **21** |
+
+Two engines, one suite, answering different questions. `--engine real` drives
+fixed per-class probes: 4/4 there means the targets are exploitable and the
+harness works — it measures the bench, not the product. `--engine agent`
+drives the full pipeline, which is handed an address and has to discover the
+surface before it can attack it; 4/4 there is the product finding and proving
+four flaws on its own. The second is the number worth publishing, and it is
+the one above.
+
+Read the zero honestly: **the pipeline reaches 4/4 without contacting a
+model.** The agent engine constructs no LLM client on this path, and the card
+records that rather than implying it — `llm calls 0`, `llm zero reason
+engine_uses_no_model`, a proven zero instead of a blank nobody counted.
+Discovery, payload selection and proof are code here, not inference. The
+model earns its place elsewhere: reading a surface larger than four
+endpoints, the analysis and the report. Publishing this suite as evidence of
+a language model solving CTFs would be the easy lie — it solved them with no
+model at all.
+
+In-band and out-of-band are counted apart because of the blind SSRF target:
+it answers identically whichever way the fetch goes, so it is proven by a
+callback carrying the run nonce, and folding that into the in-band column
+would print a zero on a task that was solved.
+
+Read the suite honestly too: it is **authored by the project it measures**.
+It proves the engine works end-to-end against live targets in Docker and
+guards against regression between releases — it is not a competitive result
+and is not comparable to CVE-Bench or CyBench. The one external suite run so
+far, CVE-Bench, scored 0/3 on three selected tasks; the runs and the reason
+are in [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md).
+
+Part of an earlier 4/4 was self-referential — the exploitation engine held a
+literal from a target this project wrote. What was wrong, what changed and
+what the numbers did afterwards is written up in
+[docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md).
+
+Both cards are committed:
+[scorecard-agent.md](examples/local-bench/scorecard-agent.md) for the
+pipeline, [scorecard.md](examples/local-bench/scorecard.md) for the probes.
+The run manifest is not, and `--manifest <path>` reproduces it.
 
 The default `--engine placeholder` reports all-unsolved by design so a scorecard
 never overstates capability; `--engine real` runs live per-class probes. External
@@ -325,6 +390,17 @@ methodology and the current scorecard.
 | [docs/web3/web3-audit.md](docs/web3/web3-audit.md) | Smart-contract audit for Immunefi |
 | [docs/mcp/integration.md](docs/mcp/integration.md) | MCP server setup |
 | [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md) | MCP/LLM offensive red-team scanning |
+| [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md) | What the trust boundary covers, and what it does not |
+| [docs/benchmarks/local-suite.md](docs/benchmarks/local-suite.md) | The local suite: targets, success signals, methodology |
+| [docs/benchmarks/reproducibility.md](docs/benchmarks/reproducibility.md) | What a run pins, what it records, what it cannot promise |
+| [docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md) | A self-referential proof, how it was found, what the numbers did |
+| [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md) | The external suite, scored 0/3, with the cause |
+| [docs/architecture/known-issues.md](docs/architecture/known-issues.md) | Known defects and gaps, named rather than implied |
+| [docs/workflows/htb-with-cyberai.md](docs/workflows/htb-with-cyberai.md) | Walkthrough: a lab box end to end |
+| [docs/workflows/web3-discovery.md](docs/workflows/web3-discovery.md) | Walkthrough: contract discovery to Immunefi export |
+| [docs/usage/examples.md](docs/usage/examples.md) | Command recipes by task |
+| [docs/setup/nvd-apikey.md](docs/setup/nvd-apikey.md) | NVD API key setup for CVE lookup |
+| [docs/licensing.md](docs/licensing.md) | Apache-2.0, the CLA, and the planned transfer to the LLC |
 
 ---
 

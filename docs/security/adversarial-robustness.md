@@ -54,7 +54,7 @@ the source can forge a line. Set the variable per engagement.
 
 - Pattern-based injection detection is bypassable with obfuscation.
 - One detector answers for the whole project. `core/safety.py` used to carry a
-  second one, six patterns against the canonical thirty-eight; it now reports
+  second one, six patterns against the canonical thirty-three; it now reports
   the canonical verdict and holds no patterns of its own.
 - A single pattern hit blocks a tool argument. The threshold is not tuned
   against a corpus, so the cost of a false positive is a refused scan.
