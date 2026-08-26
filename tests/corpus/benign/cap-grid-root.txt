@@ -1,0 +1,1 @@
+{"endpoints":{"capture_dns":"<token>.yourdomain.com","capture_http":"/c/<token>","exfil":"/api/tokens/<id>/exfil","log":"/api/log","poll":"/api/poll?since=<ISO>","stats":"/api/stats","tokens":"/api/tokens"},"features":["HTTP","HTTPS","DNS","DNS exfil reassembly","SQLite"],"service":"Phantom Grid \u2014 OOB Collaborator","version":"2.0.0"}

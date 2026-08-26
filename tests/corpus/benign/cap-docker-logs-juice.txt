@@ -1,0 +1,40 @@
+    at next (/juice-shop/node_modules/express/lib/router/index.js:280:10)
+    at /juice-shop/build/lib/insecurity.js:218:5
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+Error: Unexpected path: /api/v1/namespaces/default/pods
+    at /juice-shop/build/routes/angular.js:18:18
+    at /juice-shop/build/lib/utils.js:235:26
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+    at /juice-shop/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/juice-shop/node_modules/express/lib/router/index.js:346:12)
+    at next (/juice-shop/node_modules/express/lib/router/index.js:280:10)
+    at /juice-shop/build/routes/verify.js:235:5
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+    at /juice-shop/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/juice-shop/node_modules/express/lib/router/index.js:346:12)
+    at next (/juice-shop/node_modules/express/lib/router/index.js:280:10)
+    at /juice-shop/build/lib/insecurity.js:218:5
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+Error: Unexpected path: /api/v3
+    at /juice-shop/build/routes/angular.js:18:18
+    at /juice-shop/build/lib/utils.js:235:26
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+    at /juice-shop/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/juice-shop/node_modules/express/lib/router/index.js:346:12)
+    at next (/juice-shop/node_modules/express/lib/router/index.js:280:10)
+    at /juice-shop/build/routes/verify.js:235:5
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+    at /juice-shop/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/juice-shop/node_modules/express/lib/router/index.js:346:12)
+    at next (/juice-shop/node_modules/express/lib/router/index.js:280:10)
+    at /juice-shop/build/lib/insecurity.js:218:5
+    at Layer.handle [as handle_request] (/juice-shop/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/juice-shop/node_modules/express/lib/router/index.js:328:13)
+info: Solved 1-star exposedMetricsChallenge (Exposed Metrics)
+info: Cheat score for exposedMetricsChallenge solved in 0min (expected ~2min) with hints allowed: 0.9281083333333333

@@ -28,10 +28,18 @@ the default once the detector is rebuilt and has published precision numbers.
 
 The threshold default of 50 comes from the same measurement. Scores on that
 corpus are bimodal — 75 events at 0 and 25 at exactly 25, nothing between —
-because risk_score is len(matches) * 25 and the false positives all match a
-single category. A threshold of 50 therefore requires two independent
-categories to agree before the guard acts, and costs nothing in recall
-against anything the current detector can actually see.
+so 50 clears every false positive that corpus contained and costs nothing in
+recall against anything the detector could see in it.
+
+What 50 does not buy is agreement between two categories. risk_score is
+len(matches) * 25 and matches are counted per pattern, not per category:
+seven of the nine categories hold more than one pattern, so one category
+reaches 50 on its own. Measured, "{{a}} ${b}" scores 50 on template_injection
+and nothing else. An earlier revision of this docstring claimed the
+two-category property. It was false, and it was false in the paragraph that
+justifies a production default, which is the shape a reviewer checks in one
+line and nothing asserts. tests/architecture/test_threshold_arithmetic.py
+now pins the arithmetic against the claim.
 
 Both figures carry a caveat and are not to be quoted without it. They were
 taken while inspect() scored the *sanitised* copy, so three of the detector's

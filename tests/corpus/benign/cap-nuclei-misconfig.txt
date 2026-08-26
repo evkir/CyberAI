@@ -1,0 +1,15 @@
+[0:00:05] | Templates: 975 | Hosts: 1 | RPS: 194 | Matched: 0 | Errors: 6 | Requests: 1022/1777 (57%)
+[http-missing-security-headers:strict-transport-security] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:x-frame-options] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:x-content-type-options] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:referrer-policy] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:cross-origin-embedder-policy] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:cross-origin-opener-policy] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:content-security-policy] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:permissions-policy] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:x-permitted-cross-domain-policies] [http] [info] http://127.0.0.1:5001
+[http-missing-security-headers:cross-origin-resource-policy] [http] [info] http://127.0.0.1:5001
+[0:00:10] | Templates: 975 | Hosts: 1 | RPS: 172 | Matched: 10 | Errors: 8 | Requests: 1772/1777 (99%)
+[0:00:15] | Templates: 975 | Hosts: 1 | RPS: 116 | Matched: 10 | Errors: 8 | Requests: 1784/1777 (100%)
+[0:00:16] | Templates: 975 | Hosts: 1 | RPS: 111 | Matched: 10 | Errors: 8 | Requests: 1784/1777 (100%)
+[0:00:16] | Templates: 975 | Hosts: 1 | RPS: 111 | Matched: 10 | Errors: 8 | Requests: 1784/1777 (100%)

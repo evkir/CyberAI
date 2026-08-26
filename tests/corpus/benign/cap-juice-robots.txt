@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Feature-Policy: payment 'self'
+X-Recruiting: /#/jobs
+Content-Type: text/plain; charset=utf-8
+Content-Length: 28
+ETag: W/"1c-8HgF6mNyhsSFK0pascC9uB0wjX0"
+Vary: Accept-Encoding
+Date: Wed, 26 Aug 2026 22:19:33 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+User-agent: *
+Disallow: /ftp

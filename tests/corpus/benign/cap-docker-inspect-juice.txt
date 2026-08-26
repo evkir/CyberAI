@@ -1,0 +1,84 @@
+[
+    {
+        "Id": "fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32",
+        "Created": "2026-08-25T14:10:28.774867479Z",
+        "Path": "/nodejs/bin/node",
+        "Args": [
+            "/juice-shop/build/app.js"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 6775,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-08-26T21:00:15.171525643Z",
+            "FinishedAt": "2026-08-26T21:00:14.166273342Z"
+        },
+        "Image": "sha256:73c53fbf442e8337b3ea3d98c7e8550308854701ebdfce4cc39768f36b75430e",
+        "ResolvConfPath": "/var/lib/docker/containers/fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32/hostname",
+        "HostsPath": "/var/lib/docker/containers/fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32/hosts",
+        "LogPath": "/var/lib/docker/containers/fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32/fcb8cd1f0446bf2ab3122e0547c7ac60fcaf3efdc59c431909260452f0664a32-json.log",
+        "Name": "/juice",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {
+                "3000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "3000"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                52,
+                91
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "

@@ -1,0 +1,21 @@
+16642bb security: correct the threshold's justification in guard and README
+8f40050 Merge pull request #235 from evkir/w6/technical-tails
+7633bcb fix(exploit): the scope guard covers every path that touches the target
+2e24c9f fix(intel): TLS problems reach the report instead of the knowledge base
+40a9ed9 fix(orchestrator): a crossed budget or a broken air gap ends the run
+c64eb8e feat(scope): refuse an unscoped exploit phase under --strict-scope
+9b66238 Merge pull request #234 from evkir/w4/honest-readme
+bf93cbb docs: link the documents README was already citing, and gate the links
+ce2789e docs: describe the trust boundary that exists, and gate the count
+3a4855e docs: publish the agent score, and gate it against the card
+e44a54d chore: release version 1.6.0 and gate the badge that drifted
+b00be13 Merge pull request #233 from evkir/w2/honest-provenance
+221553c fix(cli): one guard for the two ways a run can say nothing about a model
+810f493 Merge pull request #232 from evkir/w2/honest-provenance
+8926685 docs(bench): publish the contamination account and the numbers after it
+318a675 chore(bench): regenerate both scorecards against live targets
+634810d test(architecture): pin what the scorecard may read out of a task
+0142601 fix(bench): the scorecard stops naming a model nobody reached
+a378b97 feat(bench): the agent engine records whether a model took part
+9029fb7 fix(core): a path that takes no model is not blamed on a missing key
+496e814 fix(bench): the run manifest stops namin

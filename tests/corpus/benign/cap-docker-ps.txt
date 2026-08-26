@@ -1,0 +1,4 @@
+63299ca8218d phantom-grid-phantom-grid:latest "python server.py --…" Up About an hour 53/udp, 0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp, 9443/tcp phantom-grid
+32b4dff8223a python:3.12-slim "python /apps/sqli_l…" Exited (137) 18 hours ago  cbench-sqli
+74ee4ac69121 erev0s/vampi "python app.py" Up About an hour 0.0.0.0:5001->5000/tcp, [::]:5001->5000/tcp vampi
+fcb8cd1f0446 bkimminich/juice-shop "/nodejs/bin/node /j…" Up About an hour 0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp juice

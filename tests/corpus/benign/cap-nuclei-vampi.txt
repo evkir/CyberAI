@@ -1,0 +1,2 @@
+[werkzeug-debugger-detect] [http] [info] http://127.0.0.1:5001/console
+[tech-detect:python] [http] [info] http://127.0.0.1:5001

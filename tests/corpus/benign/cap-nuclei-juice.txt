@@ -1,0 +1,3 @@
+[owasp-juice-shop-detect] [http] [info] http://127.0.0.1:3000
+[fingerprinthub-web-fingerprints:qm-system] [http] [info] http://127.0.0.1:3000
+[tech-detect:google-font-api] [http] [info] http://127.0.0.1:3000

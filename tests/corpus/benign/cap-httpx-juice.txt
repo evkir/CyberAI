@@ -1,0 +1,72 @@
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Feature-Policy: payment 'self'
+X-Recruiting: /#/jobs
+Content-Type: application/json; charset=utf-8
+ETag: W/"40b3-iJMTtE/dnk9peaP0Fl8iaHFeNsE"
+Vary: Accept-Encoding
+Content-Encoding: gzip
+Date: Wed, 26 Aug 2026 22:19:02 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{
+    "status": "success",
+    "data": [
+        {
+            "id": 1,
+            "name": "Apple Juice (1000ml)",
+            "description": "The all-time classic.",
+            "price": 1.99,
+            "deluxePrice": 0.99,
+            "image": "apple_juice.jpg",
+            "createdAt": "2026-08-26 21:00:21.304 +00:00",
+            "updatedAt": "2026-08-26 21:00:21.304 +00:00",
+            "deletedAt": null
+        },
+        {
+            "id": 24,
+            "name": "Apple Pomace",
+            "description": "Finest pressings of apples. Allergy disclaimer: Might contain 
+traces of worms. Can be <a href=\"/#recycle\">sent back to us</a> for recycling.",
+            "price": 0.89,
+            "deluxePrice": 0.89,
+            "image": "apple_pressings.jpg",
+            "createdAt": "2026-08-26 21:00:21.311 +00:00",
+            "updatedAt": "2026-08-26 21:00:21.311 +00:00",
+            "deletedAt": null
+        },
+        {
+            "id": 6,
+            "name": "Banana Juice (1000ml)",
+            "description": "Monkeys love it the most.",
+            "price": 1.99,
+            "deluxePrice": 1.99,
+            "image": "banana_juice.jpg",
+            "createdAt": "2026-08-26 21:00:21.305 +00:00",
+            "updatedAt": "2026-08-26 21:00:21.305 +00:00",
+            "deletedAt": null
+        },
+        {
+            "id": 52,
+            "name": "Basil Smoothie",
+            "description": "A unique blend of fresh basil and ginger for a healthy kick.",
+            "price": 2.99,
+            "deluxePrice": 2.99,
+            "image": "basil_smoothie.png",
+            "createdAt": "2026-08-26 21:00:21.316 +00:00",
+            "updatedAt": "2026-08-26 21:00:21.316 +00:00",
+            "deletedAt": null
+        },
+        {
+            "id": 51,
+            "name": "Berry Juice (1000ml)",
+            "description": "A delicious blend of fresh forest berries.",
+            "price": 3.49,
+            "deluxePrice": 3.49,
+            "image": "berry_juice.png",
+            "createdAt": "2026-08-26 21:00:21.316 +00:00",
+            "updatedAt": "2026-08-26 21:00
