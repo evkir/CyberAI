@@ -1,0 +1,15 @@
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Feature-Policy: payment 'self'
+X-Recruiting: /#/jobs
+Content-Type: application/json; charset=utf-8
+Content-Length: 395
+ETag: W/"18b-JQQg49Jn4GUZEIyn/q/N98PpQ9U"
+Vary: Accept-Encoding
+Date: Wed, 26 Aug 2026 22:21:24 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"status":"success","data":[{"message":"One of my favorites!","author":"admin@juice-sh.op","product":1,"likesCount":0,"likedBy":[],"_id":"gN88d5vWgPHT9qNLK","liked":true},{"message":"Great! We'll have an apple party. Everyone brings an apple and - STUFFS IT DOWN EACH OTHER'S THROAT!","author":"basil@juice-sh.op","product":1,"likesCount":0,"likedBy":[],"_id":"vCCtMt4LFPR3TosAN","liked":true}]}

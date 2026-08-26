@@ -1,0 +1,1 @@
+{"db_size_mb":0.05,"dns":0,"exfil_sessions":0,"http":2,"interactions":2,"tokens":2}

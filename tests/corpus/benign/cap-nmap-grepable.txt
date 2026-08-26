@@ -1,0 +1,4 @@
+# Nmap 7.98 scan initiated Thu Aug 27 00:21:24 2026 as: nmap -sT -p 3000,5001,9090 -oG - 127.0.0.1
+Host: 127.0.0.1 (localhost)	Status: Up
+Host: 127.0.0.1 (localhost)	Ports: 3000/open/tcp//ppp///, 5001/open/tcp//commplex-link///, 9090/open/tcp//zeus-admin///
+# Nmap done at Thu Aug 27 00:21:24 2026 -- 1 IP address (1 host up) scanned in 0.04 seconds

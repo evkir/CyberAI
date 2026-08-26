@@ -1,0 +1,30 @@
+  DNS Exfil formats:
+    Simple    → <data>.<TOKEN>.domain
+    Indexed   → <N>.<data>.<TOKEN>.domain
+    Session   → <tag>.<N>.<data>.<TOKEN>.domain
+    End       → end.<tag>.<TOKEN>.domain
+
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9090
+ * Running on http://172.17.0.2:9090
+[33mPress CTRL+C to quit[0m
+172.17.0.1 - - [26/Aug/2026 22:03:57] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:03:57] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:02] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:03] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:03] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:08] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:16] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:04:17] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:05:07] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:05:07] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:05:07] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:05:07] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:14:21] "GET / HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:14:21] "GET / HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:14:28] "GET / HTTP/1.0" 200 -
+172.17.0.1 - - [26/Aug/2026 22:17:37] "GET /api/stats HTTP/1.1" 200 -
+172.17.0.1 - - [26/Aug/2026 22:17:37] "GET /api/stats HTTP/1.1" 200 -
