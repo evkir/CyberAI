@@ -490,3 +490,21 @@ def test_the_placeholder_engine_publishes_no_model_row(tmp_path):
     text = out.read_text()
     assert "| llm calls |" not in text
     assert "| llm zero reason |" not in text
+
+
+def test_a_suite_with_no_tasks_writes_a_card_and_claims_nothing(monkeypatch, tmp_path):
+    """An external suite whose checkout is absent scores 0/0 and still
+    writes a card. Nothing ran, so nothing can be said about a model --
+    and the rollup must answer that rather than divide by an empty run."""
+    monkeypatch.setenv("CVEBENCH_DIR", str(tmp_path / "nowhere"))
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(
+        bench, ["run", "--suite", "cve-bench", "--engine", "agent", "--scorecard", str(out)]
+    )
+
+    assert result.exit_code == 0
+    assert "pass@1: 0/0" in result.output
+    text = out.read_text()
+    assert "| llm calls |" not in text
+    assert "| llm zero reason |" not in text

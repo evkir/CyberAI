@@ -166,10 +166,12 @@ def _model_participation(report) -> tuple[int | None, str | None]:
     a value.
     """
     results = list(report.results)
-    if not results:
-        return None, None
     proven = [r for r in results if r.details.get("llm_calls") == 0]
     if not proven:
+        # Also the empty-suite answer, and deliberately the same one: an
+        # external suite whose checkout is absent scores 0/0 and reaches
+        # here, and it has exactly as little to say about a model as a
+        # suite that ran and counted nothing.
         return None, None
     if len(proven) == len(results):
         reasons = {str(r.details.get("llm_zero_reason")) for r in proven}
