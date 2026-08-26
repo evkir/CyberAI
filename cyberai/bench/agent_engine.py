@@ -42,6 +42,8 @@ from cyberai.bench.evaluator import probe_for
 from cyberai.bench.runner import BenchResult, BenchTask
 from cyberai.bench.targets import LocalSuiteAdapter, VulnTarget
 from cyberai.core.config import CyberAIConfig
+from cyberai.core.cost_tracker import CostTracker
+from cyberai.core.llm_usage import llm_zero_reason
 from cyberai.core.scan_session import ScanSession
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,12 @@ class AttackOutcome:
     requests_sent: int = 0
     findings: list[dict[str, Any]] = field(default_factory=list)
     oob_confirmed: int = 0
+    # What the model did, or None for not measured. Zero and absent are
+    # different facts: a run that proves no model was reached can say so,
+    # while a run with no way to count must not publish a zero it never
+    # counted. Both stay None unless the attacker establishes otherwise.
+    llm_calls: Optional[int] = None
+    llm_zero_reason: Optional[str] = None
 
     @property
     def solved(self) -> bool:
@@ -130,8 +138,19 @@ def agent_attack(
     description = str((task.metadata if task else {}).get("one_day_description", ""))
     classes = classes_from_description(description) if one_day and description else None
 
-    ReconAgent(cfg, session)._run_web_recon(base_url)
-    report = ExploitAgent(cfg, session)._run_web_exploit(base_url, classes=classes)
+    recon = ReconAgent(cfg, session)
+    recon._run_web_recon(base_url)
+    exploit = ExploitAgent(cfg, session)
+    report = exploit._run_web_exploit(base_url, classes=classes)
+
+    # Read off the agents that ran, not off the config. Both are constructed
+    # with two positional arguments, so the client parameter keeps its None
+    # default and no model can be reached from here -- a fact of this code
+    # path, which is why the count is a proven zero rather than a default.
+    # The moment either agent is handed a client, there is no tracker on
+    # this path to count its calls with, so both fields go back to None:
+    # not measured is the only answer available until one exists.
+    model_free = recon.llm is None and exploit.llm is None
 
     return AttackOutcome(
         confirmed=int(report.get("confirmed", 0)),
@@ -139,6 +158,17 @@ def agent_attack(
         requests_sent=int(report.get("requests_sent", 0)),
         findings=list(report.get("findings", [])),
         oob_confirmed=int(report.get("params_oob_confirmed", 0)),
+        llm_calls=0 if model_free else None,
+        llm_zero_reason=(
+            llm_zero_reason(
+                cfg.llm,
+                CostTracker(),
+                client_built=False,
+                engine_uses_a_model=False,
+            )
+            if model_free
+            else None
+        ),
     )
 
 
@@ -210,6 +240,8 @@ def make_agent_runner(
                 "endpoints_tested": outcome.endpoints_tested,
                 "requests_sent": outcome.requests_sent,
                 "findings": outcome.findings,
+                "llm_calls": outcome.llm_calls,
+                "llm_zero_reason": outcome.llm_zero_reason,
                 "judge_solved": judged,
                 "agreement": None if judged is None else outcome.solved == judged,
             }

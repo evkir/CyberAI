@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from cyberai.bench.regression_gate import (
     check_regression,
     load_baseline,
@@ -74,3 +76,40 @@ def test_load_baseline_roundtrip(tmp_path):
     assert loaded is not None
     assert loaded.solved == 6
     assert loaded.suite_hash == "AAA"
+
+
+def test_a_baseline_written_by_an_older_release_still_loads(tmp_path):
+    """Manifests on disk outlive the code that wrote them.
+
+    Releases up to 1.5.0 stamped placeholder strings and zeroes into the run
+    config. Those files are the baselines a regression gate compares against,
+    and load_baseline expands whatever config it finds straight into the
+    dataclass. A field that stopped accepting the old shape would not raise
+    here -- it would return None, the gate would read that as "no baseline",
+    and a run that regressed to zero would pass green.
+    """
+    legacy = {
+        "suite": "local",
+        "engine_version": "1.5.0",
+        "config": {
+            "model": "unspecified",
+            "provider": "unspecified",
+            "temperature": 0.0,
+            "seed": 1337,
+            "max_iterations": 0,
+            "extra": {"engine": "real"},
+        },
+        "suite_hash": "AAA",
+        "solved": 4,
+        "total": 4,
+        "timestamp": "2026-08-17T19:18:36Z",
+        "manifest_hash": "old",
+    }
+    p = tmp_path / "legacy.json"
+    p.write_text(json.dumps(legacy))
+
+    loaded = load_baseline(p)
+    assert loaded is not None, "an older baseline must not degrade to 'no baseline'"
+    assert loaded.config.model == "unspecified"
+    assert loaded.config.temperature == 0.0
+    assert check_regression(_manifest(0), loaded).passed is False

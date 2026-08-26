@@ -190,13 +190,17 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
     class _Recon:
         def __init__(self, cfg, session):
             seen["cfg"] = cfg
+            # BaseAgent assigns this on every agent, so a double without it is
+            # not standing in for one. Left off, the caller reading it has to
+            # guess an answer instead of measuring it.
+            self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
             return {}
@@ -217,13 +221,14 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
     class _Recon:
         def __init__(self, cfg, session):
             seen["cfg"] = cfg
+            self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
             return {}
@@ -261,14 +266,14 @@ def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatc
 
     class _Recon:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
             return {
@@ -293,14 +298,14 @@ def _recording_agents(monkeypatch):
 
     class _Recon:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
         def __init__(self, cfg, session):
-            pass
+            self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
             seen.append(classes)
@@ -351,3 +356,61 @@ def test_one_day_without_a_description_changes_nothing(monkeypatch):
     agent_attack("http://t", _task_describing(""), one_day=True)
 
     assert seen == [None]
+
+
+def test_the_real_path_reports_a_zero_it_can_prove(live_sqli_app):
+    """Both agents are constructed with two positional arguments, so neither
+    is handed a client and no model can be reached. The count is zero because
+    the path cannot call one, and the reason names that rather than the
+    absent API key -- the key is absent on every machine and would send a
+    reader after a knob that changes nothing here."""
+    outcome = agent_attack(live_sqli_app)
+
+    assert outcome.llm_calls == 0
+    assert outcome.llm_zero_reason == "engine_uses_no_model"
+
+
+def test_a_client_on_the_path_makes_the_count_unmeasured(monkeypatch):
+    """A zero is only publishable while nothing could have been called. Give
+    an agent a client and there is still no tracker here to count with, so
+    the honest answer becomes absent rather than zero."""
+
+    class _Recon:
+        def __init__(self, cfg, session):
+            self.llm = object()
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session):
+            self.llm = None
+
+        def _run_web_exploit(self, base_url, classes=None):
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+
+    outcome = agent_attack("http://t")
+
+    assert outcome.llm_calls is None
+    assert outcome.llm_zero_reason is None
+
+
+def test_the_model_fact_reaches_the_result_the_scorecard_reads():
+    """A measurement that stops at the attacker is not published. The
+    scorecard is built from details, so the fact has to arrive there."""
+    adapter = LocalSuiteAdapter()
+    run = make_agent_runner(
+        adapter,
+        builder=_FakeBuilder(),
+        attacker=lambda url, task: AttackOutcome(
+            confirmed=1, llm_calls=0, llm_zero_reason="engine_uses_no_model"
+        ),
+        judge=lambda target, url: True,
+    )
+    result = run(_task(adapter))
+
+    assert result.details["llm_calls"] == 0
+    assert result.details["llm_zero_reason"] == "engine_uses_no_model"

@@ -62,6 +62,27 @@ def test_bench_run_writes_a_manifest(tmp_path):
     assert data["manifest_hash"]
 
 
+def test_a_run_without_a_model_publishes_no_model(tmp_path):
+    """An engine that never contacts a provider must not name one.
+
+    The placeholder engine reaches no model at all, so every knob describing
+    one is absent rather than defaulted. A placeholder string in these fields
+    reads to anyone diffing two manifests as a value the run selected, and a
+    temperature of 0.0 claims deterministic sampling for a run that sampled
+    nothing. The seed is the exception on purpose: set_global_seed pins one
+    before the adapter loads, so it is always a measured fact.
+    """
+    out = tmp_path / "run.json"
+    result = CliRunner().invoke(bench, ["run", "--manifest", str(out)])
+    assert result.exit_code == 0
+    cfg = json.loads(out.read_text())["config"]
+    assert cfg["model"] is None
+    assert cfg["provider"] is None
+    assert cfg["temperature"] is None
+    assert cfg["max_iterations"] is None
+    assert cfg["seed"] == DEFAULT_SEED
+
+
 def test_a_filtered_run_does_not_fingerprint_as_the_whole_suite(tmp_path):
     """The suite hash describes what ran, or the regression gate would compare
     a one-task run against a three-task baseline and call it a pass."""
@@ -407,3 +428,65 @@ def test_one_day_on_a_suite_that_describes_nothing_falls_back_in_the_record_too(
     # happen; the label has to fall back with the behaviour.
     assert "zero-day" in out.read_text()
     assert "one-day" not in out.read_text()
+
+
+def test_the_scorecard_publishes_a_zero_the_run_proved(monkeypatch, tmp_path):
+    """The fact has to survive the whole way to the file a reader opens,
+    so this goes through the CLI rather than building a RunMeta by hand."""
+    import cyberai.cli.bench as mod
+
+    details = {
+        "local-sqli-login": {
+            "agent_confirmed": 1,
+            "llm_calls": 0,
+            "llm_zero_reason": "engine_uses_no_model",
+        }
+    }
+    monkeypatch.setitem(mod._LIVE_ENGINES, "agent", _stub_agent_runner(details))
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(
+        bench,
+        ["run", "--engine", "agent", "--task", "local-sqli-login", "--scorecard", str(out)],
+    )
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "| llm calls | 0 |" in text
+    assert "| llm zero reason | engine_uses_no_model |" in text
+
+
+def test_a_run_where_the_tasks_disagree_publishes_the_split(monkeypatch, tmp_path):
+    """Some tasks reaching a model and others not has no single answer.
+    Picking either one would publish a number the run did not produce."""
+    import cyberai.cli.bench as mod
+
+    details = {
+        "local-sqli-login": {
+            "agent_confirmed": 1,
+            "llm_calls": 0,
+            "llm_zero_reason": "engine_uses_no_model",
+        }
+    }
+    monkeypatch.setitem(mod._LIVE_ENGINES, "agent", _stub_agent_runner(details))
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(bench, ["run", "--engine", "agent", "--scorecard", str(out)])
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "mixed: 1 of 4 tasks reached no model" in text
+    assert "| llm calls |" not in text
+
+
+def test_the_placeholder_engine_publishes_no_model_row(tmp_path):
+    """It measures nothing about a model, and an absent row says exactly
+    that; a zero there would claim a count nobody took."""
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(bench, ["run", "--scorecard", str(out)])
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "| llm calls |" not in text
+    assert "| llm zero reason |" not in text

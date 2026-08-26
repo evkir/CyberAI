@@ -155,6 +155,28 @@ def _second_opinion(details: dict) -> bool | None:
     return None
 
 
+def _model_participation(report) -> tuple[int | None, str | None]:
+    """What the whole run can say about the model, or nothing.
+
+    Per-task facts only roll up when they agree. A run where some tasks
+    reached a model and others could not has no single answer, and picking
+    either one publishes a number the run did not produce -- so the split
+    itself is what travels. Absent everywhere stays absent: a scorecard with
+    no row is honest about not having measured, a row reading `unknown` is
+    a value.
+    """
+    results = list(report.results)
+    if not results:
+        return None, None
+    proven = [r for r in results if r.details.get("llm_calls") == 0]
+    if not proven:
+        return None, None
+    if len(proven) == len(results):
+        reasons = {str(r.details.get("llm_zero_reason")) for r in proven}
+        return 0, reasons.pop() if len(reasons) == 1 else "mixed_reasons"
+    return None, f"mixed: {len(proven)} of {len(results)} tasks reached no model"
+
+
 def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
     """Narrow a suite to the requested ids, or fail loudly.
 
@@ -326,7 +348,16 @@ def run(
             extra["filtered"] = f"{len(selected)} of {len(all_tasks)} tasks: " + ", ".join(
                 t.id for t in selected
             )
-        md = generate_scorecard(report, RunMeta(note="cyberai bench run", extra=extra))
+        calls, reason = _model_participation(report)
+        md = generate_scorecard(
+            report,
+            RunMeta(
+                note="cyberai bench run",
+                extra=extra,
+                llm_calls=calls,
+                llm_zero_reason=reason,
+            ),
+        )
         out = Path(scorecard_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(md)

@@ -25,6 +25,7 @@ def llm_zero_reason(
     *,
     client_built: bool,
     dry_run: bool = False,
+    engine_uses_a_model: bool = True,
 ) -> Optional[str]:
     """Why no LLM call happened, or None when at least one did.
 
@@ -36,6 +37,14 @@ def llm_zero_reason(
     same zero as a run that never asked. `attempts` separates them: a non-zero
     attempt count with no call is a refusal, and it outranks the other causes
     because it is the one thing measured directly.
+
+    `engine_uses_a_model` is answered by the code path, not by the config, and
+    it is checked before the credential causes. A path that constructs its
+    agents without a client cannot be fixed by a key: the default provider is
+    a cloud one and the default key is absent, so the missing-key cause fires
+    on every such run and points the reader at a knob that changes nothing.
+    Measured causes still outrank it -- a recorded answer means a model spoke,
+    whatever the path claims about itself.
     """
     if tracker.call_count:
         return None
@@ -43,6 +52,8 @@ def llm_zero_reason(
         return "provider_refused"
     if dry_run:
         return "dry_run"
+    if not engine_uses_a_model:
+        return "engine_uses_no_model"
     provider = llm_config.provider
     if provider in ("openai", "anthropic") and not llm_config.api_key:
         return f"no_api_key_for_{provider}"

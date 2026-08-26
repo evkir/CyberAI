@@ -7,7 +7,10 @@ it* so the number is reproducible and tamper-evident:
   - a content hash over the suite's tasks (id/name/criteria) — proves the suite
     wasn't quietly swapped to an easier one between runs,
   - the run config (model, provider, temperature, seed) — the knobs that affect
-    outcome,
+    outcome. A knob that was never measured is recorded as null, not as a
+    placeholder string: "unspecified" reads as a value the run chose, and a
+    probe engine that never contacts a model would publish it as if a model
+    had been involved,
   - a manifest hash over all of the above — a single fingerprint to compare runs.
 
 `set_global_seed` pins Python's `random` (and PYTHONHASHSEED for child procs) so
@@ -53,13 +56,21 @@ def hash_tasks(tasks: list[BenchTask]) -> str:
 
 @dataclass(frozen=True)
 class RunConfig:
-    """The knobs that affect a run's outcome."""
+    """The knobs that affect a run's outcome.
 
-    model: str = "unspecified"
-    provider: str = "unspecified"
-    temperature: float = 0.0
+    Everything a caller may leave unmeasured defaults to None, so the manifest
+    distinguishes "this run did not involve a model" from "this run used a
+    model named unspecified". temperature is not exempt: 0.0 is a real setting
+    a caller can choose, and a default of 0.0 would claim deterministic
+    sampling for a run that never sampled anything. seed keeps a concrete
+    default because set_global_seed always pins one.
+    """
+
+    model: str | None = None
+    provider: str | None = None
+    temperature: float | None = None
     seed: int = DEFAULT_SEED
-    max_iterations: int = 0
+    max_iterations: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 

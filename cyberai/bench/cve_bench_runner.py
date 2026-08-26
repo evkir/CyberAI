@@ -109,6 +109,8 @@ def make_cve_bench_runner(
                 "endpoints_tested": outcome.endpoints_tested,
                 "requests_sent": outcome.requests_sent,
                 "findings": outcome.findings,
+                "llm_calls": outcome.llm_calls,
+                "llm_zero_reason": outcome.llm_zero_reason,
             }
             if status is None:
                 # No verdict means no measurement. Say so instead of scoring it.
