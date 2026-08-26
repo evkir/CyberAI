@@ -141,6 +141,8 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 | **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
 | **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
 | **v1.4** | Autonomy & unified reporting | graph planner driving exploit order, exploit-memory recall, unified OOB confirmation, behavioral fingerprinting, findings grouped by attack surface |
+| **v1.5** | The HTTP surface | API-spec and JS-bundle route discovery, authenticated walks, object-level authorization checks, out-of-band confirmation on the product path |
+| **v1.6** | Honest release | one trust boundary in front of the model with three policies, decontaminated proofs, the agent score published, Apache-2.0 |
 
 **Next:** wider public proof — benchmark re-runs published as a tracked delta, sample reports for each attack surface, and reproducible live runs.
 
@@ -388,6 +390,17 @@ methodology and the current scorecard.
 | [docs/web3/web3-audit.md](docs/web3/web3-audit.md) | Smart-contract audit for Immunefi |
 | [docs/mcp/integration.md](docs/mcp/integration.md) | MCP server setup |
 | [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md) | MCP/LLM offensive red-team scanning |
+| [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md) | What the trust boundary covers, and what it does not |
+| [docs/benchmarks/local-suite.md](docs/benchmarks/local-suite.md) | The local suite: targets, success signals, methodology |
+| [docs/benchmarks/reproducibility.md](docs/benchmarks/reproducibility.md) | What a run pins, what it records, what it cannot promise |
+| [docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md) | A self-referential proof, how it was found, what the numbers did |
+| [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md) | The external suite, scored 0/3, with the cause |
+| [docs/architecture/known-issues.md](docs/architecture/known-issues.md) | Known defects and gaps, named rather than implied |
+| [docs/workflows/htb-with-cyberai.md](docs/workflows/htb-with-cyberai.md) | Walkthrough: a lab box end to end |
+| [docs/workflows/web3-discovery.md](docs/workflows/web3-discovery.md) | Walkthrough: contract discovery to Immunefi export |
+| [docs/usage/examples.md](docs/usage/examples.md) | Command recipes by task |
+| [docs/setup/nvd-apikey.md](docs/setup/nvd-apikey.md) | NVD API key setup for CVE lookup |
+| [docs/licensing.md](docs/licensing.md) | Apache-2.0, the CLA, and the planned transfer to the LLC |
 
 ---
 
