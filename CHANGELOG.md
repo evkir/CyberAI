@@ -2,7 +2,7 @@
 
 All notable changes to CyberAI are documented here.
 
-## [Unreleased]
+## [1.6.0] - 2026-08-26
 
 ### Changed
 

@@ -10,8 +10,8 @@ not exist yet, it says so.
 
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
-pipeline over a shared knowledge base. 24,169 lines of Python under
-`cyberai/` plus 24,088 lines of tests, 2001 of which pass at `v1.5.0` in
+pipeline over a shared knowledge base. 25,498 lines of Python under
+`cyberai/` plus 28,569 lines of tests, 2252 of which pass at `v1.6.0` in
 the pre-commit gate (15 slow ones deselected there and run separately),
 `mypy --strict` clean on the typed core (`cyberai/core/types.py`), Apache-2.0.
 
