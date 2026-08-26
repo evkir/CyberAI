@@ -428,3 +428,65 @@ def test_one_day_on_a_suite_that_describes_nothing_falls_back_in_the_record_too(
     # happen; the label has to fall back with the behaviour.
     assert "zero-day" in out.read_text()
     assert "one-day" not in out.read_text()
+
+
+def test_the_scorecard_publishes_a_zero_the_run_proved(monkeypatch, tmp_path):
+    """The fact has to survive the whole way to the file a reader opens,
+    so this goes through the CLI rather than building a RunMeta by hand."""
+    import cyberai.cli.bench as mod
+
+    details = {
+        "local-sqli-login": {
+            "agent_confirmed": 1,
+            "llm_calls": 0,
+            "llm_zero_reason": "engine_uses_no_model",
+        }
+    }
+    monkeypatch.setitem(mod._LIVE_ENGINES, "agent", _stub_agent_runner(details))
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(
+        bench,
+        ["run", "--engine", "agent", "--task", "local-sqli-login", "--scorecard", str(out)],
+    )
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "| llm calls | 0 |" in text
+    assert "| llm zero reason | engine_uses_no_model |" in text
+
+
+def test_a_run_where_the_tasks_disagree_publishes_the_split(monkeypatch, tmp_path):
+    """Some tasks reaching a model and others not has no single answer.
+    Picking either one would publish a number the run did not produce."""
+    import cyberai.cli.bench as mod
+
+    details = {
+        "local-sqli-login": {
+            "agent_confirmed": 1,
+            "llm_calls": 0,
+            "llm_zero_reason": "engine_uses_no_model",
+        }
+    }
+    monkeypatch.setitem(mod._LIVE_ENGINES, "agent", _stub_agent_runner(details))
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(bench, ["run", "--engine", "agent", "--scorecard", str(out)])
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "mixed: 1 of 4 tasks reached no model" in text
+    assert "| llm calls |" not in text
+
+
+def test_the_placeholder_engine_publishes_no_model_row(tmp_path):
+    """It measures nothing about a model, and an absent row says exactly
+    that; a zero there would claim a count nobody took."""
+    out = tmp_path / "sc.md"
+
+    result = CliRunner().invoke(bench, ["run", "--scorecard", str(out)])
+
+    assert result.exit_code == 0
+    text = out.read_text()
+    assert "| llm calls |" not in text
+    assert "| llm zero reason |" not in text

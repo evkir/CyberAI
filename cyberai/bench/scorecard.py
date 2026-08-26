@@ -28,11 +28,21 @@ from cyberai.version import __version__
 @dataclass(frozen=True)
 class RunMeta:
     """Provenance for a scorecard run. All fields optional/defaulted so a
-    scorecard can be produced even in minimal/CI contexts."""
+    scorecard can be produced even in minimal/CI contexts.
+
+    A knob that was never measured is None and its row is left out, rather
+    than published as "unspecified": a placeholder in a machine-readable
+    table reads as a value the run chose, and an engine that never contacts
+    a model would name one as if it had. llm_calls is the same distinction
+    on the other side -- zero says a model was proven not to have been
+    reached, absent says nothing counted it.
+    """
 
     engine_version: str = __version__
-    model: str = "unspecified"
-    provider: str = "unspecified"
+    model: str | None = None
+    provider: str | None = None
+    llm_calls: int | None = None
+    llm_zero_reason: str | None = None
     note: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -126,7 +136,12 @@ def _run_metric_lines(report: SuiteReport) -> list[str]:
 
 
 def generate_scorecard(report: SuiteReport, meta: RunMeta | None = None) -> str:
-    """Render a Markdown scorecard for one suite run."""
+    """Render a Markdown scorecard for one suite run.
+
+    The version row is keyed `engine version`. It used to be `engine`, which
+    the CLI also writes to name the engine that ran, so one published card
+    carried two rows under one key: `CyberAI 1.5.0` and `agent`.
+    """
     meta = meta or RunMeta()
     lines: list[str] = []
     lines.append(f"# Benchmark Scorecard — `{report.suite}`")
@@ -138,13 +153,29 @@ def generate_scorecard(report: SuiteReport, meta: RunMeta | None = None) -> str:
     lines.append("| field | value |")
     lines.append("| --- | --- |")
     lines.append(f"| timestamp | {_utc_now_iso()} |")
-    lines.append(f"| engine | CyberAI {meta.engine_version} |")
-    lines.append(f"| provider | {meta.provider} |")
-    lines.append(f"| model | {meta.model} |")
+    lines.append(f"| engine version | CyberAI {meta.engine_version} |")
+    rows: list[tuple[str, str]] = []
+    if meta.provider:
+        rows.append(("provider", meta.provider))
+    if meta.model:
+        rows.append(("model", meta.model))
+    if meta.llm_calls is not None:
+        rows.append(("llm calls", str(meta.llm_calls)))
+    if meta.llm_zero_reason:
+        rows.append(("llm zero reason", meta.llm_zero_reason))
     if meta.note:
-        lines.append(f"| note | {meta.note} |")
-    for k, v in meta.extra.items():
-        lines.append(f"| {k} | {v} |")
+        rows.append(("note", meta.note))
+    rows += [(str(k), str(v)) for k, v in meta.extra.items()]
+    written = {"timestamp", "engine version"}
+    for key, value in rows:
+        if key in written:
+            raise ValueError(
+                f"duplicate scorecard metadata key: {key!r}. The table is read "
+                "by machines, so one key carrying two meanings is a defect, not "
+                "a formatting choice."
+            )
+        written.add(key)
+        lines.append(f"| {key} | {value} |")
     lines.append("")
     lines.append("## Per-class breakdown")
     lines.append("")

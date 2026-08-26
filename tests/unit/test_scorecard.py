@@ -150,3 +150,44 @@ def test_out_of_band_proof_is_not_folded_into_the_in_band_count():
     row = [ln for ln in md.splitlines() if ln.startswith("| up |")][0]
     assert row.split("|")[3].strip() == "0"
     assert row.split("|")[4].strip() == "1"
+
+
+def test_a_run_that_named_no_model_leaves_the_rows_out():
+    """A placeholder in a machine-readable table reads as a chosen value.
+    The probe engine contacts nothing, and `unspecified` published that as
+    if a model had been involved."""
+    md = generate_scorecard(_report())
+    assert "| model |" not in md
+    assert "| provider |" not in md
+    assert "unspecified" not in md
+
+
+def test_the_version_row_no_longer_shares_a_key_with_the_engine_name():
+    """The CLI writes `engine` to name the engine that ran, so the version
+    under the same key gave one card two rows with one meaning between
+    them."""
+    md = generate_scorecard(_report(), RunMeta(extra={"engine": "agent"}))
+    keys = [ln.split("|")[1].strip() for ln in md.splitlines() if ln.startswith("| ")]
+    assert "engine version" in keys
+    assert keys.count("engine") == 1
+
+
+def test_a_proven_zero_and_its_cause_reach_the_card():
+    md = generate_scorecard(_report(), RunMeta(llm_calls=0, llm_zero_reason="engine_uses_no_model"))
+    assert "| llm calls | 0 |" in md
+    assert "| llm zero reason | engine_uses_no_model |" in md
+
+
+def test_an_unmeasured_run_writes_no_call_row_at_all():
+    """Zero is a measurement. A run with nothing to count must not print one."""
+    md = generate_scorecard(_report())
+    assert "| llm calls |" not in md
+
+
+def test_two_rows_under_one_key_are_refused():
+    """Rendering both is how a machine-readable card starts carrying two
+    truths; the second writer has to fail loudly instead."""
+    import pytest
+
+    with pytest.raises(ValueError, match="duplicate scorecard metadata key"):
+        generate_scorecard(_report(), RunMeta(note="run", extra={"note": "other"}))
