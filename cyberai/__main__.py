@@ -11,6 +11,7 @@ from rich.panel import Panel
 from cyberai.version import __version__
 
 from .cli.bench import bench
+from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
 from .core.config import CyberAIConfig, LLMConfig
@@ -479,6 +480,7 @@ def status() -> None:
 
 
 cli.add_command(bench)
+cli.add_command(detector)
 cli.add_command(mcp_scan)
 cli.add_command(web3)
 
