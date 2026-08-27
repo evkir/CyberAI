@@ -22,6 +22,7 @@ from cyberai.core.security.eval_corpus import (
     evaluate,
     label_counts,
     load_corpus,
+    render_report,
 )
 
 pytestmark = pytest.mark.unit
@@ -274,6 +275,47 @@ def test_as_dict_carries_the_false_positive_rate() -> None:
     payload = evaluate(samples, threshold=50, scorer=lambda t: 50 if t == "hit" else 0).as_dict()
     assert payload["overall"]["false_positive_rate"] == pytest.approx(0.5)
     assert payload["by_subclass"]["logs"]["false_positive_rate"] == pytest.approx(0.5)
+
+
+def test_the_report_says_so_when_nothing_is_blind() -> None:
+    """The branch that runs on the day the detector stops having holes.
+
+    Reachable, not hypothetical: a scorer that flags everything empties
+    blind_subclasses, and the report has to say that rather than print an
+    empty heading. Exercised through evaluate and render_report, not by
+    constructing an Evaluation by hand, so it is the production path that
+    produces the empty list.
+
+    Codecov found this line. It would have been the only uncovered statement
+    in the module, and the two wrong answers were deleting a branch that a
+    working detector reaches, or covering it with a mock that proves the
+    formatter can be called rather than that the product ever gets here.
+    """
+    samples = [
+        _sample("a", INJECTION, "direct", "x"),
+        _sample("b", INJECTION, "encoded", "y"),
+        _sample("c", BENIGN, "logs", "z"),
+    ]
+    result = evaluate(samples, threshold=50, scorer=lambda text: 100)
+    assert result.blind_subclasses() == []
+
+    body = render_report(result, "corpus", label_counts(samples))
+    assert "None: every injection subclass was flagged at least once." in body
+    assert "Every sample in these scored below the threshold" not in body
+
+
+def test_the_report_lists_the_blind_subclasses_when_there_are_any() -> None:
+    """The other side of the same branch, so neither is asserted alone."""
+    samples = [
+        _sample("a", INJECTION, "direct", "hit"),
+        _sample("b", INJECTION, "encoded", "miss"),
+        _sample("c", BENIGN, "logs", "miss"),
+    ]
+    result = evaluate(samples, threshold=50, scorer=lambda t: 50 if t == "hit" else 0)
+    body = render_report(result, "corpus", label_counts(samples))
+    assert "Every sample in these scored below the threshold" in body
+    assert "encoded" in body
+    assert "None: every injection subclass" not in body
 
 
 def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
