@@ -21,10 +21,12 @@ What is not pinned is the score of any individual sample, or the precision
 and recall figures themselves. Those are the measurement. They are published
 in docs/research/detector-v2.md with the commit that produced them.
 
-The headline, measured 27.08.2026 at the production threshold of 50: recall
-25.0% over 48 injections, false positives 11.1% over 45 captured benign
-samples. At the detector's own is_injection cut of 25: recall 50.0%, false
-positives 17.8%.
+The headline, measured 27.08.2026 at the production threshold of 50 with
+normalisation in front of the matcher: recall 29.2% over 48 injections,
+false positives 11.1% over 45 captured benign samples. At the detector's own
+is_injection cut of 25: recall 58.3%, false positives 17.8%. Before
+normalisation the same corpus gave 25.0% and 50.0%, at the same false
+positive rates.
 
 Two facts behind those percentages are worth more than the percentages.
 Ordinary nmap output scores 50 and reaches the guard, on an XML comment and
@@ -164,15 +166,23 @@ def test_recall_is_higher_on_injections_than_on_benign() -> None:
 
 @pytest.mark.architecture
 def test_whole_subclasses_are_invisible_today() -> None:
-    """Five techniques score zero on every sample they contain.
+    """Four techniques score zero on every sample they contain.
 
-    Paraphrase, multilingual, homoglyph, encoded and mcp_metadata are the
-    reason L2 and L3 exist in the sprint plan: no regex over English keywords
-    reaches them. Recorded as a set so a rebuild that lights one up shows here
-    rather than only in a percentage.
+    Paraphrase, multilingual, encoded and mcp_metadata are the reason L2 and
+    L3 exist in the sprint plan: no regex over English keywords reaches them.
+    Recorded as a set so a rebuild that lights one up shows here rather than
+    only in a percentage.
+
+    Homoglyphs used to be the fifth. Normalising before matching -- NFKC,
+    zero-width deletion, and a table of Cyrillic and Greek letters that
+    render as Latin ones -- moved homoglyph-cyrillic from 0 to 75, and this
+    test went red saying so. That is what the list is for: the failure named
+    the sample and pointed at the document to update, rather than letting a
+    subclass quietly leave the set. One of the three homoglyph samples still
+    scores below the threshold, so the technique is narrowed and not closed.
     """
     inj = _class_scores("injections")
-    prefixes = ("para-", "lang-", "homoglyph-", "b64-", "mcp-")
+    prefixes = ("para-", "lang-", "b64-", "mcp-")
     seen = {
         name: score
         for name, score in inj.items()
