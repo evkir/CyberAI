@@ -26,6 +26,7 @@ from cyberai.core.security.eval_corpus import (
     evaluate,
     label_counts,
     load_corpus,
+    render_report,
 )
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
 
@@ -101,6 +102,7 @@ def detector() -> None:
       cyberai detector eval --corpus tests/corpus
       cyberai detector eval --corpus tests/corpus --threshold 25
       cyberai detector eval --corpus tests/corpus --json > baseline.json
+      cyberai detector eval --corpus tests/corpus --report examples/detector-eval/baseline.md
     """
 
 
@@ -119,7 +121,13 @@ def detector() -> None:
     help="Score at or above which a sample counts as flagged",
 )
 @click.option("--json", "as_json", is_flag=True, help="Emit the full result as JSON")
-def detector_eval(corpus: Path, threshold: int, as_json: bool) -> None:
+@click.option(
+    "--report",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    help="Write the Markdown report here. This is how the committed artifact "
+    "is produced: never edit it by hand, re-run instead.",
+)
+def detector_eval(corpus: Path, threshold: int, as_json: bool, report: Path | None) -> None:
     """Score every sample in CORPUS and report precision and recall."""
     try:
         samples = load_corpus(corpus)
@@ -127,6 +135,12 @@ def detector_eval(corpus: Path, threshold: int, as_json: bool) -> None:
         raise click.ClickException(str(exc)) from exc
 
     result = evaluate(samples, threshold=threshold)
+    counts = label_counts(samples)
+
+    if report is not None:
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(render_report(result, corpus, counts), encoding="utf-8")
+        console.print(f"[green]report written:[/green] {report}")
 
     if as_json:
         payload = result.as_dict()
@@ -134,4 +148,4 @@ def detector_eval(corpus: Path, threshold: int, as_json: bool) -> None:
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
 
-    _render(result, corpus, label_counts(samples))
+    _render(result, corpus, counts)

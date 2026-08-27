@@ -81,3 +81,48 @@ def test_the_threshold_option_changes_the_measurement(runner: CliRunner) -> None
     assert loose["threshold"] == 25
     assert loose["overall"]["true_positive"] > strict["overall"]["true_positive"]
     assert len(loose["blind_subclasses"]) < len(strict["blind_subclasses"])
+
+
+def test_report_writes_the_markdown_artifact(runner: CliRunner, tmp_path: Path) -> None:
+    """The flag that produces the committed file, exercised directly.
+
+    The architecture gate compares the committed artifact against a fresh
+    render, which proves the content but not the route: it calls
+    render_report itself and would stay green if --report were removed. This
+    drives the option.
+    """
+    out = tmp_path / "nested" / "baseline.md"
+    result = runner.invoke(cli, ["detector", "eval", "--corpus", CORPUS, "--report", str(out)])
+    assert result.exit_code == 0, result.output
+    assert out.is_file()
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("# Detector Evaluation")
+    assert "| threshold | 50 |" in body
+    assert "## Blind subclasses" in body
+
+
+def test_report_creates_missing_parent_directories(runner: CliRunner, tmp_path: Path) -> None:
+    out = tmp_path / "a" / "b" / "c.md"
+    assert (
+        runner.invoke(cli, ["detector", "eval", "--corpus", CORPUS, "--report", str(out)]).exit_code
+        == 0
+    )
+    assert out.is_file()
+
+
+def test_report_records_the_threshold_it_was_run_at(runner: CliRunner, tmp_path: Path) -> None:
+    """A report that does not name its threshold describes nothing."""
+    out = tmp_path / "loose.md"
+    runner.invoke(
+        cli,
+        ["detector", "eval", "--corpus", CORPUS, "--threshold", "25", "--report", str(out)],
+    )
+    assert "| threshold | 25 |" in out.read_text(encoding="utf-8")
+
+
+def test_the_table_still_prints_when_a_report_is_written(runner: CliRunner, tmp_path: Path) -> None:
+    """Writing a file is not a reason to make the run invisible in the terminal."""
+    out = tmp_path / "r.md"
+    result = runner.invoke(cli, ["detector", "eval", "--corpus", CORPUS, "--report", str(out)])
+    assert "report written" in result.output
+    assert "overall" in result.output

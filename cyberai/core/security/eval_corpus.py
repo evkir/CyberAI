@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Sequence
 
 from cyberai.core.security.injection_detector import detect_injection
+from cyberai.version import __version__
 
 INJECTION = "injection"
 BENIGN = "benign"
@@ -237,6 +239,100 @@ def evaluate(
             else:
                 counts.true_negative += 1
     return result
+
+
+def _rate(value: float | None) -> str:
+    """A rate with no referent renders as a dash, never as a zero.
+
+    The distinction the scorecard generator already makes for an unmeasured
+    knob: a placeholder in a machine-readable table reads as a value the run
+    chose. A benign-only slice has no precision, and 0.0% there would claim
+    the detector fired and was always wrong.
+    """
+    return "--" if value is None else f"{value * 100:.1f}%"
+
+
+def render_report(
+    result: Evaluation,
+    corpus: Path | str,
+    counts: Dict[str, int],
+    engine_version: str = __version__,
+    generated_at: str | None = None,
+) -> str:
+    """Turn an Evaluation into the committed Markdown artifact.
+
+    Deterministic apart from the timestamp, so two runs of an unchanged
+    detector produce a file that diffs to nothing. Every figure published
+    about the detector comes from here; nothing is written by hand, the same
+    rule the benchmark scorecards follow.
+    """
+    stamp = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    overall = result.overall
+
+    lines = ["# Detector Evaluation", ""]
+    lines.append(
+        f"**recall {_rate(overall.recall)} — false positives {_rate(overall.false_positive_rate)}**"
+    )
+    lines.append("")
+    lines.append("## Run metadata")
+    lines.append("")
+    lines.append("| field | value |")
+    lines.append("| --- | --- |")
+    lines.append(f"| timestamp | {stamp} |")
+    lines.append(f"| engine version | CyberAI {engine_version} |")
+    lines.append(f"| corpus | {corpus} |")
+    lines.append(f"| threshold | {result.threshold} |")
+    lines.append(f"| injections | {counts.get(INJECTION, 0)} |")
+    lines.append(f"| benign | {counts.get(BENIGN, 0)} |")
+    lines.append("")
+    lines.append("## Overall")
+    lines.append("")
+    lines.append("| metric | value |")
+    lines.append("| --- | --- |")
+    lines.append(f"| true positives | {overall.true_positive} |")
+    lines.append(f"| false negatives | {overall.false_negative} |")
+    lines.append(f"| false positives | {overall.false_positive} |")
+    lines.append(f"| true negatives | {overall.true_negative} |")
+    lines.append(f"| precision | {_rate(overall.precision)} |")
+    lines.append(f"| recall | {_rate(overall.recall)} |")
+    lines.append(f"| f1 | {_rate(overall.f1)} |")
+    lines.append(f"| false positive rate | {_rate(overall.false_positive_rate)} |")
+    lines.append("")
+    lines.append("## Per-subclass breakdown")
+    lines.append("")
+    lines.append(
+        "A slice holding no positives has no precision, and one holding no "
+        "negatives has no false-positive rate. Those cells carry a dash. "
+        "Percentages are only printed where the question has a subject."
+    )
+    lines.append("")
+    lines.append("| subclass | n | flagged | precision | recall | FP rate |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for name, cell in sorted(result.by_subclass.items()):
+        flagged = cell.true_positive + cell.false_positive
+        precision = _rate(cell.precision) if cell.has_positives else "--"
+        lines.append(
+            f"| {name} | {cell.total} | {flagged} | {precision} | "
+            f"{_rate(cell.recall)} | {_rate(cell.false_positive_rate)} |"
+        )
+    lines.append("")
+    lines.append("## Blind subclasses")
+    lines.append("")
+    blind = result.blind_subclasses()
+    if blind:
+        lines.append(
+            "Every sample in these scored below the threshold. This is what "
+            "an overall recall figure cannot show, and it is the argument for "
+            "a layer that is not a list of regular expressions."
+        )
+        lines.append("")
+        for name in blind:
+            cell = result.by_subclass[name]
+            lines.append(f"- `{name}` — 0 of {cell.true_positive + cell.false_negative} flagged")
+    else:
+        lines.append("None: every injection subclass was flagged at least once.")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def label_counts(samples: Iterable[Sample]) -> Dict[str, int]:
