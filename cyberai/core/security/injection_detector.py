@@ -1,5 +1,90 @@
 import re
+import unicodedata
 from typing import Any, Dict, List
+
+# Characters that render as a Latin letter but are not one. Written as escape
+# sequences rather than as themselves: these are attack data, not text, and a
+# reader scanning this file should see the codepoint. The repository holds no
+# non-ASCII source characters and an architecture test keeps it that way.
+#
+# Only unambiguous look-alikes are here. A character with no single Latin
+# twin is left alone: mapping it would corrupt more text than it uncovers.
+CONFUSABLE_TO_LATIN = {
+    0x0430: "a",
+    0x0435: "e",
+    0x043E: "o",
+    0x0440: "p",
+    0x0441: "c",
+    0x0445: "x",
+    0x0443: "y",
+    0x0456: "i",
+    0x0458: "j",
+    0x04BB: "h",
+    0x0433: "r",
+    0x0410: "A",
+    0x0412: "B",
+    0x0415: "E",
+    0x041A: "K",
+    0x041C: "M",
+    0x041D: "H",
+    0x041E: "O",
+    0x0420: "P",
+    0x0421: "C",
+    0x0422: "T",
+    0x0425: "X",
+    0x0405: "S",
+    0x0406: "I",
+    0x03B1: "a",
+    0x03BF: "o",
+    0x03C1: "p",
+    0x03C5: "u",
+    0x03BD: "v",
+    0x0391: "A",
+    0x0392: "B",
+    0x0395: "E",
+    0x0396: "Z",
+    0x0397: "H",
+    0x0399: "I",
+    0x039A: "K",
+    0x039C: "M",
+    0x039D: "N",
+    0x039F: "O",
+    0x03A1: "P",
+    0x03A4: "T",
+    0x03A7: "X",
+}
+
+# Zero-width characters, deleted rather than mapped. They carry no glyph, so
+# a payload can be sliced between them and read normally on screen while
+# matching nothing.
+ZERO_WIDTH = (0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF)
+
+_NORMALISE_TABLE = {**CONFUSABLE_TO_LATIN, **dict.fromkeys(ZERO_WIDTH, None)}
+
+
+def normalise_for_matching(text: str) -> str:
+    """Fold look-alike characters so the patterns see what a reader sees.
+
+    Three passes. NFKC collapses compatibility forms, which is what catches
+    fullwidth Latin; it does not touch Cyrillic or Greek, because those are
+    different letters rather than variants of the same one. Zero-width
+    characters are then deleted, and the remaining confusables are mapped.
+
+    The result is used for matching only and is never sent anywhere. The
+    guard scores the raw message and sanitises the copy it transmits, and
+    that order is what keeps two corpus injections visible; normalising on
+    the way out would repeat the mistake in a new place.
+
+    Measured on the tracked corpus: four injections become visible and no
+    benign sample changes score. The mapping does rewrite legitimate
+    Cyrillic text into Latin nonsense -- a Russian word comes out unreadable
+    -- which costs nothing here because the patterns are English and nonsense
+    matches none of them, but it is the reason this function's output must
+    not reach a model or a report.
+    """
+    folded = unicodedata.normalize("NFKC", text)
+    return folded.translate(_NORMALISE_TABLE)
+
 
 # Known prompt injection patterns
 INJECTION_PATTERNS = [
@@ -54,13 +139,17 @@ COMPILED_PATTERNS = [
 
 
 def detect_injection(text: str) -> Dict[str, Any]:
+    """Scan text for prompt injection patterns.
+
+    Matching runs against a normalised copy so that a payload written with
+    Cyrillic look-alikes, fullwidth Latin or zero-width separators is scored
+    as what it reads as. ``input_length`` stays the length of the text that
+    arrived: the caller asked about that string, not about the folded one.
     """
-    Scan text for prompt injection patterns.
-    Returns detection result with matches and risk score.
-    """
+    candidate = normalise_for_matching(text)
     matches = []
     for pattern, label in COMPILED_PATTERNS:
-        found = pattern.findall(text)
+        found = pattern.findall(candidate)
         if found:
             matches.append(
                 {

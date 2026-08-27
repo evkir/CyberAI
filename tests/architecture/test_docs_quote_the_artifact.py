@@ -102,10 +102,12 @@ def test_the_blind_subclasses_named_in_prose_are_the_measured_ones() -> None:
     measured = evaluate(load_corpus(_CORPUS), threshold=DEFAULT_THRESHOLD).blind_subclasses()
     assert len(measured) > 0, "nothing is blind any more; rewrite the section"
 
-    stated = re.search(r"Seven injection subclasses", doc)
-    assert stated, "the document no longer states how many subclasses are blind"
-    assert len(measured) == 7, (
-        f"{len(measured)} subclasses are blind now, the document says seven: {measured}"
+    words = {4: "Four", 5: "Five", 6: "Six", 7: "Seven", 8: "Eight"}
+    word = words.get(len(measured))
+    assert word, f"add {len(measured)} to the word map"
+    assert re.search(rf"{word} injection subclasses", doc), (
+        f"{len(measured)} subclasses are blind now: {measured}. "
+        "The document states a different count."
     )
 
 

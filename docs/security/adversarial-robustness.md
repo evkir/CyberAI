@@ -61,12 +61,21 @@ from real tools. Reproduce with:
     cyberai detector eval --corpus tests/corpus
 
 At the production threshold of 50, measured 2026-08-27 on CyberAI 1.6.0:
-recall 25.0%, precision 70.6%, false positives 11.1%. At the detector's own
-`is_injection` cut of 25: recall 50.0%, false positives 17.8%.
+recall 29.2%, precision 73.7%, false positives 11.1%. At the detector's own
+`is_injection` cut of 25: recall 58.3%, false positives 17.8%.
 
-The overall recall figure is the least useful number in that paragraph.
-Seven injection subclasses score below the threshold on every sample they
-hold: encoded payloads, exfiltration phrasing, homoglyphs, MCP tool
+Matching runs against a normalised copy of the text. NFKC folding, deletion
+of zero-width characters, and a table of Cyrillic and Greek letters that
+render as Latin ones. That copy is used for scoring and is never sent
+anywhere: the guard transmits the sanitised original, and normalising on the
+way out would blind the detector the way scoring the sanitised copy already
+did once. The fold costs nothing in precision on this corpus and recovers
+four injections, which is where the difference between 25.0% and 29.2%
+recall comes from.
+
+The overall recall figure is still the least useful number in that
+paragraph. Six injection subclasses score below the threshold on every
+sample they hold: encoded payloads, exfiltration phrasing, MCP tool
 metadata, five non-English languages, paraphrase that avoids the keywords,
 and social pressure. A list of English regular expressions cannot reach any
 of them, which is the case for a layer that is not a list of regular
@@ -80,8 +89,10 @@ same. The product flags its own scanner.
 ## Known Limitations
 
 - Pattern-based injection detection is bypassable with obfuscation. This is
-  measured, not assumed: homoglyph substitution and base64 encoding score
-  zero on every sample in the corpus.
+  measured, not assumed: base64 encoding scores zero on every sample in the
+  corpus. Homoglyph substitution is now folded before matching, and one of
+  three samples reaches the threshold rather than none, so the fold narrows
+  the bypass without closing it.
 - One detector answers for the whole project. `core/safety.py` used to carry a
   second one, six patterns against the canonical thirty-three; it now reports
   the canonical verdict and holds no patterns of its own.

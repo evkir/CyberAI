@@ -285,14 +285,13 @@ def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
     """
     root = Path(__file__).resolve().parents[1] / "corpus"
     result = evaluate(load_corpus(root), threshold=50)
-    assert result.overall.true_positive == 12
+    assert result.overall.true_positive == 14
     assert result.overall.false_positive == 5
-    assert result.overall.recall == pytest.approx(0.25)
+    assert result.overall.recall == pytest.approx(14 / 48)
     assert result.overall.false_positive_rate == pytest.approx(5 / 45)
     assert result.blind_subclasses() == [
         "encoded",
         "exfil",
-        "homoglyph",
         "mcp_metadata",
         "multilingual",
         "paraphrase",
