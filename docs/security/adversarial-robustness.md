@@ -1,8 +1,10 @@
 # Adversarial Robustness — CyberAI
 
-**Last verified against the code:** 2026-08-24. Every claim below names the
+**Last verified against the code:** 2026-08-27. Every claim below names the
 mechanism that implements it. Claims that could not be traced to a call site
-were moved to Known Limitations rather than softened.
+were moved to Known Limitations rather than softened. Figures come from
+`examples/detector-eval/baseline.md`, which is written by a command and never
+by hand.
 
 ## Threat Model
 
@@ -50,14 +52,44 @@ that variable is unset a fallback published in this repository is used, and
 the signature then detects accidental corruption only: anyone who has read
 the source can forge a line. Set the variable per engagement.
 
+## Measured coverage
+
+The detector is scored against a corpus tracked in this repository, 48
+injections across fifteen techniques and 45 samples of real output captured
+from real tools. Reproduce with:
+
+    cyberai detector eval --corpus tests/corpus
+
+At the production threshold of 50, measured 2026-08-27 on CyberAI 1.6.0:
+recall 25.0%, precision 70.6%, false positives 11.1%. At the detector's own
+`is_injection` cut of 25: recall 50.0%, false positives 17.8%.
+
+The overall recall figure is the least useful number in that paragraph.
+Seven injection subclasses score below the threshold on every sample they
+hold: encoded payloads, exfiltration phrasing, homoglyphs, MCP tool
+metadata, five non-English languages, paraphrase that avoids the keywords,
+and social pressure. A list of English regular expressions cannot reach any
+of them, which is the case for a layer that is not a list of regular
+expressions rather than for more entries in this one.
+
+Two false positives are worth naming because they are ours. Ordinary
+`nmap -sV` output scores 50 and reaches the guard, on an XML comment and a
+hex escape, with nothing hostile present; the XML output format does the
+same. The product flags its own scanner.
+
 ## Known Limitations
 
-- Pattern-based injection detection is bypassable with obfuscation.
+- Pattern-based injection detection is bypassable with obfuscation. This is
+  measured, not assumed: homoglyph substitution and base64 encoding score
+  zero on every sample in the corpus.
 - One detector answers for the whole project. `core/safety.py` used to carry a
   second one, six patterns against the canonical thirty-three; it now reports
   the canonical verdict and holds no patterns of its own.
-- A single pattern hit blocks a tool argument. The threshold is not tuned
-  against a corpus, so the cost of a false positive is a refused scan.
+- A single pattern hit blocks a tool argument, at the `sanitize_input`
+  decorator's one call site. That path uses the detector's own cut of 25 and
+  not the guard's configurable threshold, so the two halves of the boundary
+  answer at different sensitivities. The cost of a false positive there is a
+  refused scan.
 - Banners are wrapped as untrusted before storage, and the recon and intel
   phases contact no model, so no banner reaches a model from those phases. A
   wrapped banner does reach the report, which is what the marker is for.
@@ -72,5 +104,7 @@ the source can forge a line. Set the variable per engagement.
 ## Future Work
 
 - Enforce KB namespace boundaries, or state plainly that the KB is shared.
-- Semantic injection detection (LLM-based classifier).
+- Semantic injection detection (LLM-based classifier). The seven blind
+  subclasses above are the argument for it and the corpus is the instrument
+  that will say whether it helped.
 - Read-only agent mode for passive recon.
