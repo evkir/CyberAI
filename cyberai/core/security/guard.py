@@ -31,15 +31,21 @@ corpus are bimodal — 75 events at 0 and 25 at exactly 25, nothing between —
 so 50 clears every false positive that corpus contained and costs nothing in
 recall against anything the detector could see in it.
 
-What 50 does not buy is agreement between two categories. risk_score is
-len(matches) * 25 and matches are counted per pattern, not per category:
-seven of the nine categories hold more than one pattern, so one category
-reaches 50 on its own. Measured, "{{a}} ${b}" scores 50 on template_injection
-and nothing else. An earlier revision of this docstring claimed the
-two-category property. It was false, and it was false in the paragraph that
-justifies a production default, which is the shape a reviewer checks in one
-line and nothing asserts. tests/architecture/test_threshold_arithmetic.py
-now pins the arithmetic against the claim.
+What 50 buys, since 28.08.2026, is one directive category. risk_score is
+the sum of per-category weights over the distinct categories that matched:
+50 for a category carrying an instruction to a model, 10 for one describing
+a text format. One role swap acts; two format artefacts do not, whatever
+the threshold is set to.
+
+It used to be len(matches) * 25, counted per pattern rather than per
+category, and an earlier revision of this docstring claimed that reaching
+50 meant two independent categories had agreed. That was false: seven
+categories held more than one pattern, so "{{a}} ${b}" scored 50 on
+template_injection alone. The claim sat in the paragraph justifying a
+production default, which is the shape a reviewer checks in one line and
+nothing asserts. tests/architecture/test_threshold_arithmetic.py pins the
+arithmetic now, and the property the claim described is finally true --
+by weight, not by counting.
 
 Both figures carry a caveat and are not to be quoted without it. They were
 taken while inspect() scored the *sanitised* copy, so three of the detector's

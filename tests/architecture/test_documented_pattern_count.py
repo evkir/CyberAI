@@ -27,6 +27,7 @@ from cyberai.core.security.injection_detector import (
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 _WORDS = {
+    31: "thirty-one",
     33: "thirty-three",
     38: "thirty-eight",
     34: "thirty-four",

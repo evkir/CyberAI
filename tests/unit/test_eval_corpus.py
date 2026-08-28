@@ -323,18 +323,20 @@ def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
 
     Pinned because they are quoted outside the code. When the detector is
     rebuilt this fails, and the failure is the reminder to republish rather
-    than to edit the document by hand.
+    than to edit the document by hand. It fired three times on 2026-08-28:
+    when six patterns gained a repeating qualifier group (14 -> 16 true
+    positives), when categories were weighted apart (16 -> 27, with the five
+    false positives going to none), and when injections/bidi-only.txt was
+    added to make the bidi_override weight falsifiable (27 -> 28 of 49).
     """
     root = Path(__file__).resolve().parents[1] / "corpus"
     result = evaluate(load_corpus(root), threshold=50)
-    assert result.overall.true_positive == 14
-    assert result.overall.false_positive == 5
-    assert result.overall.recall == pytest.approx(14 / 48)
-    assert result.overall.false_positive_rate == pytest.approx(5 / 45)
+    assert result.overall.true_positive == 28
+    assert result.overall.false_positive == 0
+    assert result.overall.recall == pytest.approx(28 / 49)
+    assert result.overall.false_positive_rate == pytest.approx(0.0)
     assert result.blind_subclasses() == [
         "encoded",
-        "exfil",
-        "mcp_metadata",
         "multilingual",
         "paraphrase",
         "social",

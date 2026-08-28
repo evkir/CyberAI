@@ -90,7 +90,7 @@ def normalise_for_matching(text: str) -> str:
 INJECTION_PATTERNS = [
     # Role hijacking
     (r"ignore.{0,30}instructions?", "role_hijack"),
-    (r"disregard (all |your |previous )?instructions?", "role_hijack"),
+    (r"disregard (?:all |your |the |previous |prior |above )*instructions?", "role_hijack"),
     (r"forget (everything|all|your instructions)", "role_hijack"),
     (r"you are now (a |an )?(?!assistant|helpful)", "role_hijack"),
     (r"act as (a |an )?(?!assistant|helpful|security)", "role_hijack"),
@@ -100,13 +100,11 @@ INJECTION_PATTERNS = [
     (r"dan (mode|prompt)", "jailbreak"),
     (r"developer mode", "jailbreak"),
     (r"sudo (mode|prompt|access)", "jailbreak"),
-    (r"bypass (safety|filter|restriction|guideline)", "jailbreak"),
+    (r"bypass (?:all |any |the |your )*(?:safety|filter|restriction|guideline)s?", "jailbreak"),
     (r"disable (safety|filter|restriction)", "jailbreak"),
     # Data exfil via prompt
-    (r"print (your |the )?(system |full )?prompt", "exfil"),
-    (r"reveal (your |the )?(system |full )?prompt", "exfil"),
-    (r"show (me )?(your |the )?(system |full )?prompt", "exfil"),
-    (r"what (are|were) your instructions", "exfil"),
+    (r"(?:print|reveal|show)(?: me)? (?:your |the |full |entire |system )*prompt", "exfil"),
+    (r"what (?:are|were|is|was) (?:your |the |original |initial |system )*instructions?", "exfil"),
     (r"repeat (everything|all) (above|before)", "exfil"),
     # Indirect injection via external content
     (r"<\s*script", "xss_attempt"),
@@ -130,12 +128,62 @@ INJECTION_PATTERNS = [
     # Unicode / escape-sequence smuggling
     (r"\\u[0-9a-fA-F]{4}", "unicode_escape"),
     (r"\\x[0-9a-fA-F]{2}", "unicode_escape"),
-    (r"[\u202a-\u202e\u2066-\u2069]", "unicode_escape"),
+    # Bidi overrides are their own category, not a unicode_escape. The label
+    # held two opposite things: `\xNN` in a service banner is a text format
+    # and fires on four of the 45 benign samples, while an RTL override fires
+    # on none of them and on a corpus injection built to hide a payload
+    # behind it. One weight cannot serve both, and the shared label meant a
+    # bare override scored ten points.
+    (r"[\u202a-\u202e\u2066-\u2069]", "bidi_override"),
 ]
 
 COMPILED_PATTERNS = [
     (re.compile(pat, re.IGNORECASE | re.DOTALL), label) for pat, label in INJECTION_PATTERNS
 ]
+
+# What a category is worth, and the split is the whole scoring rule.
+#
+# Directive categories carry an instruction addressed to a model: a role
+# swap, a jailbreak, a request for the prompt, a forged turn boundary. One of
+# them alone reaches the production threshold of 50.
+#
+# Structural categories are artefacts of a text format. A hex escape in a
+# service banner, an XML comment in nmap's own output, a shell-style variable
+# in a Java stacktrace. Any two of them together stay at 20, below both the
+# threshold and the detector's own cut of 25.
+#
+# The split is measured, not asserted. Across the 45 benign samples captured
+# from real tools, the directive categories fire zero times and every single
+# false positive at the old scoring came from a structural one. Across the 48
+# injections the directive categories carry the signal. Weighting them apart
+# takes recall from 33.3% to 56.2% and false positives from 11.1% to 0.0% on
+# the same corpus, at the same threshold.
+#
+# encoded_payload is the one weight no sample decides: its patterns match
+# nothing in either class, so it sits with the structural group by
+# resemblance rather than by measurement. Recorded as tail CS.
+#
+# bidi_override is decided by one sample and the absence of 45. It is
+# directive because an RTL override in tool output is never a text format,
+# and because the corpus never captured one from a real tool. Splitting it
+# out changes no corpus figure -- the sample carrying it also matches other
+# categories -- so the evidence is the split itself, not a number that moved.
+# Recorded as tail CT.
+DIRECTIVE_WEIGHT = 50
+STRUCTURAL_WEIGHT = 10
+
+CATEGORY_WEIGHTS = {
+    "role_hijack": DIRECTIVE_WEIGHT,
+    "jailbreak": DIRECTIVE_WEIGHT,
+    "exfil": DIRECTIVE_WEIGHT,
+    "context_manipulation": DIRECTIVE_WEIGHT,
+    "bidi_override": DIRECTIVE_WEIGHT,
+    "html_injection": STRUCTURAL_WEIGHT,
+    "template_injection": STRUCTURAL_WEIGHT,
+    "unicode_escape": STRUCTURAL_WEIGHT,
+    "xss_attempt": STRUCTURAL_WEIGHT,
+    "encoded_payload": STRUCTURAL_WEIGHT,
+}
 
 
 def detect_injection(text: str) -> Dict[str, Any]:
@@ -145,6 +193,18 @@ def detect_injection(text: str) -> Dict[str, Any]:
     Cyrillic look-alikes, fullwidth Latin or zero-width separators is scored
     as what it reads as. ``input_length`` stays the length of the text that
     arrived: the caller asked about that string, not about the folded one.
+
+    The score is the sum of CATEGORY_WEIGHTS over the *distinct* categories
+    that matched, capped at 100. It used to be len(matches) * 25, which
+    counted patterns: seven categories hold more than one pattern, so a
+    single technique reached the threshold by being described twice, and
+    three near-duplicate exfil patterns were worth more than one exfil
+    pattern plus a role swap. Under weights, writing another pattern for a
+    technique already covered adds no score at all.
+
+    ``matches`` is still one entry per pattern. TrustGuard's quarantine
+    policy redacts by iterating it, so collapsing it to categories would
+    take the redaction's targets away.
     """
     candidate = normalise_for_matching(text)
     matches = []
@@ -159,7 +219,8 @@ def detect_injection(text: str) -> Dict[str, Any]:
                 }
             )
 
-    risk_score = min(len(matches) * 25, 100)
+    categories = {m["type"] for m in matches}
+    risk_score = min(sum(CATEGORY_WEIGHTS.get(name, STRUCTURAL_WEIGHT) for name in categories), 100)
     is_injection = risk_score >= 25
 
     return {
