@@ -159,9 +159,14 @@ COMPILED_PATTERNS = [
 # takes recall from 33.3% to 56.2% and false positives from 11.1% to 0.0% on
 # the same corpus, at the same threshold.
 #
-# encoded_payload is the one weight no sample decides: its patterns match
-# nothing in either class, so it sits with the structural group by
-# resemblance rather than by measurement. Recorded as tail CS.
+# encoded_payload is the one weight no sample decides, and the reason is
+# now known rather than open: all three of its patterns look for talk about
+# base64 -- the word, "decode this", a decoder call -- and none of them look
+# at base64. A bare blob in a header matches nothing, which is why both
+# encoded samples score zero while the sample that spells out its intent in
+# English is caught by other categories entirely. The weight sits with the
+# structural group by resemblance rather than by measurement, and it stays
+# there until a pattern that reads the encoding decides it.
 #
 # bidi_override is decided by one sample and the absence of 45. It is
 # directive because an RTL override in tool output is never a text format,

@@ -126,6 +126,50 @@ and the same samples now score 20: still seen, no longer acted on. That is
 the intended shape -- the detector keeps reporting what it matched, and the
 score decides what any of it is worth.
 
+## The second layer
+
+Four techniques scored exactly zero on every sample at every threshold
+tried: paraphrase, non-English instructions, social pressure and encoding.
+Zero is not a threshold problem. A local model is asked about the same text
+instead, under `CYBERAI_DETECTOR_L2`, and the two layers compose as a
+maximum. Reproduce without a GPU with:
+
+    cyberai detector eval --corpus tests/corpus --l2-replay \
+      examples/detector-eval/l2-verdicts.json
+
+At the production threshold the pair measures recall 95.9%, precision
+100.0% and false positives 0.0%, against 57.1% recall for the patterns
+alone. No technique in the corpus scores zero any more. The two remaining
+misses are both bare base64 blobs, which neither layer reads.
+
+The layers turn out to be complementary rather than corroborating. Of the
+five injections the model misses, three are ones the patterns take at
+exactly the threshold. That is the argument for composing them rather than
+replacing one with the other, and it is also why the composition is a
+maximum and not a sum: two suspicions that each fall short are not evidence
+twice over.
+
+The model cannot lower a verdict the patterns reached, and it is asked only
+where they have not already decided -- on the corpus that skips 28 of 94
+samples, changing nothing. Its answer arrives through constrained decoding
+and is read as data. If it does not arrive at all the layer has no opinion,
+which is a different fact from a benign one and never becomes an exception:
+an absent model must not take down a call the patterns had already scored.
+
+Off by default, because the price is measured. About 2.4s per untrusted
+message on the machine these figures were taken on, and ollama holds one
+model at a time: where the session model differs from the classifier's, the
+guard pays two model switches on top, roughly 6s each once the weights are
+in the page cache. Those two numbers are hardware, not product, and will
+differ elsewhere. The recall figures will not.
+
+The verdicts a live run obtained are committed beside the report, so the
+published figure is reproducible on a machine with no GPU at all. A
+recording carries the fingerprint of the prompt it was taken under and
+refuses to load beneath a different one, with a non-zero exit: an
+unreachable model is a fact about a machine, but a recording answering a
+question the code no longer asks is a fact about this repository.
+
 ## Known Limitations
 
 - Pattern-based injection detection is bypassable with obfuscation. This is
