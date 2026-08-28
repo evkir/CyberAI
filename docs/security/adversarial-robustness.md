@@ -101,7 +101,7 @@ same. The product flags its own scanner.
   three samples reaches the threshold rather than none, so the fold narrows
   the bypass without closing it.
 - One detector answers for the whole project. `core/safety.py` used to carry a
-  second one, six patterns against the canonical thirty-three; it now reports
+  second one, six patterns against the canonical thirty-one; it now reports
   the canonical verdict and holds no patterns of its own.
 - A single pattern hit blocks a tool argument, at the `sanitize_input`
   decorator's one call site. That path uses the detector's own cut of 25 and

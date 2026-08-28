@@ -174,7 +174,7 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 - **Every verdict is in the audit trail** — policy, threshold, score,
   categories and how many messages were modified, written per call. Message
   bodies stay out of it.
-- **Prompt-injection detection** — 33 patterns across 9 categories. Also run
+- **Prompt-injection detection** — 31 patterns across 9 categories. Also run
   on each phase's *output*, where a hit becomes a MEDIUM finding. That pass
   is an audit signal, not a barrier: it runs after the agent has already
   called the model, and it is labelled as such in the code and the report.
