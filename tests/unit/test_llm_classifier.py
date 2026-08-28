@@ -19,9 +19,15 @@ from cyberai.core.security.injection_detector import DIRECTIVE_WEIGHT, l1_scorer
 from cyberai.core.security.llm_classifier import (
     NUM_CTX,
     SEED,
+    SYSTEM_PROMPT,
     LLMClassifier,
+    RecordMismatch,
     _default_transport,
     combined_scorer,
+    recorded_transport,
+    recording_header,
+    recording_model,
+    recording_transport,
 )
 
 # A paraphrased instruction: no trigger word, so the pattern layer scores it
@@ -224,3 +230,72 @@ def test_the_transport_factory_targets_the_chat_endpoint(ollama_like):
     transport = _default_transport(base, 5.0)
     data = transport({"model": "x", "messages": [], "stream": False})
     assert json.loads(data["message"]["content"])["verdict"] == "injection"
+
+
+# ── recording and replay ──────────────────────────────────────────────
+
+
+def _write_recording(tmp_path, verdicts, **overrides):
+    body = {**recording_header("fast-coder:latest"), "verdicts": verdicts, **overrides}
+    path = tmp_path / "verdicts.json"
+    path.write_text(json.dumps(body), encoding="utf-8")
+    return path
+
+
+@pytest.mark.unit
+def test_a_recording_round_trips_through_a_file(tmp_path):
+    """The whole point: a live answer, kept, replayed, same verdict."""
+    captured = {}
+    live = LLMClassifier(transport=recording_transport(_answers("injection"), captured))
+    assert live.classify(PARAPHRASED) == "injection"
+
+    replayed = LLMClassifier(transport=recorded_transport(_write_recording(tmp_path, captured)))
+    assert replayed.classify(PARAPHRASED) == "injection"
+    assert replayed.score(PARAPHRASED) == DIRECTIVE_WEIGHT
+
+
+@pytest.mark.unit
+def test_an_unreadable_answer_is_not_recorded(tmp_path):
+    """A recording holding a placeholder would replay a failure as a verdict."""
+    captured = {}
+    classifier = LLMClassifier(transport=recording_transport(_returns("not json"), captured))
+    assert classifier.classify(PARAPHRASED) is None
+    assert captured == {}
+
+
+@pytest.mark.unit
+def test_a_sample_outside_the_recording_gets_no_verdict(tmp_path):
+    """Falling back to the pattern layer alone, rather than inventing one."""
+    captured = {}
+    LLMClassifier(transport=recording_transport(_answers("injection"), captured)).classify(
+        PARAPHRASED
+    )
+    replayed = LLMClassifier(transport=recorded_transport(_write_recording(tmp_path, captured)))
+    assert replayed.classify("a sample that was never recorded") is None
+    scorer = combined_scorer(replayed)
+    assert scorer(PATTERNED) == l1_scorer(PATTERNED)
+
+
+@pytest.mark.unit
+def test_a_recording_taken_under_another_prompt_is_refused(tmp_path):
+    """Loud, unlike an unreachable model.
+
+    An absent model is a fact about the machine and the layer below still
+    holds. A recording that answers a question the code no longer asks is a
+    fact about the repository, and replaying it would publish a figure for
+    code nobody runs.
+    """
+    path = _write_recording(tmp_path, {}, prompt_sha256="from an older prompt")
+    with pytest.raises(RecordMismatch):
+        recorded_transport(path)
+
+
+@pytest.mark.unit
+def test_a_recording_names_its_provenance(tmp_path):
+    """Enough to tell whether a replayed figure describes today's classifier."""
+    path = _write_recording(tmp_path, {})
+    header = json.loads(path.read_text(encoding="utf-8"))
+    assert recording_model(path) == "fast-coder:latest"
+    assert header["seed"] == SEED
+    assert header["prompt_sha256"] != SYSTEM_PROMPT
+    assert len(header["prompt_sha256"]) == 64

@@ -34,7 +34,9 @@ cannot be obtained must not take the first one down with it.
 
 from __future__ import annotations
 
+import hashlib
 import json
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 import httpx
@@ -91,6 +93,93 @@ SYSTEM_PROMPT = (
 # Injected rather than patched so a test drives the real classify() path
 # instead of asserting against a stand-in for it.
 TransportFn = Callable[[Dict[str, Any]], Dict[str, Any]]
+
+
+class RecordMismatch(RuntimeError):
+    """Recorded verdicts belong to a question that is no longer being asked."""
+
+
+def _fingerprint(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _sample_of(payload: Dict[str, Any]) -> str:
+    return str(payload["messages"][-1]["content"])
+
+
+def _as_answer(verdict: str) -> Dict[str, Any]:
+    return {"message": {"content": json.dumps({"verdict": verdict, "reason": "recorded"})}}
+
+
+def recording_transport(inner: TransportFn, sink: Dict[str, str]) -> TransportFn:
+    """Wrap a transport so every answer it gives is kept, keyed by input.
+
+    An answer that could not be read is not recorded. A recording holding a
+    placeholder for a question that failed would replay as a verdict, which
+    is the one thing a fail-open layer must never turn a failure into.
+    """
+
+    def _record(payload: Dict[str, Any]) -> Dict[str, Any]:
+        data = inner(payload)
+        try:
+            verdict = json.loads(data["message"]["content"])["verdict"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return data
+        sink[_fingerprint(_sample_of(payload))] = verdict
+        return data
+
+    return _record
+
+
+def recorded_transport(path: Path | str) -> TransportFn:
+    """Replay a live run's verdicts, so a published figure needs no GPU.
+
+    A recording is an answer to a specific question. If the prompt has moved
+    since it was taken, the verdicts describe a classifier that no longer
+    exists, and replaying them would publish a figure for code nobody runs.
+    That is loud rather than fail-open: an unreachable model is a fact about
+    the machine and the layer below still holds, but a stale recording is a
+    fact about the repository and silence would be the defect.
+
+    A sample the recording does not hold gets no verdict, which classify
+    turns into no opinion. Scoring a corpus wider than the recording is
+    therefore possible and honest -- the extra samples fall back to the
+    pattern layer alone.
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    recorded = data.get("prompt_sha256")
+    current = _fingerprint(SYSTEM_PROMPT)
+    if recorded != current:
+        raise RecordMismatch(
+            f"{path} was recorded for a different prompt "
+            f"({recorded} != {current}); re-run with --l2-record"
+        )
+    verdicts: Dict[str, str] = data["verdicts"]
+
+    def _replay(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return _as_answer(verdicts[_fingerprint(_sample_of(payload))])
+
+    return _replay
+
+
+def recording_model(path: Path | str) -> str:
+    """The model a recording was taken from.
+
+    The report names the model that produced the verdicts, not the mechanism
+    that replayed them. A replayed run and the live run it came from describe
+    the same measurement, so they must render to the same document -- which
+    is what lets one be pinned by the other.
+    """
+    return str(json.loads(Path(path).read_text(encoding="utf-8"))["model"])
+
+
+def recording_header(model: str) -> Dict[str, Any]:
+    """The provenance a recording carries besides its verdicts."""
+    return {
+        "model": model,
+        "prompt_sha256": _fingerprint(SYSTEM_PROMPT),
+        "seed": SEED,
+    }
 
 
 def _default_transport(base_url: str, timeout: float) -> TransportFn:
