@@ -22,17 +22,17 @@ and recall figures themselves. Those are the measurement. They are published
 in docs/research/detector-v2.md with the commit that produced them.
 
 The headline, measured 28.08.2026 at the production threshold of 50 with
-normalisation in front of the matcher: recall 33.3% over 48 injections,
-false positives 11.1% over 45 captured benign samples. At the detector's own
-is_injection cut of 25: recall 58.3%, false positives 17.8%. The same
-patterns without the fold in front of them give 29.2% at the same false
-positive rate.
+normalisation in front of the matcher and categories weighted apart:
+recall 56.2% over 48 injections, false positives 0.0% over 45 captured
+benign samples, precision 100%. The same corpus scored 29.2% and 11.1%
+three commits earlier.
 
-One fact behind those percentages is worth more than the percentages.
-Ordinary nmap output scores 50 and reaches the guard, on an XML comment and
-a hex escape, with nothing hostile present. The product flags its own
-scanner, and no arrangement of qualifiers inside a pattern changes that:
-the score is len(matches) * 25 and two format artefacts are two matches.
+The zero is the number to distrust, and it is pinned as a property rather
+than as a figure. Forty-five samples of real tool output is not a claim
+about every tool that exists; what the corpus supports is narrower and
+stronger: the categories that carry an instruction fire on none of them,
+so the false positives all came from categories that describe a text
+format rather than an intent.
 """
 
 import pathlib
@@ -130,26 +130,35 @@ def test_the_exfil_verbs_overlap_a_context_pattern_on_the_same_phrase() -> None:
 
 
 @pytest.mark.architecture
-def test_ordinary_scanner_output_reaches_the_guard() -> None:
-    """Plain nmap output scores at the threshold that makes the guard act.
+def test_no_captured_tool_output_reaches_the_guard() -> None:
+    """The scanner no longer flags itself, and neither does anything else.
 
-    html_injection matches the XML comment in nmap's own output and
-    unicode_escape matches its hex escapes, two patterns, one score of 50.
-    Nothing hostile is present. This is the false positive the rebuild has to
-    remove, recorded here so the removal is visible as a change.
+    Plain nmap output used to score 50 on an XML comment plus a hex escape:
+    two patterns, one score, nothing hostile present. Both categories are
+    structural and now carry ten points each, so the same sample scores 20
+    and the whole benign class sits below the threshold.
+
+    Asserted over every sample rather than over nmap alone. Naming the file
+    would let the next false positive arrive in a different one silently.
     """
     scores = _class_scores("benign")
     reaching = sorted(name for name, s in scores.items() if s >= DEFAULT_THRESHOLD)
-    assert "cap-nmap-sv.txt" in reaching, reaching
+    assert not reaching, reaching
+    assert scores["cap-nmap-sv.txt"] > 0, "the patterns should still see it, just not act"
 
 
 @pytest.mark.architecture
 def test_the_detector_is_not_degenerate() -> None:
-    """Neither class is uniformly scored: the instrument discriminates."""
+    """Neither class is uniformly scored: the instrument discriminates.
+
+    The benign half is now checked against zero rather than against the cut
+    of 25. Nothing benign reaches 25 any more, and asserting that some
+    sample does would demand a false positive back.
+    """
     inj = _class_scores("injections")
     ben = _class_scores("benign")
     assert 0 < sum(1 for s in inj.values() if s >= 25) < len(inj)
-    assert 0 < sum(1 for s in ben.values() if s >= 25) < len(ben)
+    assert 0 < sum(1 for s in ben.values() if s > 0) < len(ben)
 
 
 @pytest.mark.architecture
@@ -169,23 +178,22 @@ def test_recall_is_higher_on_injections_than_on_benign() -> None:
 
 @pytest.mark.architecture
 def test_whole_subclasses_are_invisible_today() -> None:
-    """Four techniques score zero on every sample they contain.
+    """Three techniques score below the threshold on every sample they hold.
 
-    Paraphrase, multilingual, encoded and mcp_metadata are the reason L2 and
-    L3 exist in the sprint plan: no regex over English keywords reaches them.
-    Recorded as a set so a rebuild that lights one up shows here rather than
-    only in a percentage.
+    Paraphrase, multilingual and encoded are the reason L2 and L3 exist in
+    the sprint plan: no regex over English keywords reaches them. Recorded
+    as a set so a rebuild that lights one up shows here rather than only in
+    a percentage. Social pressure is blind too but shares no filename
+    prefix, so it is caught by the report rather than by this list.
 
-    Homoglyphs used to be the fifth. Normalising before matching -- NFKC,
-    zero-width deletion, and a table of Cyrillic and Greek letters that
-    render as Latin ones -- moved homoglyph-cyrillic from 0 to 75, and this
-    test went red saying so. That is what the list is for: the failure named
-    the sample and pointed at the document to update, rather than letting a
-    subclass quietly leave the set. One of the three homoglyph samples still
-    scores below the threshold, so the technique is narrowed and not closed.
+    Two subclasses have left the set, each time with this test going red and
+    naming the sample. Normalising before matching took homoglyphs out and
+    all three of those samples now clear the threshold. Weighting categories
+    took MCP tool metadata out: two of its four samples carry a directive
+    category that used to be worth 25 on its own and is now worth 50.
     """
     inj = _class_scores("injections")
-    prefixes = ("para-", "lang-", "b64-", "mcp-")
+    prefixes = ("para-", "lang-", "b64-")
     seen = {
         name: score
         for name, score in inj.items()

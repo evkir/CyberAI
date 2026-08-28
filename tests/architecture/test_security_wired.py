@@ -157,15 +157,24 @@ def test_scan_messages_is_unwired_for_the_reason_recorded() -> None:
 
 
 @pytest.mark.architecture
-def test_scoring_before_sanitising_is_what_keeps_two_injections_visible() -> None:
+def test_scoring_before_sanitising_is_what_keeps_an_injection_visible() -> None:
     """Guard order, measured on the tracked corpus rather than asserted.
 
     TrustGuard scores the raw message and sanitises the copy it sends. The
     docstring says the reverse order was measured to blind the detector; this
     is that measurement on committed data. sanitize_text strips {{ }} and
-    <|im_start|>/<|im_end|>, which are three of the detector's own categories,
-    so two corpus injections fall from 50 to 0 and 25 once sanitised -- both
-    across the threshold, both invisible if the order were reversed.
+    <|im_start|>/<|im_end|>, which are three of the detector's own
+    categories, so fake-im-start.txt falls from 50 to 0 once sanitised:
+    across the threshold, invisible if the order were reversed.
+
+    It used to be two samples. template-payload.txt was the other, and it
+    left this list for a reason worth reading rather than deleting: under
+    weighted categories its only category is template_injection, worth ten
+    points, so it no longer reaches the threshold sanitised *or* raw. The
+    order stopped protecting it because nothing protects it. That is the
+    measured cost of treating a template marker as a text format -- one
+    injection in the corpus is built from nothing else -- and it is pinned
+    below so the cost stays visible instead of being read as a win here.
 
     Benign samples are unaffected, so the order costs nothing in precision.
     """
@@ -188,7 +197,16 @@ def test_scoring_before_sanitising_is_what_keeps_two_injections_visible() -> Non
         for raw_score, clean_score in [_pair(path)]
         if raw_score >= DEFAULT_THRESHOLD > clean_score
     )
-    assert lost == ["fake-im-start.txt", "template-payload.txt"], lost
+    assert lost == ["fake-im-start.txt"], lost
+
+    template_only = detect_injection(
+        (corpus / "injections" / "template-payload.txt").read_text(encoding="utf-8")
+    )
+    assert {m["type"] for m in template_only["matches"]} == {"template_injection"}
+    assert template_only["risk_score"] < DEFAULT_THRESHOLD, (
+        "template-payload.txt reaches the threshold again; the structural "
+        "weight changed and docs/security/adversarial-robustness.md says it does not"
+    )
 
     changed_benign = sorted(
         path.name

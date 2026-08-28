@@ -34,8 +34,16 @@ def test_exfil_detected():
 
 
 def test_template_injection():
+    """A template marker is a signal, not a verdict.
+
+    It is reported under its category and scores ten points, below the
+    detector's own cut. A `{{...}}` in a tool argument or a `${...}` in a
+    stacktrace is a text format, and treating either as an injection is
+    where the measured false positives came from.
+    """
     result = detect_injection("target={{evil_payload}}")
-    assert result["is_injection"] is True
+    assert any(m["type"] == "template_injection" for m in result["matches"])
+    assert result["is_injection"] is False
 
 
 def test_scan_messages_clean():

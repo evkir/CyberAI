@@ -89,11 +89,18 @@ def test_score_is_none_when_there_was_nothing_to_inspect():
     assert verdict.triggered is False
 
 
-def test_threshold_gates_the_single_category_false_positive():
-    """The measured false positive: one category, score 25, on a captured body."""
+def test_the_weight_gates_the_false_positive_the_threshold_used_to():
+    """A captured HTML body, and no threshold you could set makes it act.
+
+    This used to score 25 on html_injection and was held back by the
+    threshold alone: at 25 the same body triggered. html_injection is
+    structural and worth ten points now, so the guard stays quiet at both
+    settings. The threshold was doing a weight's job.
+    """
     body = "<html><!-- build 42 --><body>ok</body></html>"
     assert TrustGuard(policy=QUARANTINE, threshold=50).inspect(_msgs(body)).triggered is False
-    assert TrustGuard(policy=QUARANTINE, threshold=25).inspect(_msgs(body)).triggered is True
+    assert TrustGuard(policy=QUARANTINE, threshold=25).inspect(_msgs(body)).triggered is False
+    assert TrustGuard(policy=QUARANTINE, threshold=50).inspect(_msgs(HOSTILE)).triggered is True
 
 
 def test_tool_and_function_roles_are_inspected_too():
@@ -182,7 +189,7 @@ def test_detection_scores_the_raw_message_not_the_sanitised_copy():
     guard = TrustGuard(policy=ANNOTATE, threshold=50)
     verdict = guard.inspect(_msgs(BLINDING))
     assert verdict.triggered is True
-    assert verdict.risk_score == 75
+    assert verdict.risk_score == 100
     assert "template_injection" in verdict.categories
     assert "context_manipulation" in verdict.categories
 

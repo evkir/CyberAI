@@ -69,18 +69,34 @@ def test_json_output_carries_the_shape_documents_quote(runner: CliRunner) -> Non
 
 
 def test_the_threshold_option_changes_the_measurement(runner: CliRunner) -> None:
-    """Two thresholds, two answers, from the same corpus in one process."""
+    """Two thresholds, two answers, from the same corpus in one process.
+
+    The loose threshold is 10, not 25. Under weighted categories no sample in
+    either class scores between 25 and 50, so those two thresholds return
+    identical reports and this test would have passed on an option that was
+    read and discarded. 10 is the structural weight: at that setting every
+    text-format artefact counts and both counts have to move.
+
+    What is no longer asserted is the blind list shrinking. It used to be the
+    second dimension here, and it cannot be any more: the four blind
+    subclasses score exactly zero on every sample they hold, not merely below
+    the threshold, so no setting of this option reaches them. Measured at 10,
+    20, 25 and 50 -- the same four names come back every time. That is a
+    sharper statement about the detector than the old assertion made, and it
+    is the argument for L2 rather than for a lower cut.
+    """
     strict = json.loads(
         runner.invoke(cli, ["detector", "eval", "--corpus", CORPUS, "--json"]).output
     )
     loose = json.loads(
         runner.invoke(
-            cli, ["detector", "eval", "--corpus", CORPUS, "--threshold", "25", "--json"]
+            cli, ["detector", "eval", "--corpus", CORPUS, "--threshold", "10", "--json"]
         ).output
     )
-    assert loose["threshold"] == 25
+    assert loose["threshold"] == 10
     assert loose["overall"]["true_positive"] > strict["overall"]["true_positive"]
-    assert len(loose["blind_subclasses"]) < len(strict["blind_subclasses"])
+    assert loose["overall"]["false_positive"] > strict["overall"]["false_positive"]
+    assert loose["blind_subclasses"] == strict["blind_subclasses"]
 
 
 def test_report_writes_the_markdown_artifact(runner: CliRunner, tmp_path: Path) -> None:

@@ -61,8 +61,17 @@ from real tools. Reproduce with:
     cyberai detector eval --corpus tests/corpus
 
 At the production threshold of 50, measured 2026-08-28 on CyberAI 1.6.0:
-recall 33.3%, precision 76.2%, false positives 11.1%. At the detector's own
-`is_injection` cut of 25: recall 58.3%, false positives 17.8%.
+recall 56.2%, precision 100.0%, false positives 0.0%. The detector's own
+`is_injection` cut of 25 gives the same three figures, because no sample in
+either class scores between 25 and 50. That gap is a property of the
+weights rather than a coincidence: a directive category is worth 50 and any
+two structural ones are worth 20, so scores cluster away from the middle.
+
+A false-positive rate of zero is a statement about 45 captured samples, not
+about every tool that exists, and it should be read as the narrower claim
+it is: across that capture the categories carrying an instruction fire on
+nothing, and every false positive the old scoring produced came from a
+category describing a text format.
 
 Matching runs against a normalised copy of the text. NFKC folding, deletion
 of zero-width characters, and a table of Cyrillic and Greek letters that
@@ -80,26 +89,55 @@ matches them. Recall moved by four points and no benign sample changed
 score, which is the honest size of the win: the phrasings a published
 bypass list would have used were already covered by other patterns.
 
-The overall recall figure is still the least useful number in that
-paragraph. Six injection subclasses score below the threshold on every
-sample they hold: encoded payloads, exfiltration phrasing, MCP tool
-metadata, five non-English languages, paraphrase that avoids the keywords,
-and social pressure. A list of English regular expressions cannot reach any
-of them, which is the case for a layer that is not a list of regular
-expressions rather than for more entries in this one.
+The larger move on the same day was to the score itself. It was
+`len(matches) * 25`, which counted patterns rather than techniques: a
+category described in two patterns reached the threshold on its own, and
+three near-duplicate exfil patterns outweighed a genuine role swap. The
+score is now the sum of per-category weights over the distinct categories
+that matched. Categories carrying an instruction to a model -- role
+hijacking, jailbreak, prompt exfiltration, forged turn boundaries -- are
+worth 50 each; categories describing a text format -- XML comments,
+template markers, hex escapes, script tags -- are worth 10, so any two of
+them together stay below both cuts.
 
-Two false positives are worth naming because they are ours. Ordinary
-`nmap -sV` output scores 50 and reaches the guard, on an XML comment and a
-hex escape, with nothing hostile present; the XML output format does the
-same. The product flags its own scanner.
+The cost is recorded with the gain. One corpus injection is built from a
+template marker and nothing else; it scores 10 now and is no longer
+detected. That is the trade the measurement argues for: one crafted sample
+against every stacktrace, HTML body and nmap comment in the benign half.
+
+The overall recall figure is still the least useful number in that
+paragraph. Four injection subclasses score below the threshold on every
+sample they hold: encoded payloads, five non-English languages, paraphrase
+that avoids the keywords, and social pressure. A list of English regular
+expressions cannot reach any of them, which is the case for a layer that is
+not a list of regular expressions rather than for more entries in this one.
+
+It was six. Exfiltration phrasing and MCP tool metadata left the list when
+the weights changed, and neither left because a pattern was added: their
+samples already matched one directive category and scored 25, which the
+threshold of 50 discarded. Two whole techniques were invisible for the
+arithmetic's sake rather than for want of a rule.
+
+Until 2026-08-28 the false positives worth naming were ours. Ordinary
+`nmap -sV` output scored 50 and reached the guard, on an XML comment and a
+hex escape, with nothing hostile present; the XML output format did the
+same. The product flagged its own scanner. Both categories are structural
+and the same samples now score 20: still seen, no longer acted on. That is
+the intended shape -- the detector keeps reporting what it matched, and the
+score decides what any of it is worth.
 
 ## Known Limitations
 
 - Pattern-based injection detection is bypassable with obfuscation. This is
   measured, not assumed: base64 encoding scores zero on every sample in the
-  corpus. Homoglyph substitution is now folded before matching, and one of
-  three samples reaches the threshold rather than none, so the fold narrows
-  the bypass without closing it.
+  corpus. Homoglyph substitution is folded before matching and all three of
+  those samples now clear the threshold, which closes that bypass on the
+  corpus without closing it in general -- the fold maps the confusables it
+  knows about.
+- A structural signal alone is never a verdict, by construction. A payload
+  assembled entirely from template markers, HTML comments or hex escapes
+  scores at most 20 whatever it says. This is the deliberate half of the
+  weighting and the half an attacker can aim at.
 - One detector answers for the whole project. `core/safety.py` used to carry a
   second one, six patterns against the canonical thirty-one; it now reports
   the canonical verdict and holds no patterns of its own.
@@ -122,7 +160,7 @@ same. The product flags its own scanner.
 ## Future Work
 
 - Enforce KB namespace boundaries, or state plainly that the KB is shared.
-- Semantic injection detection (LLM-based classifier). The seven blind
+- Semantic injection detection (LLM-based classifier). The four blind
   subclasses above are the argument for it and the corpus is the instrument
   that will say whether it helped.
 - Read-only agent mode for passive recon.
