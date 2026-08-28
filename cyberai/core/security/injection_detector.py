@@ -90,7 +90,7 @@ def normalise_for_matching(text: str) -> str:
 INJECTION_PATTERNS = [
     # Role hijacking
     (r"ignore.{0,30}instructions?", "role_hijack"),
-    (r"disregard (all |your |previous )?instructions?", "role_hijack"),
+    (r"disregard (?:all |your |the |previous |prior |above )*instructions?", "role_hijack"),
     (r"forget (everything|all|your instructions)", "role_hijack"),
     (r"you are now (a |an )?(?!assistant|helpful)", "role_hijack"),
     (r"act as (a |an )?(?!assistant|helpful|security)", "role_hijack"),
@@ -100,13 +100,13 @@ INJECTION_PATTERNS = [
     (r"dan (mode|prompt)", "jailbreak"),
     (r"developer mode", "jailbreak"),
     (r"sudo (mode|prompt|access)", "jailbreak"),
-    (r"bypass (safety|filter|restriction|guideline)", "jailbreak"),
+    (r"bypass (?:all |any |the |your )*(?:safety|filter|restriction|guideline)s?", "jailbreak"),
     (r"disable (safety|filter|restriction)", "jailbreak"),
     # Data exfil via prompt
-    (r"print (your |the )?(system |full )?prompt", "exfil"),
-    (r"reveal (your |the )?(system |full )?prompt", "exfil"),
-    (r"show (me )?(your |the )?(system |full )?prompt", "exfil"),
-    (r"what (are|were) your instructions", "exfil"),
+    (r"print (?:me |out )?(?:your |the |full |entire |system )*prompt", "exfil"),
+    (r"reveal (?:to me )?(?:your |the |full |entire |system )*prompt", "exfil"),
+    (r"show (?:me )?(?:your |the |full |entire |system )*prompt", "exfil"),
+    (r"what (?:are|were|is|was) (?:your |the |original |initial |system )*instructions?", "exfil"),
     (r"repeat (everything|all) (above|before)", "exfil"),
     # Indirect injection via external content
     (r"<\s*script", "xss_attempt"),

@@ -60,8 +60,8 @@ from real tools. Reproduce with:
 
     cyberai detector eval --corpus tests/corpus
 
-At the production threshold of 50, measured 2026-08-27 on CyberAI 1.6.0:
-recall 29.2%, precision 73.7%, false positives 11.1%. At the detector's own
+At the production threshold of 50, measured 2026-08-28 on CyberAI 1.6.0:
+recall 33.3%, precision 76.2%, false positives 11.1%. At the detector's own
 `is_injection` cut of 25: recall 58.3%, false positives 17.8%.
 
 Matching runs against a normalised copy of the text. NFKC folding, deletion
@@ -69,9 +69,16 @@ of zero-width characters, and a table of Cyrillic and Greek letters that
 render as Latin ones. That copy is used for scoring and is never sent
 anywhere: the guard transmits the sanitised original, and normalising on the
 way out would blind the detector the way scoring the sanitised copy already
-did once. The fold costs nothing in precision on this corpus and recovers
-four injections, which is where the difference between 25.0% and 29.2%
-recall comes from.
+did once. The fold costs nothing on this corpus and carries two more
+injections across the threshold than the same patterns reach without it.
+
+Six patterns were rewritten on 2026-08-28. Each had a single optional
+qualifier group -- `disregard (all |your |previous )?instructions?` and its
+kind -- which takes one alternative and then demands its object, so
+"disregard all previous instructions" matched nothing. A repeating group
+matches them. Recall moved by four points and no benign sample changed
+score, which is the honest size of the win: the phrasings a published
+bypass list would have used were already covered by other patterns.
 
 The overall recall figure is still the least useful number in that
 paragraph. Six injection subclasses score below the threshold on every
