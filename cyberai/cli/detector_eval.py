@@ -30,6 +30,7 @@ from cyberai.core.security.eval_corpus import (
 )
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
 from cyberai.core.security.llm_classifier import (
+    DEFAULT_BASE_URL,
     DEFAULT_MODEL,
     LLMClassifier,
     RecordMismatch,
@@ -147,6 +148,13 @@ def detector() -> None:
     help="Model the L2 layer asks. Local only, by design.",
 )
 @click.option(
+    "--l2-url",
+    default=DEFAULT_BASE_URL,
+    show_default=True,
+    help="Where the local model answers. ollama does not have to sit on this "
+    "host, and a test needs somewhere real to point at.",
+)
+@click.option(
     "--l2-record",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     help="Write the verdicts this run obtained here, so the figure can be "
@@ -172,6 +180,7 @@ def detector_eval(
     report: Path | None,
     use_l2: bool,
     l2_model: str,
+    l2_url: str,
     l2_record: Path | None,
     l2_replay: Path | None,
 ) -> None:
@@ -193,7 +202,7 @@ def detector_eval(
         scorer = combined_scorer(classifier)
         layers = f"L1+L2 ({recording_model(l2_replay)})"
     elif use_l2:
-        classifier = LLMClassifier(model=l2_model)
+        classifier = LLMClassifier(model=l2_model, base_url=l2_url)
         if l2_record is not None:
             classifier.transport = recording_transport(classifier.transport, captured)
         scorer = combined_scorer(classifier)
