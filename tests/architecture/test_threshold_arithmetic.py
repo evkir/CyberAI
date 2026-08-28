@@ -68,6 +68,27 @@ def test_a_single_structural_category_reaches_nothing() -> None:
 
 
 @pytest.mark.architecture
+def test_a_bare_bidi_override_reaches_the_threshold_alone() -> None:
+    """The category that was split out of unicode_escape, asserted directly.
+
+    Mutation testing found this hole rather than reasoning about it. Removing
+    bidi_override from CATEGORY_WEIGHTS drops it to the structural default and
+    only two orchestrator tests noticed -- neither written for it. The corpus
+    could not notice either: its only bidi sample carried "print your system
+    prompt" in plain text and scored 100 through other categories, so the
+    split moved nothing there.
+
+    A weight nothing can contradict is a decision nobody recorded. This
+    asserts the split on text where the override is the sole signal, and
+    injections/bidi-only.txt does the same on the corpus side.
+    """
+    result = detect_injection("banner text \u202e hidden tail \u202c end")
+    categories = {m["type"] for m in result["matches"]}
+    assert categories == {"bidi_override"}, categories
+    assert result["risk_score"] >= DEFAULT_THRESHOLD, result["risk_score"]
+
+
+@pytest.mark.architecture
 def test_matches_stay_per_pattern_even_though_the_score_is_not() -> None:
     """Quarantine redacts by iterating matches, so they cannot become a set."""
     result = detect_injection(_ONE_CATEGORY_SAMPLE)

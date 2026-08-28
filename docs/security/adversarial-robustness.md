@@ -54,14 +54,14 @@ the source can forge a line. Set the variable per engagement.
 
 ## Measured coverage
 
-The detector is scored against a corpus tracked in this repository, 48
+The detector is scored against a corpus tracked in this repository, 49
 injections across fifteen techniques and 45 samples of real output captured
 from real tools. Reproduce with:
 
     cyberai detector eval --corpus tests/corpus
 
 At the production threshold of 50, measured 2026-08-28 on CyberAI 1.6.0:
-recall 56.2%, precision 100.0%, false positives 0.0%. The detector's own
+recall 57.1%, precision 100.0%, false positives 0.0%. The detector's own
 `is_injection` cut of 25 gives the same three figures, because no sample in
 either class scores between 25 and 50. That gap is a property of the
 weights rather than a coincidence: a directive category is worth 50 and any
