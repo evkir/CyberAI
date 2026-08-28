@@ -228,7 +228,14 @@ class LLMClassifier:
         try:
             data = self.transport(self._payload(text))
             verdict = json.loads(data["message"]["content"])["verdict"]
-        except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        except (
+            OSError,
+            httpx.HTTPError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
             return None
         return verdict if verdict in (INJECTION, BENIGN) else None
 
