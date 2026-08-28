@@ -40,6 +40,7 @@ from cyberai.core.security.guard import DEFAULT_THRESHOLD
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _DOC = _ROOT / "docs" / "security" / "adversarial-robustness.md"
 _ARTIFACT = _ROOT / "examples" / "detector-eval" / "baseline.md"
+_COMBINED = _ROOT / "examples" / "detector-eval" / "combined.md"
 _CORPUS = _ROOT / "tests" / "corpus"
 
 _ALT_THRESHOLD = 25
@@ -67,15 +68,30 @@ def test_the_document_quotes_the_command_that_reproduces_it() -> None:
 
 
 @pytest.mark.architecture
+def test_the_document_quotes_the_command_that_replays_the_second_layer() -> None:
+    """A figure nobody can reproduce is a claim, whatever produced it."""
+    body = _DOC.read_text(encoding="utf-8")
+    assert "--l2-replay" in body
+    assert "examples/detector-eval/l2-verdicts.json" in body
+
+
+@pytest.mark.architecture
 def test_production_threshold_figures_come_from_the_artifact() -> None:
-    doc = _section(_DOC.read_text(encoding="utf-8"), "## Measured coverage")
-    artifact = _ARTIFACT.read_text(encoding="utf-8")
+    """Every figure in the document, not only those under one heading.
+
+    The rule was scoped to `## Measured coverage` when that was the only
+    section carrying numbers. A second layer brought a second section and a
+    second artifact, and a rule that reads one heading would have let the
+    new figures through unchecked -- which is the failure it exists to stop.
+    """
+    doc = _DOC.read_text(encoding="utf-8")
     fresh_alt = _percentages(_rendered_at(_ALT_THRESHOLD))
 
     quoted = _percentages(doc)
-    assert quoted, "no figures found -- the regex broke or the section was emptied"
+    assert quoted, "no figures found -- the regex broke or the document was emptied"
 
-    from_artifact = _percentages(artifact)
+    from_artifact = _percentages(_ARTIFACT.read_text(encoding="utf-8"))
+    from_artifact |= _percentages(_COMBINED.read_text(encoding="utf-8"))
     unaccounted = quoted - from_artifact - fresh_alt
     assert not unaccounted, (
         f"figures in the document that no run produced: {sorted(unaccounted)}. "

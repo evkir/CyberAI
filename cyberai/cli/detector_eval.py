@@ -29,6 +29,16 @@ from cyberai.core.security.eval_corpus import (
     render_report,
 )
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
+from cyberai.core.security.llm_classifier import (
+    DEFAULT_MODEL,
+    LLMClassifier,
+    RecordMismatch,
+    combined_scorer,
+    recorded_transport,
+    recording_header,
+    recording_model,
+    recording_transport,
+)
 
 console = Console()
 
@@ -38,8 +48,8 @@ def _pct(value: float | None) -> str:
     return "[dim]--[/dim]" if value is None else f"{value * 100:.1f}%"
 
 
-def _render(result: Evaluation, corpus: Path, counts: dict[str, int]) -> None:
-    table = Table(title=f"detector @ threshold {result.threshold}")
+def _render(result: Evaluation, corpus: Path, counts: dict[str, int], layers: str) -> None:
+    table = Table(title=f"detector {layers} @ threshold {result.threshold}")
     table.add_column("subclass")
     table.add_column("n", justify="right")
     table.add_column("flagged", justify="right")
@@ -103,6 +113,7 @@ def detector() -> None:
       cyberai detector eval --corpus tests/corpus --threshold 25
       cyberai detector eval --corpus tests/corpus --json > baseline.json
       cyberai detector eval --corpus tests/corpus --report examples/detector-eval/baseline.md
+      cyberai detector eval --corpus tests/corpus --l2
     """
 
 
@@ -122,30 +133,98 @@ def detector() -> None:
 )
 @click.option("--json", "as_json", is_flag=True, help="Emit the full result as JSON")
 @click.option(
+    "--l2",
+    "use_l2",
+    is_flag=True,
+    help="Add the local-model layer. Requires a reachable ollama; the "
+    "classifier fails open, so an unreachable one measures L1 alone and "
+    "the report still says so.",
+)
+@click.option(
+    "--l2-model",
+    default=DEFAULT_MODEL,
+    show_default=True,
+    help="Model the L2 layer asks. Local only, by design.",
+)
+@click.option(
+    "--l2-record",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    help="Write the verdicts this run obtained here, so the figure can be "
+    "replayed without a GPU. Only meaningful with --l2.",
+)
+@click.option(
+    "--l2-replay",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Score with verdicts recorded earlier instead of asking a model. "
+    "Implies the L2 layer. Refuses a recording taken under a different "
+    "prompt rather than quietly publishing a stale figure.",
+)
+@click.option(
     "--report",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     help="Write the Markdown report here. This is how the committed artifact "
     "is produced: never edit it by hand, re-run instead.",
 )
-def detector_eval(corpus: Path, threshold: int, as_json: bool, report: Path | None) -> None:
+def detector_eval(
+    corpus: Path,
+    threshold: int,
+    as_json: bool,
+    report: Path | None,
+    use_l2: bool,
+    l2_model: str,
+    l2_record: Path | None,
+    l2_replay: Path | None,
+) -> None:
     """Score every sample in CORPUS and report precision and recall."""
     try:
         samples = load_corpus(corpus)
     except CorpusError as exc:
         raise click.ClickException(str(exc)) from exc
 
-    result = evaluate(samples, threshold=threshold)
+    scorer = None
+    layers = "L1"
+    captured: dict[str, str] = {}
+
+    if l2_replay is not None:
+        try:
+            classifier = LLMClassifier(transport=recorded_transport(l2_replay))
+        except RecordMismatch as exc:
+            raise click.ClickException(str(exc)) from exc
+        scorer = combined_scorer(classifier)
+        layers = f"L1+L2 ({recording_model(l2_replay)})"
+    elif use_l2:
+        classifier = LLMClassifier(model=l2_model)
+        if l2_record is not None:
+            classifier.transport = recording_transport(classifier.transport, captured)
+        scorer = combined_scorer(classifier)
+        layers = f"L1+L2 ({l2_model})"
+
+    result = evaluate(samples, threshold=threshold, scorer=scorer)
     counts = label_counts(samples)
+
+    if l2_record is not None and captured:
+        l2_record.parent.mkdir(parents=True, exist_ok=True)
+        l2_record.write_text(
+            json.dumps(
+                {**recording_header(l2_model), "verdicts": dict(sorted(captured.items()))},
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        console.print(f"[green]verdicts recorded:[/green] {l2_record} ({len(captured)})")
 
     if report is not None:
         report.parent.mkdir(parents=True, exist_ok=True)
-        report.write_text(render_report(result, corpus, counts), encoding="utf-8")
+        report.write_text(render_report(result, corpus, counts, layers=layers), encoding="utf-8")
         console.print(f"[green]report written:[/green] {report}")
 
     if as_json:
         payload = result.as_dict()
         payload["corpus"] = str(corpus)
+        payload["layers"] = layers
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
 
-    _render(result, corpus, counts)
+    _render(result, corpus, counts, layers)

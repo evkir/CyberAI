@@ -159,9 +159,14 @@ COMPILED_PATTERNS = [
 # takes recall from 33.3% to 56.2% and false positives from 11.1% to 0.0% on
 # the same corpus, at the same threshold.
 #
-# encoded_payload is the one weight no sample decides: its patterns match
-# nothing in either class, so it sits with the structural group by
-# resemblance rather than by measurement. Recorded as tail CS.
+# encoded_payload is the one weight no sample decides, and the reason is
+# now known rather than open: all three of its patterns look for talk about
+# base64 -- the word, "decode this", a decoder call -- and none of them look
+# at base64. A bare blob in a header matches nothing, which is why both
+# encoded samples score zero while the sample that spells out its intent in
+# English is caught by other categories entirely. The weight sits with the
+# structural group by resemblance rather than by measurement, and it stays
+# there until a pattern that reads the encoding decides it.
 #
 # bidi_override is decided by one sample and the absence of 45. It is
 # directive because an RTL override in tool output is never a text format,
@@ -229,6 +234,18 @@ def detect_injection(text: str) -> Dict[str, Any]:
         "matches": matches,
         "input_length": len(text),
     }
+
+
+def l1_scorer(text: str) -> int:
+    """The pattern layer's risk score for one piece of text.
+
+    Named rather than left as a lambda at each call site because a second
+    detection layer has to compose with exactly this number. Two expressions
+    computing it in two modules drift the moment one is updated, and the
+    drift surfaces as a published measurement that disagrees with the
+    product it claims to describe.
+    """
+    return int(detect_injection(text)["risk_score"])
 
 
 def scan_messages(messages: List[Dict]) -> Dict[str, Any]:

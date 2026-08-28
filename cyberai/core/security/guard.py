@@ -68,6 +68,7 @@ from typing import Any, Dict, List
 
 from cyberai.core.security.injection_detector import COMPILED_PATTERNS, detect_injection
 from cyberai.core.security.input_sanitizer import MAX_BANNER_LENGTH, sanitize_llm_input
+from cyberai.core.security.llm_classifier import LLMClassifier
 
 ANNOTATE = "annotate"
 QUARANTINE = "quarantine"
@@ -76,6 +77,13 @@ POLICIES = (ANNOTATE, QUARANTINE, DENY)
 
 DEFAULT_POLICY = ANNOTATE
 DEFAULT_THRESHOLD = 50
+
+# The category the second layer reports under. It is not a pattern name:
+# nothing in COMPILED_PATTERNS produced it, so _redact cannot substitute it
+# and a quarantined message flagged only by this layer is wrapped and capped
+# rather than redacted. Stated here because a reader of the quarantine branch
+# would otherwise expect a placeholder that never appears.
+LLM_CATEGORY = "llm_classifier"
 
 UNTRUSTED_OPEN = "[UNTRUSTED INPUT]"
 UNTRUSTED_CLOSE = "[/UNTRUSTED INPUT]"
@@ -139,6 +147,20 @@ def threshold_from_env() -> int:
         return DEFAULT_THRESHOLD
 
 
+def classifier_from_env() -> LLMClassifier | None:
+    """Off unless asked for, read at construction rather than at import.
+
+    Measured on this machine: the layer costs about 2.4s per untrusted
+    message, and ollama holds one model at a time, so if the session model is
+    not the classifier's the guard also pays two model switches -- about 6s
+    each once the weights are in the page cache, half a minute cold. That is a
+    defensible price for one scan report and an indefensible one for every
+    call in a loop, so the operator turns it on rather than discovering it.
+    """
+    raw = os.getenv("CYBERAI_DETECTOR_L2", "").strip().lower()
+    return LLMClassifier() if raw in ("1", "true", "yes", "on") else None
+
+
 def _redact(text: str) -> str:
     """Replace every matched pattern with a labelled placeholder.
 
@@ -161,8 +183,14 @@ def _wrap(text: str) -> str:
 class TrustGuard:
     """The choke point. Constructed per LLMClient, consulted per call."""
 
-    def __init__(self, policy: str | None = None, threshold: int | None = None) -> None:
+    def __init__(
+        self,
+        policy: str | None = None,
+        threshold: int | None = None,
+        classifier: LLMClassifier | None = None,
+    ) -> None:
         self.policy = policy if policy in POLICIES else policy_from_env()
+        self.classifier = classifier if classifier is not None else classifier_from_env()
         # isinstance, not 'is not None': the threshold ends up in a
         # numeric comparison inside the boundary, so a non-integer here
         # raises TypeError in the middle of guarding a call rather than
@@ -196,12 +224,30 @@ class TrustGuard:
                 continue
             result = detect_injection(content)
             score = result["risk_score"]
+            hits = [match["type"] for match in result["matches"]]
+
+            # The second layer is asked only when the first has not already
+            # decided. Composition is max and this layer is worth exactly one
+            # directive category, so a message at the threshold cannot move --
+            # and the call costs seconds. Measured on the eval corpus the
+            # short circuit skips 28 of 94 samples, changing no verdict.
+            #
+            # The comparison is not decoration. Between zero and the threshold
+            # the pattern layer still has an opinion, and a benign answer here
+            # is worth nothing rather than less than nothing: assigning it
+            # would erase a structural match already found.
+            if self.classifier is not None and score < self.threshold:
+                second = self.classifier.score(content)
+                if second > score:
+                    score = second
+                    hits.append(LLM_CATEGORY)
+
             worst = score if worst is None else max(worst, score)
             if score >= self.threshold:
                 flagged.append(i)
-                for match in result["matches"]:
-                    if match["type"] not in categories:
-                        categories.append(match["type"])
+                for name in hits:
+                    if name not in categories:
+                        categories.append(name)
 
         cleaned = sanitize_llm_input(messages)
 
