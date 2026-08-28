@@ -6,10 +6,11 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-28T08:15:00Z |
+| timestamp | 2026-08-28T08:51:26Z |
 | engine version | CyberAI 1.6.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
+| layers | L1 |
 | injections | 49 |
 | benign | 45 |
 

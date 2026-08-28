@@ -231,6 +231,18 @@ def detect_injection(text: str) -> Dict[str, Any]:
     }
 
 
+def l1_scorer(text: str) -> int:
+    """The pattern layer's risk score for one piece of text.
+
+    Named rather than left as a lambda at each call site because a second
+    detection layer has to compose with exactly this number. Two expressions
+    computing it in two modules drift the moment one is updated, and the
+    drift surfaces as a published measurement that disagrees with the
+    product it claims to describe.
+    """
+    return int(detect_injection(text)["risk_score"])
+
+
 def scan_messages(messages: List[Dict]) -> Dict[str, Any]:
     """Scan a list of LLM messages for injection attempts"""
     all_results = []

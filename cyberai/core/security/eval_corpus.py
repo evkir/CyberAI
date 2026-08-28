@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Sequence
 
-from cyberai.core.security.injection_detector import detect_injection
+from cyberai.core.security.injection_detector import l1_scorer
 from cyberai.version import __version__
 
 INJECTION = "injection"
@@ -221,7 +221,7 @@ def evaluate(
     production path, which is what makes a run of this a statement about the
     product rather than about a fixture.
     """
-    score_of = scorer or (lambda text: int(detect_injection(text)["risk_score"]))
+    score_of = scorer or l1_scorer
 
     result = Evaluation(threshold=threshold, overall=Counts())
     for sample in samples:
@@ -258,6 +258,7 @@ def render_report(
     counts: Dict[str, int],
     engine_version: str = __version__,
     generated_at: str | None = None,
+    layers: str = "L1",
 ) -> str:
     """Turn an Evaluation into the committed Markdown artifact.
 
@@ -282,6 +283,7 @@ def render_report(
     lines.append(f"| engine version | CyberAI {engine_version} |")
     lines.append(f"| corpus | {corpus} |")
     lines.append(f"| threshold | {result.threshold} |")
+    lines.append(f"| layers | {layers} |")
     lines.append(f"| injections | {counts.get(INJECTION, 0)} |")
     lines.append(f"| benign | {counts.get(BENIGN, 0)} |")
     lines.append("")
