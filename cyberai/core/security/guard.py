@@ -67,7 +67,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from cyberai.core.security.injection_detector import COMPILED_PATTERNS, detect_injection
-from cyberai.core.security.input_sanitizer import MAX_BANNER_LENGTH, sanitize_llm_input
+from cyberai.core.security.input_sanitizer import (
+    MAX_BANNER_LENGTH,
+    sanitize_llm_input,
+    text_parts,
+)
 from cyberai.core.security.llm_classifier import LLMClassifier
 
 ANNOTATE = "annotate"
@@ -206,7 +210,8 @@ class TrustGuard:
         """Return the verdict and the messages that may be sent."""
         worst: int | None = None
         categories: List[str] = []
-        flagged: List[int] = []
+        flagged: List[tuple[int, int | None]] = []
+        inspected = 0
 
         # Detection runs on the raw messages, sanitisation afterwards. The
         # reverse order was measured to blind the detector: sanitize_text
@@ -219,35 +224,36 @@ class TrustGuard:
         for i, msg in enumerate(messages):
             if msg.get("role") not in UNTRUSTED_ROLES:
                 continue
-            content = msg.get("content", "")
-            if not isinstance(content, str):
-                continue
-            result = detect_injection(content)
-            score = result["risk_score"]
-            hits = [match["type"] for match in result["matches"]]
+            for j, text in text_parts(msg.get("content", "")):
+                inspected += 1
+                result = detect_injection(text)
+                score = result["risk_score"]
+                hits = [match["type"] for match in result["matches"]]
 
-            # The second layer is asked only when the first has not already
-            # decided. Composition is max and this layer is worth exactly one
-            # directive category, so a message at the threshold cannot move --
-            # and the call costs seconds. Measured on the eval corpus the
-            # short circuit skips 28 of 94 samples, changing no verdict.
-            #
-            # The comparison is not decoration. Between zero and the threshold
-            # the pattern layer still has an opinion, and a benign answer here
-            # is worth nothing rather than less than nothing: assigning it
-            # would erase a structural match already found.
-            if self.classifier is not None and score < self.threshold:
-                second = self.classifier.score(content)
-                if second > score:
-                    score = second
-                    hits.append(LLM_CATEGORY)
+                # The second layer is asked only when the first has not
+                # already decided. Composition is max and this layer is worth
+                # exactly one directive category, so a message at the
+                # threshold cannot move -- and the call costs seconds.
+                # Measured on the eval corpus the short circuit skips 28 of
+                # 94 samples, changing no verdict.
+                #
+                # The comparison is not decoration. Between zero and the
+                # threshold the pattern layer still has an opinion, and a
+                # benign answer here is worth nothing rather than less than
+                # nothing: assigning it would erase a structural match
+                # already found.
+                if self.classifier is not None and score < self.threshold:
+                    second = self.classifier.score(text)
+                    if second > score:
+                        score = second
+                        hits.append(LLM_CATEGORY)
 
-            worst = score if worst is None else max(worst, score)
-            if score >= self.threshold:
-                flagged.append(i)
-                for name in hits:
-                    if name not in categories:
-                        categories.append(name)
+                worst = score if worst is None else max(worst, score)
+                if score >= self.threshold:
+                    flagged.append((i, j))
+                    for name in hits:
+                        if name not in categories:
+                            categories.append(name)
 
         cleaned = sanitize_llm_input(messages)
 
@@ -259,7 +265,7 @@ class TrustGuard:
             risk_score=worst,
             categories=sorted(categories),
             messages=cleaned,
-            inspected=sum(1 for m in cleaned if m.get("role") in UNTRUSTED_ROLES),
+            inspected=inspected,
             modified=0,
         )
 
@@ -269,11 +275,28 @@ class TrustGuard:
         if self.policy == DENY:
             raise InjectionBlocked(verdict)
 
-        for i in flagged:
-            content = cleaned[i].get("content", "")
+        for i, j in flagged:
+            if j is None:
+                content = cleaned[i].get("content", "")
+                if self.policy == QUARANTINE:
+                    content = _redact(content)[:MAX_BANNER_LENGTH]
+                cleaned[i] = {**cleaned[i], "content": _wrap(content)}
+                continue
+            # One message carries many blocks and they are scored one by one,
+            # so only the block that cleared the threshold is touched. Marking
+            # the whole message would put a live banner and nine clean ones
+            # behind the same label. The surrounding lists and dicts are
+            # copied rather than mutated: sanitize_llm_input passes non-string
+            # content through by reference, so writing in place would edit the
+            # caller's own messages.
+            blocks = list(cleaned[i]["content"])
+            block = dict(blocks[j])
+            text = block.get("content", "")
             if self.policy == QUARANTINE:
-                content = _redact(content)[:MAX_BANNER_LENGTH]
-            cleaned[i] = {**cleaned[i], "content": _wrap(content)}
+                text = _redact(text)[:MAX_BANNER_LENGTH]
+            block["content"] = _wrap(text)
+            blocks[j] = block
+            cleaned[i] = {**cleaned[i], "content": blocks}
 
         verdict.modified = len(flagged)
         return verdict

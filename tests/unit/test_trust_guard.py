@@ -201,3 +201,118 @@ def test_sanitisation_still_applies_to_what_is_sent():
     assert "{{" not in sent
     assert "<|im_start|>" not in sent
     assert "ignore all previous instructions" in sent
+
+
+# The guard rebuilt every message as {role, content} and dropped every other
+# key. Both tool-calling formats in llm_client carry keys outside that pair,
+# and call_tools routes them through inspect() on the way to the provider, so
+# an openai tool round-trip left the boundary without the identifier that ties
+# a result to the call that asked for it. The messages are built by the
+# production formatters rather than by hand: a literal here would assert the
+# shape this test exists to catch a change in.
+def test_tool_result_keeps_its_call_id_through_the_boundary():
+    from cyberai.core.llm_client import ToolCall, format_tool_results
+
+    call = ToolCall(id="call_abc", name="nmap_scan", arguments={})
+    sent = (
+        TrustGuard(policy=ANNOTATE, threshold=50)
+        .inspect(format_tool_results("openai", [(call, "22/tcp open ssh")]))
+        .messages
+    )
+    assert sent[0]["tool_call_id"] == "call_abc"
+
+
+def test_assistant_turn_keeps_its_tool_calls_through_the_boundary():
+    from cyberai.core.llm_client import LLMResponse, ToolCall, format_assistant_tool_turn
+
+    response = LLMResponse(
+        text=None, tool_calls=[ToolCall(id="call_abc", name="nmap_scan", arguments={})]
+    )
+    sent = (
+        TrustGuard(policy=ANNOTATE, threshold=50)
+        .inspect([format_assistant_tool_turn("openai", response)])
+        .messages
+    )
+    assert [c["id"] for c in sent[0]["tool_calls"]] == ["call_abc"]
+
+
+# The anthropic tool path builds one message whose content is a list of typed
+# blocks, and the guard skipped every message whose content was not a string.
+# Measured on the tracked corpus: ansi-hidden.txt scores 100 through
+# detect_injection and left the boundary at risk_score None, triggered False,
+# on that provider. These tests build the message with the production
+# formatter, because the shape is the defect.
+def _anthropic(*outputs):
+    from cyberai.core.llm_client import ToolCall, format_tool_results
+
+    return format_tool_results(
+        "anthropic",
+        [
+            (ToolCall(id=f"call_{n}", name="nmap_scan", arguments={}), out)
+            for n, out in enumerate(outputs)
+        ],
+    )
+
+
+def test_anthropic_tool_result_is_scored():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(HOSTILE))
+    assert verdict.triggered is True
+    assert verdict.risk_score == 100
+    assert verdict.inspected == 1
+
+
+def test_anthropic_tool_result_is_marked_without_losing_its_shape():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(HOSTILE))
+    block = verdict.messages[0]["content"][0]
+    assert block["content"].startswith(UNTRUSTED_OPEN)
+    assert block["content"].endswith(UNTRUSTED_CLOSE)
+    assert block["type"] == "tool_result"
+    assert block["tool_use_id"] == "call_0"
+
+
+def test_only_the_block_that_scored_is_marked():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(
+        _anthropic("22/tcp open ssh", HOSTILE)
+    )
+    clean, hostile = verdict.messages[0]["content"]
+    assert verdict.inspected == 2
+    assert verdict.modified == 1
+    assert UNTRUSTED_OPEN not in clean["content"]
+    assert hostile["content"].startswith(UNTRUSTED_OPEN)
+
+
+def test_quarantine_redacts_inside_the_block():
+    verdict = TrustGuard(policy=QUARANTINE, threshold=50).inspect(_anthropic(HOSTILE))
+    marked = verdict.messages[0]["content"][0]["content"]
+    assert "[REDACTED:" in marked
+    assert "ignore previous instructions" not in marked
+
+
+def test_deny_reaches_the_block_too():
+    with pytest.raises(InjectionBlocked):
+        TrustGuard(policy=DENY, threshold=50).inspect(_anthropic(HOSTILE))
+
+
+def test_marking_a_block_does_not_edit_the_callers_messages():
+    messages = _anthropic(HOSTILE)
+    TrustGuard(policy=ANNOTATE, threshold=50).inspect(messages)
+    assert messages[0]["content"][0]["content"] == HOSTILE
+
+
+def test_block_detection_scores_the_raw_text_not_the_sanitised_copy():
+    """The order that holds for a string message holds inside a block too.
+
+    sanitize_text removes three of the detector's own categories, so scoring
+    the scrubbed copy would let a payload lower its own score by carrying a
+    template marker. Both categories have to survive into the verdict while
+    neither survives into what is sent.
+    """
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(BLINDING))
+    assert verdict.risk_score == 100
+    assert "template_injection" in verdict.categories
+    assert "context_manipulation" in verdict.categories
+    sent = verdict.messages[0]["content"][0]["content"]
+    assert sent.startswith(UNTRUSTED_OPEN)
+    assert "{{" not in sent
+    assert "<|im_start|>" not in sent
+    assert "ignore all previous instructions" in sent

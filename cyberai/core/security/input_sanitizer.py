@@ -61,6 +61,45 @@ def sanitize_banner(banner: str) -> str:
     return f"[UNTRUSTED INPUT] {text} [/UNTRUSTED INPUT]"
 
 
+def block_parts(content: List[Any]) -> List[tuple[int, str]]:
+    """Index and text of every readable block in a block-list message.
+
+    The anthropic tool path builds a message whose content is a list of typed
+    blocks, and the text a tool returned sits under the block's own
+    ``content`` key. A block with no string there -- an image, a shape this
+    product does not build -- yields nothing and travels untouched: passing an
+    unknown shape through unread is honest, rewriting a guess at it is not.
+    """
+    parts: List[tuple[int, str]] = []
+    for index, block in enumerate(content):
+        if isinstance(block, dict) and isinstance(block.get("content"), str):
+            parts.append((index, block["content"]))
+    return parts
+
+
+def text_parts(content: Any) -> List[tuple[int | None, str]]:
+    """Every attacker-reachable string in one message, and where it sits.
+
+    A string message is a single part at index None; a block list defers to
+    block_parts. Message shape is this module's knowledge and the guard is its
+    consumer, so both layers read the same definition rather than each
+    carrying its own idea of where the text lives.
+    """
+    if isinstance(content, str):
+        return [(None, content)]
+    if not isinstance(content, list):
+        return []
+    return [(index, text) for index, text in block_parts(content)]
+
+
+def _sanitize_blocks(content: List[Any]) -> List[Any]:
+    """Scrub the text inside each readable block, leaving the shape alone."""
+    cleaned = list(content)
+    for index, text in block_parts(content):
+        cleaned[index] = {**cleaned[index], "content": sanitize_text(text, MAX_INPUT_LENGTH)}
+    return cleaned
+
+
 def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
     """
     Sanitize messages before sending to LLM.
@@ -71,16 +110,20 @@ def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
         role = msg.get("role", "user")
         content = msg.get("content", "")
 
-        # Only sanitize user/tool messages — not system prompts.
-        # Content is not always a string: the Anthropic tool path builds
-        # messages as a list of typed blocks (llm_client.py:648). Scrubbing
-        # control characters out of a list is not possible and crashing on
-        # a shape the product itself produces is worse than passing it on,
-        # so non-string content travels unchanged and the caller decides.
-        if role in ("user", "tool", "function") and isinstance(content, str):
-            content = sanitize_text(content, MAX_INPUT_LENGTH)
+        # Only sanitize user/tool messages -- not system prompts.
+        # Content is not always a string: the anthropic tool path builds
+        # messages as a list of typed blocks. That branch used to pass
+        # through unchanged, so on that provider the ANSI escapes, control
+        # characters, template markers and length cap never applied to tool
+        # output at all. The scrub now reaches into the block and leaves the
+        # surrounding shape untouched.
+        if role in ("user", "tool", "function"):
+            if isinstance(content, str):
+                content = sanitize_text(content, MAX_INPUT_LENGTH)
+            elif isinstance(content, list):
+                content = _sanitize_blocks(content)
 
-        sanitized.append({"role": role, "content": content})
+        sanitized.append({**msg, "role": role, "content": content})
     return sanitized
 
 
