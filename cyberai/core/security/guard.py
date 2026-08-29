@@ -67,7 +67,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from cyberai.core.security.injection_detector import COMPILED_PATTERNS, detect_injection
-from cyberai.core.security.input_sanitizer import MAX_BANNER_LENGTH, sanitize_llm_input
+from cyberai.core.security.input_sanitizer import (
+    MAX_BANNER_LENGTH,
+    sanitize_llm_input,
+    text_parts,
+)
 from cyberai.core.security.llm_classifier import LLMClassifier
 
 ANNOTATE = "annotate"
@@ -174,30 +178,6 @@ def _redact(text: str) -> str:
     return out
 
 
-def _text_parts(content: Any) -> List[tuple[int | None, str]]:
-    """Every attacker-reachable string in one message, and where it sits.
-
-    A string message is a single part at index None. The anthropic tool path
-    builds content as a list of typed blocks instead, and the text a tool
-    returned sits under the block's own ``content`` key. That shape used to
-    fail an isinstance check and skip the loop entirely: on that provider no
-    tool output was scored, marked or redacted, whatever the policy said.
-
-    Anything else -- a block with no string content, a shape the product does
-    not produce -- yields no part. Passing an unknown shape through unread is
-    honest; guessing at it and reporting a score would not be.
-    """
-    if isinstance(content, str):
-        return [(None, content)]
-    if not isinstance(content, list):
-        return []
-    parts: List[tuple[int | None, str]] = []
-    for j, block in enumerate(content):
-        if isinstance(block, dict) and isinstance(block.get("content"), str):
-            parts.append((j, block["content"]))
-    return parts
-
-
 def _wrap(text: str) -> str:
     if text.startswith(UNTRUSTED_OPEN):
         return text
@@ -244,7 +224,7 @@ class TrustGuard:
         for i, msg in enumerate(messages):
             if msg.get("role") not in UNTRUSTED_ROLES:
                 continue
-            for j, text in _text_parts(msg.get("content", "")):
+            for j, text in text_parts(msg.get("content", "")):
                 inspected += 1
                 result = detect_injection(text)
                 score = result["risk_score"]

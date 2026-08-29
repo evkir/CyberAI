@@ -119,12 +119,17 @@ def test_sanitize_llm_input_leaves_system_prompts_alone():
     assert out[0]["content"] == "{{keep}}"
 
 
-def test_sanitize_llm_input_passes_block_content_through():
-    """The Anthropic tool path sends content as a list of typed blocks.
+def test_sanitize_llm_input_scrubs_inside_block_content():
+    """The anthropic tool path sends content as a list of typed blocks.
 
-    Scrubbing a list is not possible; crashing on a shape the product itself
-    produces (llm_client.py:648) would take the whole call down.
+    This test used to assert the opposite -- that blocks travelled through
+    unchanged -- and stayed green on a sample containing nothing the scrubber
+    removes. On that path a tool result kept its ANSI escapes, control
+    characters, template markers and full length all the way to the provider.
     """
-    blocks = [{"type": "tool_result", "tool_use_id": "abc", "content": "42"}]
-    out = sanitize_llm_input([{"role": "user", "content": blocks}])
-    assert out[0]["content"] == blocks
+    blocks = [{"type": "tool_result", "tool_use_id": "abc", "content": "a\x1b[31mb\x00c{{d}}"}]
+    out = sanitize_llm_input([{"role": "user", "content": blocks}])[0]["content"]
+    assert out[0]["content"] == "a[31mbcd"
+    assert out[0]["type"] == "tool_result"
+    assert out[0]["tool_use_id"] == "abc"
+    assert blocks[0]["content"] == "a\x1b[31mb\x00c{{d}}"

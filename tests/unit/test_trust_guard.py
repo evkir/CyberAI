@@ -297,3 +297,22 @@ def test_marking_a_block_does_not_edit_the_callers_messages():
     messages = _anthropic(HOSTILE)
     TrustGuard(policy=ANNOTATE, threshold=50).inspect(messages)
     assert messages[0]["content"][0]["content"] == HOSTILE
+
+
+def test_block_detection_scores_the_raw_text_not_the_sanitised_copy():
+    """The order that holds for a string message holds inside a block too.
+
+    sanitize_text removes three of the detector's own categories, so scoring
+    the scrubbed copy would let a payload lower its own score by carrying a
+    template marker. Both categories have to survive into the verdict while
+    neither survives into what is sent.
+    """
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(BLINDING))
+    assert verdict.risk_score == 100
+    assert "template_injection" in verdict.categories
+    assert "context_manipulation" in verdict.categories
+    sent = verdict.messages[0]["content"][0]["content"]
+    assert sent.startswith(UNTRUSTED_OPEN)
+    assert "{{" not in sent
+    assert "<|im_start|>" not in sent
+    assert "ignore all previous instructions" in sent
