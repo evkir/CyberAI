@@ -201,3 +201,36 @@ def test_sanitisation_still_applies_to_what_is_sent():
     assert "{{" not in sent
     assert "<|im_start|>" not in sent
     assert "ignore all previous instructions" in sent
+
+
+# The guard rebuilt every message as {role, content} and dropped every other
+# key. Both tool-calling formats in llm_client carry keys outside that pair,
+# and call_tools routes them through inspect() on the way to the provider, so
+# an openai tool round-trip left the boundary without the identifier that ties
+# a result to the call that asked for it. The messages are built by the
+# production formatters rather than by hand: a literal here would assert the
+# shape this test exists to catch a change in.
+def test_tool_result_keeps_its_call_id_through_the_boundary():
+    from cyberai.core.llm_client import ToolCall, format_tool_results
+
+    call = ToolCall(id="call_abc", name="nmap_scan", arguments={})
+    sent = (
+        TrustGuard(policy=ANNOTATE, threshold=50)
+        .inspect(format_tool_results("openai", [(call, "22/tcp open ssh")]))
+        .messages
+    )
+    assert sent[0]["tool_call_id"] == "call_abc"
+
+
+def test_assistant_turn_keeps_its_tool_calls_through_the_boundary():
+    from cyberai.core.llm_client import LLMResponse, ToolCall, format_assistant_tool_turn
+
+    response = LLMResponse(
+        text=None, tool_calls=[ToolCall(id="call_abc", name="nmap_scan", arguments={})]
+    )
+    sent = (
+        TrustGuard(policy=ANNOTATE, threshold=50)
+        .inspect([format_assistant_tool_turn("openai", response)])
+        .messages
+    )
+    assert [c["id"] for c in sent[0]["tool_calls"]] == ["call_abc"]

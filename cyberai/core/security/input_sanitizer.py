@@ -80,7 +80,7 @@ def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
         if role in ("user", "tool", "function") and isinstance(content, str):
             content = sanitize_text(content, MAX_INPUT_LENGTH)
 
-        sanitized.append({"role": role, "content": content})
+        sanitized.append({**msg, "role": role, "content": content})
     return sanitized
 
 
