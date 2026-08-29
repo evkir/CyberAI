@@ -39,6 +39,11 @@ from cyberai.core.security.guard import DEFAULT_THRESHOLD
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _DOC = _ROOT / "docs" / "security" / "adversarial-robustness.md"
+# The research document carries the same figures for a different reader.
+# A rule scoped to one file lets a second file drift, which is the failure
+# this module exists to stop -- one heading, then one file, same shape.
+_RESEARCH = _ROOT / "docs" / "research" / "detector-v2.md"
+_MEASURED_DOCS = (_DOC, _RESEARCH)
 _ARTIFACT = _ROOT / "examples" / "detector-eval" / "baseline.md"
 _COMBINED = _ROOT / "examples" / "detector-eval" / "combined.md"
 _CORPUS = _ROOT / "tests" / "corpus"
@@ -84,20 +89,19 @@ def test_production_threshold_figures_come_from_the_artifact() -> None:
     second artifact, and a rule that reads one heading would have let the
     new figures through unchecked -- which is the failure it exists to stop.
     """
-    doc = _DOC.read_text(encoding="utf-8")
     fresh_alt = _percentages(_rendered_at(_ALT_THRESHOLD))
-
-    quoted = _percentages(doc)
-    assert quoted, "no figures found -- the regex broke or the document was emptied"
-
     from_artifact = _percentages(_ARTIFACT.read_text(encoding="utf-8"))
     from_artifact |= _percentages(_COMBINED.read_text(encoding="utf-8"))
-    unaccounted = quoted - from_artifact - fresh_alt
-    assert not unaccounted, (
-        f"figures in the document that no run produced: {sorted(unaccounted)}. "
-        "Re-run: cyberai detector eval --corpus tests/corpus "
-        "--report examples/detector-eval/baseline.md"
-    )
+
+    for path in _MEASURED_DOCS:
+        quoted = _percentages(path.read_text(encoding="utf-8"))
+        assert quoted, f"no figures in {path.name} -- regex broke or file emptied"
+        unaccounted = quoted - from_artifact - fresh_alt
+        assert not unaccounted, (
+            f"figures in {path.name} that no run produced: {sorted(unaccounted)}. "
+            "Re-run: cyberai detector eval --corpus tests/corpus "
+            "--report examples/detector-eval/baseline.md"
+        )
 
 
 def _rendered_at(threshold: int) -> str:
@@ -131,3 +135,9 @@ def test_the_blind_subclasses_named_in_prose_are_the_measured_ones() -> None:
 def test_the_readme_links_to_the_artifact() -> None:
     body = (_ROOT / "README.md").read_text(encoding="utf-8")
     assert "examples/detector-eval/baseline.md" in body
+
+
+@pytest.mark.architecture
+def test_the_readme_links_to_the_research_document() -> None:
+    body = (_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "docs/research/detector-v2.md" in body

@@ -42,9 +42,10 @@ def test_compiled_patterns_cover_every_declared_pattern() -> None:
     assert len(COMPILED_PATTERNS) == len(INJECTION_PATTERNS)
 
 
-def test_readme_names_the_real_pattern_count() -> None:
+def test_digit_documents_name_the_real_pattern_count() -> None:
     n = len(INJECTION_PATTERNS)
-    assert f"{n} patterns" in _text("README.md"), n
+    for rel in ("README.md", "docs/research/detector-v2.md"):
+        assert f"{n} patterns" in _text(rel), (rel, n)
 
 
 def test_prose_documents_name_the_real_pattern_count() -> None:

@@ -395,6 +395,7 @@ methodology and the current scorecard.
 | [docs/mcp/integration.md](docs/mcp/integration.md) | MCP server setup |
 | [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md) | MCP/LLM offensive red-team scanning |
 | [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md) | What the trust boundary covers, and what it does not |
+| [docs/research/detector-v2.md](docs/research/detector-v2.md) | The three detector layers, what each was measured at, and what was not measured |
 | [examples/detector-eval/baseline.md](examples/detector-eval/baseline.md) | Detector precision and recall on the tracked corpus, per technique |
 | [docs/benchmarks/local-suite.md](docs/benchmarks/local-suite.md) | The local suite: targets, success signals, methodology |
 | [docs/benchmarks/reproducibility.md](docs/benchmarks/reproducibility.md) | What a run pins, what it records, what it cannot promise |
