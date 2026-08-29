@@ -234,3 +234,66 @@ def test_assistant_turn_keeps_its_tool_calls_through_the_boundary():
         .messages
     )
     assert [c["id"] for c in sent[0]["tool_calls"]] == ["call_abc"]
+
+
+# The anthropic tool path builds one message whose content is a list of typed
+# blocks, and the guard skipped every message whose content was not a string.
+# Measured on the tracked corpus: ansi-hidden.txt scores 100 through
+# detect_injection and left the boundary at risk_score None, triggered False,
+# on that provider. These tests build the message with the production
+# formatter, because the shape is the defect.
+def _anthropic(*outputs):
+    from cyberai.core.llm_client import ToolCall, format_tool_results
+
+    return format_tool_results(
+        "anthropic",
+        [
+            (ToolCall(id=f"call_{n}", name="nmap_scan", arguments={}), out)
+            for n, out in enumerate(outputs)
+        ],
+    )
+
+
+def test_anthropic_tool_result_is_scored():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(HOSTILE))
+    assert verdict.triggered is True
+    assert verdict.risk_score == 100
+    assert verdict.inspected == 1
+
+
+def test_anthropic_tool_result_is_marked_without_losing_its_shape():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(_anthropic(HOSTILE))
+    block = verdict.messages[0]["content"][0]
+    assert block["content"].startswith(UNTRUSTED_OPEN)
+    assert block["content"].endswith(UNTRUSTED_CLOSE)
+    assert block["type"] == "tool_result"
+    assert block["tool_use_id"] == "call_0"
+
+
+def test_only_the_block_that_scored_is_marked():
+    verdict = TrustGuard(policy=ANNOTATE, threshold=50).inspect(
+        _anthropic("22/tcp open ssh", HOSTILE)
+    )
+    clean, hostile = verdict.messages[0]["content"]
+    assert verdict.inspected == 2
+    assert verdict.modified == 1
+    assert UNTRUSTED_OPEN not in clean["content"]
+    assert hostile["content"].startswith(UNTRUSTED_OPEN)
+
+
+def test_quarantine_redacts_inside_the_block():
+    verdict = TrustGuard(policy=QUARANTINE, threshold=50).inspect(_anthropic(HOSTILE))
+    marked = verdict.messages[0]["content"][0]["content"]
+    assert "[REDACTED:" in marked
+    assert "ignore previous instructions" not in marked
+
+
+def test_deny_reaches_the_block_too():
+    with pytest.raises(InjectionBlocked):
+        TrustGuard(policy=DENY, threshold=50).inspect(_anthropic(HOSTILE))
+
+
+def test_marking_a_block_does_not_edit_the_callers_messages():
+    messages = _anthropic(HOSTILE)
+    TrustGuard(policy=ANNOTATE, threshold=50).inspect(messages)
+    assert messages[0]["content"][0]["content"] == HOSTILE
