@@ -4,6 +4,7 @@ from cyberai.core.security.input_sanitizer import (
     sanitize_llm_input,
     sanitize_target,
     sanitize_text,
+    text_parts,
     validate_json_output,
 )
 
@@ -133,3 +134,18 @@ def test_sanitize_llm_input_scrubs_inside_block_content():
     assert out[0]["type"] == "tool_result"
     assert out[0]["tool_use_id"] == "abc"
     assert blocks[0]["content"] == "a\x1b[31mb\x00c{{d}}"
+
+
+def test_text_parts_reads_an_unknown_shape_as_no_text():
+    """Neither a string nor a block list: read nothing, raise nothing.
+
+    Every untrusted message this product builds carries either a string or a
+    list of blocks, so this branch has no producer today. It is not dead
+    code: it stands between an unexpected shape and enumerate(), which is
+    what block_parts would reach for next. Deleting it would turn a message
+    nobody anticipated into a TypeError raised in the middle of guarding a
+    call. The assertion is about shape, which is what the function is for.
+    """
+    assert text_parts(None) == []
+    assert text_parts({"content": "not a list"}) == []
+    assert text_parts(42) == []
