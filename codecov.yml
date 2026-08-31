@@ -1,0 +1,36 @@
+# What the uploaded report is allowed to say.
+#
+# The upload has existed since the first CI run and decided nothing: the bot
+# printed a percentage on every pull request and no status gated anything.
+# A measurement nobody acts on is the shape this repository keeps removing.
+#
+# project: auto compares against the base commit rather than a number typed
+# here. A hand-written target is the same defect as a hand-written badge --
+# it describes the day it was written. The threshold allows normal movement
+# and stops a slide.
+#
+# patch is a fixed number because "no worse than the base" is too weak for
+# code being added right now. The observed patch coverage on recent pull
+# requests is in the high nineties; 90% leaves room for one unreachable line
+# without leaving room for an untested module.
+#
+# This file decides the status. It does not block a merge on its own: that
+# requires the codecov status to be listed as required in branch protection
+# on main. Without it a failed upload posts nothing and a pull request merges
+# with no measurement at all.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 90%
+        threshold: 0%
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: false
