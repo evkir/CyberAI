@@ -1,12 +1,12 @@
 # Detector Evaluation
 
-**recall 57.1% — false positives 0.0%**
+**recall 59.2% — false positives 0.0%**
 
 ## Run metadata
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-28T08:51:26Z |
+| timestamp | 2026-08-31T12:27:15Z |
 | engine version | CyberAI 1.6.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
@@ -18,13 +18,13 @@
 
 | metric | value |
 | --- | --- |
-| true positives | 28 |
-| false negatives | 21 |
+| true positives | 29 |
+| false negatives | 20 |
 | false positives | 0 |
 | true negatives | 45 |
 | precision | 100.0% |
-| recall | 57.1% |
-| f1 | 72.7% |
+| recall | 59.2% |
+| f1 | 74.4% |
 | false positive rate | 0.0% |
 
 ## Per-subclass breakdown
@@ -40,7 +40,7 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | container_logs | 3 | 0 | -- | -- | 0.0% |
 | context_forgery | 3 | 3 | 100.0% | 100.0% | -- |
 | direct | 4 | 4 | 100.0% | 100.0% | -- |
-| encoded | 3 | 0 | -- | 0.0% | -- |
+| encoded | 3 | 1 | 100.0% | 33.3% | -- |
 | exfil | 4 | 3 | 100.0% | 75.0% | -- |
 | homoglyph | 3 | 3 | 100.0% | 100.0% | -- |
 | html_body | 3 | 0 | -- | -- | 0.0% |
@@ -63,7 +63,6 @@ A slice holding no positives has no precision, and one holding no negatives has 
 
 Every sample in these scored below the threshold. This is what an overall recall figure cannot show, and it is the argument for a layer that is not a list of regular expressions.
 
-- `encoded` — 0 of 3 flagged
 - `multilingual` — 0 of 5 flagged
 - `paraphrase` — 0 of 5 flagged
 - `social` — 0 of 3 flagged

@@ -1,3 +1,5 @@
+import base64
+import binascii
 import re
 import unicodedata
 from typing import Any, Dict, List
@@ -159,14 +161,15 @@ COMPILED_PATTERNS = [
 # takes recall from 33.3% to 56.2% and false positives from 11.1% to 0.0% on
 # the same corpus, at the same threshold.
 #
-# encoded_payload is the one weight no sample decides, and the reason is
-# now known rather than open: all three of its patterns look for talk about
-# base64 -- the word, "decode this", a decoder call -- and none of them look
-# at base64. A bare blob in a header matches nothing, which is why both
-# encoded samples score zero while the sample that spells out its intent in
-# English is caught by other categories entirely. The weight sits with the
-# structural group by resemblance rather than by measurement, and it stays
-# there until a pattern that reads the encoding decides it.
+# encoded_payload is structural by measurement now rather than by
+# resemblance. Its three patterns look for talk about base64 -- the word,
+# "decode this", a decoder call -- and a blob is read instead by
+# _decoded_payloads, which decodes it and hands the text back to the pattern
+# list. What the category is worth on its own is therefore what a decoded
+# string with no instruction in it is worth, and that is one sample: an
+# encoding is evidence of an encoding. When the decoded text does carry an
+# instruction, the directive categories it matches carry the score, which is
+# how a blob reaches 100 without this weight moving.
 #
 # bidi_override is decided by one sample and the absence of 45. It is
 # directive because an RTL override in tool output is never a text format,
@@ -191,6 +194,55 @@ CATEGORY_WEIGHTS = {
 }
 
 
+_B64_BLOB = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
+
+# A decoded blob has to read as text before it is scanned as text. The cut is
+# the share of bytes that are printable ASCII: measured on the tracked corpus,
+# every benign blob -- a sha256 in docker inspect, a font path, a session
+# cookie -- lands at or below 0.53, and both encoded injections at 1.00. A
+# length rule alone does not separate them and was rejected on that number.
+_PRINTABLE_RATIO = 0.7
+
+
+def _pattern_matches(candidate: str) -> List[Dict[str, Any]]:
+    """One entry per pattern that fired against an already-normalised string."""
+    matches: List[Dict[str, Any]] = []
+    for pattern, label in COMPILED_PATTERNS:
+        found = pattern.findall(candidate)
+        if found:
+            matches.append({"type": label, "pattern": pattern.pattern, "matches": found[:3]})
+    return matches
+
+
+def _decoded_payloads(candidate: str) -> List[str]:
+    """Return the text carried by base64 blobs, ignoring blobs carrying none.
+
+    This is the difference between reading an encoding and reading talk about
+    one. The three patterns labelled encoded_payload look for the word
+    "base64", for "decode this", for a decoder call; none of them looks at
+    base64, so a bare blob in a header matched nothing at all.
+
+    One level, deliberately. The decoded text is scanned by the pattern list
+    and not decoded again: a payload that nests encodings is a different
+    question, and recursion here would turn an untrusted string into a loop
+    bound the caller cannot see.
+    """
+    out: List[str] = []
+    for match in _B64_BLOB.finditer(candidate):
+        blob = match.group(0)
+        try:
+            raw = base64.b64decode(blob + "=" * (-len(blob) % 4), validate=True)
+        except (binascii.Error, ValueError):
+            continue
+        if not raw:
+            continue
+        printable = sum(1 for byte in raw if 32 <= byte < 127 or byte in (9, 10, 13))
+        if printable / len(raw) < _PRINTABLE_RATIO:
+            continue
+        out.append(raw.decode("utf-8", "replace"))
+    return out
+
+
 def detect_injection(text: str) -> Dict[str, Any]:
     """Scan text for prompt injection patterns.
 
@@ -212,17 +264,12 @@ def detect_injection(text: str) -> Dict[str, Any]:
     take the redaction's targets away.
     """
     candidate = normalise_for_matching(text)
-    matches = []
-    for pattern, label in COMPILED_PATTERNS:
-        found = pattern.findall(candidate)
-        if found:
-            matches.append(
-                {
-                    "type": label,
-                    "pattern": pattern.pattern,
-                    "matches": found[:3],  # Cap at 3 examples
-                }
-            )
+    matches = _pattern_matches(candidate)
+    for decoded in _decoded_payloads(candidate):
+        matches.append(
+            {"type": "encoded_payload", "pattern": _B64_BLOB.pattern, "matches": [decoded[:60]]}
+        )
+        matches.extend(_pattern_matches(normalise_for_matching(decoded)))
 
     categories = {m["type"] for m in matches}
     risk_score = min(sum(CATEGORY_WEIGHTS.get(name, STRUCTURAL_WEIGHT) for name in categories), 100)

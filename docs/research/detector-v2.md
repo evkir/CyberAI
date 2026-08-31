@@ -28,8 +28,8 @@ Measured on the tracked corpus of 49 injections and 45 benign samples:
 
 | layer | recall | precision | false positives |
 | --- | --- | --- | --- |
-| L1 | 57.1% | 100.0% | 0.0% |
-| L1+L2 | 95.9% | 100.0% | 0.0% |
+| L1 | 59.2% | 100.0% | 0.0% |
+| L1+L2 | 98.0% | 100.0% | 0.0% |
 
 The benign half is real tool output — nmap service scans, nuclei JSON, MCP
 tool descriptions written in the imperative, Java stack traces carrying
@@ -50,12 +50,16 @@ one model at a time, so a session whose model differs from the classifier's
 also pays two model switches. That is defensible for one scan report and not
 for a loop.
 
-Complementarity is the reason for `max` rather than replacement: three of the
-five samples L2 misses are taken by L1 at exactly 50.
+Complementarity is the reason for `max` rather than replacement: four of the
+five samples L2 misses are taken by L1, three at exactly 50 and one at 100.
 
-Two injections still escape both layers, both plain base64 with no
-surrounding discussion of encoding. The encoded_payload patterns match talk
-*about* base64 rather than base64 itself. Named, not hidden.
+One injection still escapes both layers, and the reason is not the one this
+document gave until 2026-08-31. The encoded_payload patterns did match talk
+*about* base64 rather than base64 itself, and that is fixed: a blob whose
+bytes decode to text is decoded and the text is scanned, which is what took
+one sample out of the pattern layer's blind set. The sample that remains is
+filed under the encoded subclass and contains no base64. Its payload is
+ROT13, which nothing here reads. The label was wrong, not only the pattern.
 
 ## L3 — isolation of tool output
 
