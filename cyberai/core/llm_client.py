@@ -139,12 +139,15 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -282,13 +285,16 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
             tools=_tools_to_openai_format(tools),
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -437,7 +443,7 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
@@ -451,6 +457,9 @@ class LLMClient:
                 },
             },
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -533,12 +542,15 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = await client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = await client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),

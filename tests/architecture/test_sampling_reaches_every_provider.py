@@ -52,6 +52,28 @@ def test_every_sdk_branch_reads_the_configured_temperature():
 
 
 @pytest.mark.architecture
+def test_every_openai_branch_reads_the_configured_seed():
+    """Seed is asked of the providers that have one.
+
+    Anthropic's API takes no seed, so its branches are excluded by name
+    rather than by oversight; ollama's is held by the options-drift gate.
+    """
+    deaf = [m.name for m in _sdk_methods() if "openai" in m.name and not _reads(m, "seed")]
+    assert not deaf, f"OpenAI branches that never read config.seed: {deaf}"
+
+
+@pytest.mark.architecture
+def test_the_seed_rule_is_not_vacuous():
+    found = sorted(m.name for m in _sdk_methods() if "openai" in m.name)
+    assert found == [
+        "_acall_openai",
+        "_call_openai",
+        "_call_tools_openai",
+        "_structured_openai",
+    ]
+
+
+@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     """A rule matching nothing passes forever. Eight branches exist today."""
     found = sorted(m.name for m in _sdk_methods())
