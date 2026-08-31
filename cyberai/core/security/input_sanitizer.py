@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Max sizes to prevent context stuffing
 MAX_TARGET_LENGTH = 253
@@ -100,7 +100,7 @@ def _sanitize_blocks(content: List[Any]) -> List[Any]:
     return cleaned
 
 
-def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
+def sanitize_llm_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Sanitize messages before sending to LLM.
     Strips dangerous patterns from user-controlled content.
@@ -127,7 +127,7 @@ def sanitize_llm_input(messages: List[Dict]) -> List[Dict]:
     return sanitized
 
 
-def validate_json_output(raw: str, expected_keys: List[str] = None) -> Dict[str, Any]:
+def validate_json_output(raw: str, expected_keys: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Validate and parse LLM JSON output.
     Prevents malformed JSON from crashing the pipeline.

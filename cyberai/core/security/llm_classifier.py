@@ -190,7 +190,8 @@ def _default_transport(base_url: str, timeout: float) -> TransportFn:
     def _post(payload: Dict[str, Any]) -> Dict[str, Any]:
         response = httpx.post(f"{base_url}/api/chat", json=payload, timeout=timeout)
         response.raise_for_status()
-        return response.json()
+        body: Dict[str, Any] = response.json()
+        return body
 
     return _post
 
