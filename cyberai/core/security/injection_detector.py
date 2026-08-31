@@ -300,7 +300,7 @@ def l1_scorer(text: str) -> int:
     return int(detect_injection(text)["risk_score"])
 
 
-def scan_messages(messages: List[Dict]) -> Dict[str, Any]:
+def scan_messages(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Scan a list of LLM messages for injection attempts"""
     all_results = []
     for i, msg in enumerate(messages):
