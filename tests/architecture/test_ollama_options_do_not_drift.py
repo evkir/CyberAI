@@ -16,11 +16,16 @@ because it must answer the same way for every caller; the product path
 takes whatever the session configured. Only the key set is shared.
 """
 
+import pathlib
+import re
+
 import pytest
 
 from cyberai.core.config import LLMConfig
 from cyberai.core.llm_client import LLMClient
 from cyberai.core.security.llm_classifier import LLMClassifier
+
+_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def _client_options() -> dict:
@@ -42,3 +47,21 @@ def test_both_ollama_builders_send_the_same_option_keys():
 def test_the_shared_keys_are_the_ones_that_decide_reproducibility():
     """A rule over an empty or accidental key set passes forever."""
     assert set(_client_options()) == {"num_ctx", "temperature", "seed"}
+
+
+@pytest.mark.architecture
+def test_the_research_document_names_the_option_keys_the_client_sends():
+    """The published sentence about the request must match the request.
+
+    docs/research/detector-v2.md told readers for three days that this path
+    forwarded neither temperature nor seed, which was true when written and
+    false the moment it was fixed. A document that describes a request is a
+    consumer of that request's shape, and an unwatched consumer goes stale
+    silently. The live determinism figure it carries cannot be reproduced in
+    CI; the shape it rests on can, and that is what is pinned.
+    """
+    doc = (_ROOT / "docs" / "research" / "detector-v2.md").read_text(encoding="utf-8")
+    sentence = re.search(r"The ollama request carries ([^.]+)\.", doc)
+    assert sentence, "detector-v2.md no longer states which option keys the request carries"
+    named = set(re.findall(r"`([^`]+)`", sentence.group(1)))
+    assert named == set(_client_options())
