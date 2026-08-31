@@ -222,6 +222,13 @@ def _decoded_payloads(candidate: str) -> List[str]:
     "base64", for "decode this", for a decoder call; none of them looks at
     base64, so a bare blob in a header matched nothing at all.
 
+    There is no empty-decode branch. The pattern requires at least 24
+    characters of the alphabet, so a match decodes to at least 18 bytes and
+    the ratio below never divides by zero. A guard for an input the regex
+    cannot produce is unreachable by construction, and the coverage report
+    on PR #246 is what named it: one line, no test able to reach it through
+    the product path.
+
     One level, deliberately. The decoded text is scanned by the pattern list
     and not decoded again: a payload that nests encodings is a different
     question, and recursion here would turn an untrusted string into a loop
@@ -233,8 +240,6 @@ def _decoded_payloads(candidate: str) -> List[str]:
         try:
             raw = base64.b64decode(blob + "=" * (-len(blob) % 4), validate=True)
         except (binascii.Error, ValueError):
-            continue
-        if not raw:
             continue
         printable = sum(1 for byte in raw if 32 <= byte < 127 or byte in (9, 10, 13))
         if printable / len(raw) < _PRINTABLE_RATIO:
