@@ -188,19 +188,34 @@ class LLMClient:
         used to build its own payload and had silently dropped the system
         prompt and the raised num_ctx, so the same call behaved differently
         depending on which path reached it.
+
+        The options carry the configured temperature and, when one is
+        pinned, the seed. Measured 31.08.2026 before the fix: eight
+        identical calls through this path returned eight different
+        answers, because neither value was sent and ollama sampled with
+        a random seed. The same eight with both added returned one.
         """
         url = f"{self.config.base_url or 'http://localhost:11434'}/api/chat"
         full_messages: List[Dict] = []
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
+        options: Dict[str, Any] = {
+            # Default ollama context is 2048 tokens — too small for exploit
+            # prompts (CVE JSON + attack paths + chain), which 4xx/5xx the call.
+            "num_ctx": 8192,
+            "temperature": self.config.temperature,
+            # Read from config on every other provider and dropped here
+            # until now, so the local path sampled at ollama's own default
+            # while the config said 0.2.
+        }
+        if self.config.seed is not None:
+            options["seed"] = self.config.seed
         payload = {
             "model": self.config.model,
             "messages": full_messages,
             "stream": False,
-            # Default ollama context is 2048 tokens — too small for exploit
-            # prompts (CVE JSON + attack paths + chain), which 4xx/5xx the call.
-            "options": {"num_ctx": 8192},
+            "options": options,
         }
         return url, payload
 

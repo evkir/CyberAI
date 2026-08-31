@@ -197,3 +197,87 @@ def test_ollama_sync_and_async_send_identical_payloads(monkeypatch):
     assert sync_timeout == captured["async_timeout"] == lc.OLLAMA_TIMEOUT
     assert async_payload["messages"][0] == {"role": "system", "content": "SYS"}
     assert async_payload["options"]["num_ctx"] == 8192
+
+
+def test_every_ollama_entry_point_carries_the_configured_sampling(monkeypatch):
+    """All three ollama entry points must send the configured temperature, and
+    a seed only when one was pinned.
+
+    Measured before the fix: eight identical product calls returned eight
+    different answers, because the payload carried neither value and ollama
+    sampled with a random seed. The same eight calls with temperature and
+    seed added by hand returned one. The structured entry point had no test
+    at all, so it is asserted here alongside the other two rather than
+    trusted to share their builder forever.
+    """
+    import asyncio
+
+    from cyberai.core import llm_client as lc
+
+    captured = {}
+
+    class _Resp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": "{}"}}
+
+    class _AsyncClient:
+        def __init__(self, timeout=None):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json):
+            captured["async"] = json
+            return _Resp()
+
+    def _options_from_every_entry_point(config):
+        client = lc.LLMClient(config)
+        client.cost_tracker = None
+        client.budget_usd = 0
+        messages = [{"role": "user", "content": "hi"}]
+
+        def fake_post(url, json, timeout):
+            captured["sync"] = json
+            return _Resp()
+
+        monkeypatch.setattr(lc.httpx, "post", fake_post)
+        monkeypatch.setattr(lc.httpx, "AsyncClient", _AsyncClient)
+
+        client._call_ollama(messages, "SYS")
+        sync_options = captured["sync"]["options"]
+
+        client._structured_ollama(messages, {"type": "object"}, "S", "d", "SYS")
+        structured_options = captured["sync"]["options"]
+
+        asyncio.run(client._acall_ollama(messages, "SYS"))
+        async_options = captured["async"]["options"]
+
+        return {
+            "sync": sync_options,
+            "structured": structured_options,
+            "async": async_options,
+        }
+
+    unpinned = _options_from_every_entry_point(
+        lc.LLMConfig(provider="ollama", model="qwen2.5:7b", temperature=0.35)
+    )
+    pinned = _options_from_every_entry_point(
+        lc.LLMConfig(provider="ollama", model="qwen2.5:7b", temperature=0.0, seed=7)
+    )
+
+    carries_temperature = {n: o.get("temperature") for n, o in unpinned.items()}
+    carries_no_seed = {n: ("seed" in o) for n, o in unpinned.items()}
+    carries_seed = {n: o.get("seed") for n, o in pinned.items()}
+
+    assert carries_temperature == {"sync": 0.35, "structured": 0.35, "async": 0.35}
+    assert carries_no_seed == {"sync": False, "structured": False, "async": False}
+    assert carries_seed == {"sync": 7, "structured": 7, "async": 7}

@@ -20,11 +20,13 @@ Why its own model setting. The session's provider may be anthropic or openai.
 Inheriting it would send text that is suspected of being an attack to a third
 party and bill for it. The classifier is local or it does not run.
 
-Why the seed is pinned. _ollama_request forwards neither temperature nor
-seed, so the shared path samples with a random seed. The same input was
+Why the seed is pinned here rather than inherited. The same input was
 measured returning both verdicts across two consecutive calls at
-temperature 0. A classifier whose answer is not a function of its input
-cannot be published as a reproducible figure.
+temperature 0, back when the shared path forwarded neither value; it now
+forwards both, but it forwards whatever the session configured, and a
+session is free to pin no seed at all. A classifier whose answer is not a
+function of its input cannot be published as a reproducible figure, so it
+pins its own regardless of the caller.
 
 Failure is open by design. An unreachable model, a malformed body or an
 unparseable answer all yield "no opinion", never an exception and never a

@@ -35,3 +35,37 @@ def test_env_var_absent_leaves_the_flag_off(attr, env, monkeypatch):
     monkeypatch.delenv(env, raising=False)
     cfg = CyberAIConfig.from_env()
     assert getattr(cfg, attr) is False
+
+
+def test_sampling_settings_are_reachable_from_the_environment(monkeypatch):
+    """temperature and seed must be settable without editing code.
+
+    temperature had lived as a dataclass default no caller could change:
+    from_env did not read it and the CLI assigns only provider and model.
+    A value nobody can set is the same defect as a value that never reaches
+    the request. seed stays None when unset or unparseable, because that is
+    a different answer from a chosen 0 and garbage in a variable must not
+    abort a scan on startup.
+    """
+    for name in ("CYBERAI_TEMPERATURE", "CYBERAI_SEED"):
+        monkeypatch.delenv(name, raising=False)
+    unset = CyberAIConfig.from_env().llm
+
+    monkeypatch.setenv("CYBERAI_TEMPERATURE", "0.9")
+    monkeypatch.setenv("CYBERAI_SEED", "7")
+    chosen = CyberAIConfig.from_env().llm
+
+    monkeypatch.setenv("CYBERAI_TEMPERATURE", "junk")
+    monkeypatch.setenv("CYBERAI_SEED", "junk")
+    garbage = CyberAIConfig.from_env().llm
+
+    observed = {
+        "unset": (unset.temperature, unset.seed),
+        "chosen": (chosen.temperature, chosen.seed),
+        "garbage": (garbage.temperature, garbage.seed),
+    }
+    assert observed == {
+        "unset": (0.2, None),
+        "chosen": (0.9, 7),
+        "garbage": (0.2, None),
+    }

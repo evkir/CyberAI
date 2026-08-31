@@ -84,15 +84,37 @@ detection happens at all.
 ## What is not measured
 
 **Attack success rate.** The honest test of a marking layer is whether the
-model obeys the instruction with and without it. That measurement is not in
-this document because it is not currently reproducible: the Ollama request
-path sends neither temperature nor seed, and one input has been observed
-producing two different verdicts in succession. A number from a run that
-cannot be repeated is not a measurement.
+model obeys the instruction with and without it. That measurement is still
+not in this document. What has changed is the reason: until 31.08.2026 it
+could not be taken at all, because the Ollama request path sent neither
+temperature nor seed and one input was observed producing two different
+verdicts in succession. That path now carries both (see Determinism below),
+so the measurement has become possible and has not yet been made. A number
+from a run that cannot be repeated is not a measurement; the absence of a
+number is not evidence either way.
 
 **Anything outside the corpus.** Recall is recall against 49 samples chosen
 by the author. It is a floor for what the detector catches and says nothing
 about techniques nobody wrote a sample for.
+
+## Determinism
+
+The ollama request carries `num_ctx`, `temperature` and `seed`. The first two
+are always sent; the seed is sent only when the session pinned one, because
+an unpinned seed is a different answer from a seed of zero and the runtime
+samples freely when nobody asks.
+
+Measured on the product path, `qwen2.5-coder:14b`, one prompt, eight calls:
+
+| Request | Distinct answers |
+|---|---|
+| Before, `options` carried `num_ctx` alone | 8 of 8 |
+| After, with temperature and seed pinned | 1 of 8 |
+
+The figure is a live GPU run and is not reproducible in CI. What CI holds
+instead is the shape: the option keys named above are read out of the client
+and compared against this section, and against the L2 classifier, which
+builds the same request independently.
 
 ## Reproducing
 

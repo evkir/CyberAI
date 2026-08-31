@@ -46,6 +46,21 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_optional_int(name: str) -> Optional[int]:
+    """Read an int setting that may legitimately be unset.
+
+    Returns None for unset, empty or unparseable, because those three all
+    mean 'nobody chose a value' and the caller must be able to tell that
+    from a chosen 0. Garbage in the variable must not abort a scan on
+    startup, so an unparseable value is unset rather than an error.
+    """
+    raw = os.getenv(name, "")
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
 def _env_int(name: str, default: int) -> int:
     """Read an int setting from the environment; unset/invalid keeps default."""
     raw = os.getenv(name)
@@ -87,6 +102,12 @@ class LLMConfig:
     base_url: Optional[str] = None
     max_tokens: int = 4096
     temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
+    # Sampling seed. None means 'not pinned', which is what the runtime
+    # does when nobody asks; it is not the same answer as 0. Pinning a
+    # seed by default would make every run repeat the previous one
+    # without the caller choosing that, and a default that silently
+    # changes behaviour is not a default.
+    seed: Optional[int] = None
     # Trust boundary settings, consumed by LLMClient when it builds its
     # TrustGuard. None means 'not configured here' and defers to the
     # environment, not 'use the safe default' — the two are different
@@ -219,11 +240,7 @@ class CyberAIConfig:
         # 'not configured' from a real choice. Garbage in the variable
         # must not abort a scan on startup.
         policy = os.getenv("CYBERAI_INJECTION_POLICY") or None
-        raw_threshold = os.getenv("CYBERAI_INJECTION_THRESHOLD", "")
-        try:
-            threshold = int(raw_threshold)
-        except ValueError:
-            threshold = None
+        threshold = _env_optional_int("CYBERAI_INJECTION_THRESHOLD")
         output_dir = Path(out) if out else Path("reports/")
         return cls(
             llm=LLMConfig(
@@ -231,6 +248,8 @@ class CyberAIConfig:
                 model=model,
                 injection_policy=policy,
                 injection_threshold=threshold,
+                temperature=_env_float("CYBERAI_TEMPERATURE", LLMConfig.temperature),
+                seed=_env_optional_int("CYBERAI_SEED"),
             ),
             routing=routing,
             output_dir=output_dir,
