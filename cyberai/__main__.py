@@ -466,6 +466,22 @@ def scope_import(platform: str, scope_file: str) -> None:
     )
 
 
+def _seed_line(llm: LLMConfig) -> str:
+    """What the sampling seed will do, not what was typed.
+
+    Anthropic's API has no seed parameter, so a pinned value is discarded
+    there rather than obeyed. Saying "not set" in that case would answer a
+    different question, and printing the number alone would promise
+    reproducibility the provider cannot give.
+    """
+    if llm.provider == "anthropic":
+        pinned = "" if llm.seed is None else f"{llm.seed} — "
+        return f"{pinned}unsupported by this provider"
+    if llm.seed is None:
+        return "not set"
+    return str(llm.seed)
+
+
 @cli.command()
 def status() -> None:
     """Show CyberAI status and config."""
@@ -482,7 +498,10 @@ def status() -> None:
             f"Output: {config.output_dir}\n"
             f"Injection policy: {guard.policy}\n"
             f"Injection threshold: {guard.threshold}\n"
-            f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}",
+            f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}\n"
+            f"Temperature: {config.llm.temperature}\n"
+            f"Seed: {_seed_line(config.llm)}\n"
+            f"Air-gapped: {'on' if config.air_gapped else 'off'}",
             title="CyberAI Status",
         )
     )
