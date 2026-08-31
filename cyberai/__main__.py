@@ -15,6 +15,7 @@ from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
 from .core.config import CyberAIConfig, LLMConfig
+from .core.llm_client import LLMClient
 from .core.orchestrator import Orchestrator
 from .core.scan_session import ScanPhase
 
@@ -469,11 +470,19 @@ def scope_import(platform: str, scope_file: str) -> None:
 def status() -> None:
     """Show CyberAI status and config."""
     config = CyberAIConfig.from_env()
+    # The guard a real client would build from this config, not a second
+    # reading of the environment. policy_from_env degrades an unusable
+    # value; printing the raw setting would name a policy that never acts.
+    guard = LLMClient(config.llm).guard
+    classifier = guard.classifier
     console.print(
         Panel(
             f"Provider: {config.llm.provider}\n"
             f"Model: {config.llm.model}\n"
-            f"Output: {config.output_dir}",
+            f"Output: {config.output_dir}\n"
+            f"Injection policy: {guard.policy}\n"
+            f"Injection threshold: {guard.threshold}\n"
+            f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}",
             title="CyberAI Status",
         )
     )
