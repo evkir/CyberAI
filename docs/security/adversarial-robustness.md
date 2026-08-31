@@ -60,8 +60,8 @@ from real tools. Reproduce with:
 
     cyberai detector eval --corpus tests/corpus
 
-At the production threshold of 50, measured 2026-08-28 on CyberAI 1.6.0:
-recall 57.1%, precision 100.0%, false positives 0.0%. The detector's own
+At the production threshold of 50, measured 2026-08-31 on CyberAI 1.6.0:
+recall 59.2%, precision 100.0%, false positives 0.0%. The detector's own
 `is_injection` cut of 25 gives the same three figures, because no sample in
 either class scores between 25 and 50. That gap is a property of the
 weights rather than a coincidence: a directive category is worth 50 and any
@@ -106,9 +106,9 @@ detected. That is the trade the measurement argues for: one crafted sample
 against every stacktrace, HTML body and nmap comment in the benign half.
 
 The overall recall figure is still the least useful number in that
-paragraph. Four injection subclasses score below the threshold on every
-sample they hold: encoded payloads, five non-English languages, paraphrase
-that avoids the keywords, and social pressure. A list of English regular
+paragraph. Three injection subclasses score below the threshold on every
+sample they hold: five non-English languages, paraphrase that avoids the
+keywords, and social pressure. A list of English regular
 expressions cannot reach any of them, which is the case for a layer that is
 not a list of regular expressions rather than for more entries in this one.
 
@@ -117,6 +117,12 @@ the weights changed, and neither left because a pattern was added: their
 samples already matched one directive category and scored 25, which the
 threshold of 50 discarded. Two whole techniques were invisible for the
 arithmetic's sake rather than for want of a rule.
+
+Encoded payloads left it on 2026-08-31, and that one did take a rule: a
+base64 blob is now decoded and the decoded text is scanned. The subclass is
+no longer blind and is not solved either -- two of its three samples still
+score below the threshold, and one of those, despite its filename, carries
+no base64 at all.
 
 Until 2026-08-28 the false positives worth naming were ours. Ordinary
 `nmap -sV` output scored 50 and reached the guard, on an XML comment and a
@@ -129,28 +135,30 @@ score decides what any of it is worth.
 ## The second layer
 
 Four techniques scored exactly zero on every sample at every threshold
-tried: paraphrase, non-English instructions, social pressure and encoding.
-Zero is not a threshold problem. A local model is asked about the same text
+tried when this layer was added: paraphrase, non-English instructions,
+social pressure and encoding. Encoding has since left that list at the
+pattern layer; the other three have not. Zero is not a threshold problem. A local model is asked about the same text
 instead, under `CYBERAI_DETECTOR_L2`, and the two layers compose as a
 maximum. Reproduce without a GPU with:
 
     cyberai detector eval --corpus tests/corpus --l2-replay \
       examples/detector-eval/l2-verdicts.json
 
-At the production threshold the pair measures recall 95.9%, precision
-100.0% and false positives 0.0%, against 57.1% recall for the patterns
-alone. No technique in the corpus scores zero any more. The two remaining
-misses are both bare base64 blobs, which neither layer reads.
+At the production threshold the pair measures recall 98.0%, precision
+100.0% and false positives 0.0%, against 59.2% recall for the patterns
+alone. No technique in the corpus scores zero any more. One sample escapes
+both layers: it is filed under the encoded subclass and holds no base64,
+its payload is ROT13, and neither layer reads that.
 
 The layers turn out to be complementary rather than corroborating. Of the
-five injections the model misses, three are ones the patterns take at
-exactly the threshold. That is the argument for composing them rather than
+five injections the model misses, four are ones the patterns take: three at
+exactly the threshold and one at 100. That is the argument for composing them rather than
 replacing one with the other, and it is also why the composition is a
 maximum and not a sum: two suspicions that each fall short are not evidence
 twice over.
 
 The model cannot lower a verdict the patterns reached, and it is asked only
-where they have not already decided -- on the corpus that skips 28 of 94
+where they have not already decided -- on the corpus that skips 29 of 94
 samples, changing nothing. Its answer arrives through constrained decoding
 and is read as data. If it does not arrive at all the layer has no opinion,
 which is a different fact from a benign one and never becomes an exception:
@@ -204,7 +212,7 @@ question the code no longer asks is a fact about this repository.
 ## Future Work
 
 - Enforce KB namespace boundaries, or state plainly that the KB is shared.
-- Semantic injection detection (LLM-based classifier). The four blind
+- Semantic injection detection (LLM-based classifier). The three blind
   subclasses above are the argument for it and the corpus is the instrument
   that will say whether it helped.
 - Read-only agent mode for passive recon.

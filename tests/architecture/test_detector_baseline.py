@@ -178,22 +178,28 @@ def test_recall_is_higher_on_injections_than_on_benign() -> None:
 
 @pytest.mark.architecture
 def test_whole_subclasses_are_invisible_today() -> None:
-    """Three techniques score below the threshold on every sample they hold.
+    """Two techniques score below the threshold on every sample they hold.
 
-    Paraphrase, multilingual and encoded are the reason L2 and L3 exist in
-    the sprint plan: no regex over English keywords reaches them. Recorded
-    as a set so a rebuild that lights one up shows here rather than only in
-    a percentage. Social pressure is blind too but shares no filename
-    prefix, so it is caught by the report rather than by this list.
+    Paraphrase and multilingual are the reason L2 and L3 exist in the sprint
+    plan: no regex over English keywords reaches them. Recorded as a set so a
+    rebuild that lights one up shows here rather than only in a percentage.
+    Social pressure is blind too but shares no filename prefix, so it is
+    caught by the report rather than by this list.
 
-    Two subclasses have left the set, each time with this test going red and
-    naming the sample. Normalising before matching took homoglyphs out and
-    all three of those samples now clear the threshold. Weighting categories
-    took MCP tool metadata out: two of its four samples carry a directive
-    category that used to be worth 25 on its own and is now worth 50.
+    Three subclasses have left the set, each time with this test going red
+    and naming the sample. Normalising before matching took homoglyphs out
+    and all three of those samples now clear the threshold. Weighting
+    categories took MCP tool metadata out: two of its four samples carry a
+    directive category that used to be worth 25 on its own and is now worth
+    50. Decoding base64 before matching took encoded out on b64-plain, which
+    now scores 100 through the categories its payload carries.
+
+    Encoded leaves the list without becoming solved. Two of its three
+    samples still sit below the threshold, and one of those, despite its
+    name, holds no base64 at all.
     """
     inj = _class_scores("injections")
-    prefixes = ("para-", "lang-", "b64-")
+    prefixes = ("para-", "lang-")
     seen = {
         name: score
         for name, score in inj.items()

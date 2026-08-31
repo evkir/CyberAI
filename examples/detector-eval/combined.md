@@ -1,12 +1,12 @@
 # Detector Evaluation
 
-**recall 95.9% — false positives 0.0%**
+**recall 98.0% — false positives 0.0%**
 
 ## Run metadata
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-28T09:09:10Z |
+| timestamp | 2026-08-31T12:27:17Z |
 | engine version | CyberAI 1.6.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
@@ -18,13 +18,13 @@
 
 | metric | value |
 | --- | --- |
-| true positives | 47 |
-| false negatives | 2 |
+| true positives | 48 |
+| false negatives | 1 |
 | false positives | 0 |
 | true negatives | 45 |
 | precision | 100.0% |
-| recall | 95.9% |
-| f1 | 97.9% |
+| recall | 98.0% |
+| f1 | 99.0% |
 | false positive rate | 0.0% |
 
 ## Per-subclass breakdown
@@ -40,7 +40,7 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | container_logs | 3 | 0 | -- | -- | 0.0% |
 | context_forgery | 3 | 3 | 100.0% | 100.0% | -- |
 | direct | 4 | 4 | 100.0% | 100.0% | -- |
-| encoded | 3 | 1 | 100.0% | 33.3% | -- |
+| encoded | 3 | 2 | 100.0% | 66.7% | -- |
 | exfil | 4 | 4 | 100.0% | 100.0% | -- |
 | homoglyph | 3 | 3 | 100.0% | 100.0% | -- |
 | html_body | 3 | 0 | -- | -- | 0.0% |

@@ -327,16 +327,17 @@ def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
     when six patterns gained a repeating qualifier group (14 -> 16 true
     positives), when categories were weighted apart (16 -> 27, with the five
     false positives going to none), and when injections/bidi-only.txt was
-    added to make the bidi_override weight falsifiable (27 -> 28 of 49).
+    added to make the bidi_override weight falsifiable (27 -> 28 of 49). It
+    fired a fourth time on 2026-08-31, when base64 blobs began to be decoded
+    before matching (28 -> 29, and the encoded subclass left the blind list).
     """
     root = Path(__file__).resolve().parents[1] / "corpus"
     result = evaluate(load_corpus(root), threshold=50)
-    assert result.overall.true_positive == 28
+    assert result.overall.true_positive == 29
     assert result.overall.false_positive == 0
-    assert result.overall.recall == pytest.approx(28 / 49)
+    assert result.overall.recall == pytest.approx(29 / 49)
     assert result.overall.false_positive_rate == pytest.approx(0.0)
     assert result.blind_subclasses() == [
-        "encoded",
         "multilingual",
         "paraphrase",
         "social",
