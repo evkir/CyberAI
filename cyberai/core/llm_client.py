@@ -139,12 +139,15 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -167,6 +170,7 @@ class LLMClient:
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             messages=messages,
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -281,13 +285,16 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
             tools=_tools_to_openai_format(tools),
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -316,6 +323,7 @@ class LLMClient:
             max_tokens=self.config.max_tokens,
             messages=messages,
             tools=_tools_to_anthropic_format(tools),
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -435,7 +443,7 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
@@ -449,6 +457,9 @@ class LLMClient:
                 },
             },
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -482,6 +493,7 @@ class LLMClient:
             messages=messages,
             tools=[tool],
             tool_choice={"type": "tool", "name": schema_name},
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -530,12 +542,15 @@ class LLMClient:
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
-        response = await client.chat.completions.create(
+        kwargs: Dict[str, Any] = dict(
             model=self.config.model,
             messages=full_messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
+        if self.config.seed is not None:
+            kwargs["seed"] = self.config.seed
+        response = await client.chat.completions.create(**kwargs)
         self._record_usage(
             agent_name,
             getattr(response, "model", self.config.model),
@@ -558,6 +573,7 @@ class LLMClient:
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             messages=messages,
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system

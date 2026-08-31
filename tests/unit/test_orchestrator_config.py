@@ -21,6 +21,8 @@ from cyberai.core.config import (
 )
 from cyberai.core.orchestrator import Orchestrator
 from cyberai.core.scan_session import ScanState
+from cyberai.core.security.guard import ANNOTATE, DEFAULT_THRESHOLD
+from cyberai.core.security.llm_classifier import DEFAULT_MODEL
 
 # ── Orchestrator + config ─────────────────────────────────────────────
 
@@ -105,6 +107,90 @@ def test_cli_status_works():
     result = runner.invoke(cli, ["status"])
     assert result.exit_code == 0
     assert "Provider" in result.output
+
+
+def test_status_reports_the_configured_trust_boundary(monkeypatch):
+    """deny at threshold 70 is a different product than annotate at 50.
+
+    Measured before this existed: the two printed byte-identical output.
+    """
+    monkeypatch.setenv("CYBERAI_INJECTION_POLICY", "deny")
+    monkeypatch.setenv("CYBERAI_INJECTION_THRESHOLD", "70")
+    result = CliRunner().invoke(cli, ["status"])
+    assert result.exit_code == 0
+    assert "deny" in result.output
+    assert "70" in result.output
+
+
+def test_status_reports_the_defaults_when_nothing_is_set(monkeypatch):
+    """Control: without this the assertion above passes on hardcoded text."""
+    monkeypatch.delenv("CYBERAI_INJECTION_POLICY", raising=False)
+    monkeypatch.delenv("CYBERAI_INJECTION_THRESHOLD", raising=False)
+    result = CliRunner().invoke(cli, ["status"])
+    assert ANNOTATE in result.output
+    assert str(DEFAULT_THRESHOLD) in result.output
+
+
+def test_status_prints_what_the_guard_resolved_not_what_was_asked_for(monkeypatch):
+    """An unusable policy degrades inside TrustGuard. status must show the
+    value that will act, not the string the operator typed."""
+    monkeypatch.setenv("CYBERAI_INJECTION_POLICY", "aggressive")
+    monkeypatch.setenv("CYBERAI_INJECTION_THRESHOLD", "soon")
+    result = CliRunner().invoke(cli, ["status"])
+    assert "aggressive" not in result.output
+    assert "soon" not in result.output
+    assert ANNOTATE in result.output
+    assert str(DEFAULT_THRESHOLD) in result.output
+
+
+def test_status_shows_the_sampling_settings(monkeypatch):
+    monkeypatch.setenv("CYBERAI_TEMPERATURE", "0.7")
+    monkeypatch.setenv("CYBERAI_SEED", "1337")
+    result = CliRunner().invoke(cli, ["status"])
+    assert "0.7" in result.output
+    assert "1337" in result.output
+
+
+def test_status_says_an_unpinned_seed_is_not_set(monkeypatch):
+    """Not measured is not zero. An absent seed must not read as 0."""
+    monkeypatch.delenv("CYBERAI_SEED", raising=False)
+    result = CliRunner().invoke(cli, ["status"])
+    assert "not set" in result.output
+    assert "Seed: 0" not in result.output
+
+
+def test_status_says_a_seed_does_nothing_on_anthropic(monkeypatch):
+    """The provider has no seed parameter. Printing the number alone would
+    promise reproducibility this path cannot deliver."""
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("CYBERAI_SEED", "1337")
+    result = CliRunner().invoke(cli, ["status"])
+    assert "unsupported" in result.output
+    assert "not set" not in result.output
+
+
+def test_status_reports_air_gapped(monkeypatch):
+    monkeypatch.setenv("CYBERAI_AIR_GAPPED", "1")
+    assert "Air-gapped: on" in CliRunner().invoke(cli, ["status"]).output
+
+
+def test_status_reports_air_gapped_off_by_default(monkeypatch):
+    """Control: the line above would pass on a hardcoded string."""
+    monkeypatch.delenv("CYBERAI_AIR_GAPPED", raising=False)
+    assert "Air-gapped: off" in CliRunner().invoke(cli, ["status"]).output
+
+
+def test_status_names_the_second_layer_when_it_is_on(monkeypatch):
+    monkeypatch.setenv("CYBERAI_DETECTOR_L2", "1")
+    result = CliRunner().invoke(cli, ["status"])
+    assert DEFAULT_MODEL in result.output
+
+
+def test_status_says_the_second_layer_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("CYBERAI_DETECTOR_L2", raising=False)
+    result = CliRunner().invoke(cli, ["status"])
+    assert DEFAULT_MODEL not in result.output
+    assert "off" in result.output
 
 
 # ── Per-provider default model resolution ─────────────────────────────
