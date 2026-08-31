@@ -167,6 +167,7 @@ class LLMClient:
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             messages=messages,
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -316,6 +317,7 @@ class LLMClient:
             max_tokens=self.config.max_tokens,
             messages=messages,
             tools=_tools_to_anthropic_format(tools),
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -482,6 +484,7 @@ class LLMClient:
             messages=messages,
             tools=[tool],
             tool_choice={"type": "tool", "name": schema_name},
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
@@ -558,6 +561,7 @@ class LLMClient:
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             messages=messages,
+            temperature=self.config.temperature,
         )
         if system:
             kwargs["system"] = _wrap_cacheable(system) if cacheable_system else system
