@@ -87,6 +87,12 @@ class LLMConfig:
     base_url: Optional[str] = None
     max_tokens: int = 4096
     temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
+    # Sampling seed. None means 'not pinned', which is what the runtime
+    # does when nobody asks; it is not the same answer as 0. Pinning a
+    # seed by default would make every run repeat the previous one
+    # without the caller choosing that, and a default that silently
+    # changes behaviour is not a default.
+    seed: Optional[int] = None
     # Trust boundary settings, consumed by LLMClient when it builds its
     # TrustGuard. None means 'not configured here' and defers to the
     # environment, not 'use the safe default' — the two are different
