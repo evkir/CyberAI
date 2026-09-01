@@ -180,6 +180,38 @@ def test_status_reports_air_gapped_off_by_default(monkeypatch):
     assert "Air-gapped: off" in CliRunner().invoke(cli, ["status"]).output
 
 
+def test_status_names_the_variable_the_provider_needs(monkeypatch):
+    """A missing key is only actionable if the reader knows which name to
+    export. Until the resolver was fixed that name was always OPENAI's."""
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
+    result = CliRunner().invoke(cli, ["status"])
+    assert "ANTHROPIC_API_KEY" in result.output
+    assert "set" in result.output
+    assert "sk-anthropic" not in result.output
+
+
+def test_status_says_a_key_is_missing_when_it_is(monkeypatch):
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = CliRunner().invoke(cli, ["status"])
+    assert "missing (ANTHROPIC_API_KEY)" in result.output
+
+
+def test_status_says_a_local_provider_needs_no_key(monkeypatch):
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    result = CliRunner().invoke(cli, ["status"])
+    assert "API key: not required" in result.output
+
+
+def test_status_never_prints_the_key_itself(monkeypatch):
+    """Control: the assertions above would pass on a line that leaked it."""
+    monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret-value")
+    assert "sk-secret-value" not in CliRunner().invoke(cli, ["status"]).output
+
+
 def test_status_names_the_second_layer_when_it_is_on(monkeypatch):
     monkeypatch.setenv("CYBERAI_DETECTOR_L2", "1")
     result = CliRunner().invoke(cli, ["status"])

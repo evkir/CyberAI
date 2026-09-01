@@ -14,7 +14,7 @@ from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
-from .core.config import CyberAIConfig, LLMConfig
+from .core.config import _PROVIDER_KEY_ENV, CyberAIConfig, LLMConfig
 from .core.llm_client import LLMClient
 from .core.orchestrator import Orchestrator
 from .core.scan_session import ScanPhase
@@ -482,6 +482,20 @@ def _seed_line(llm: LLMConfig) -> str:
     return str(llm.seed)
 
 
+def _api_key_line(llm: LLMConfig) -> str:
+    """Whether the credential this provider needs is present.
+
+    The key itself is never printed. The variable name is, because the
+    answer an operator needs from a missing key is which name to export,
+    and until this branch that name was OPENAI_API_KEY whatever the
+    provider was.
+    """
+    variable = _PROVIDER_KEY_ENV.get(llm.provider)
+    if variable is None:
+        return "not required"
+    return f"{'set' if llm.api_key else 'missing'} ({variable})"
+
+
 @cli.command()
 def status() -> None:
     """Show CyberAI status and config."""
@@ -501,7 +515,8 @@ def status() -> None:
             f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}\n"
             f"Temperature: {config.llm.temperature}\n"
             f"Seed: {_seed_line(config.llm)}\n"
-            f"Air-gapped: {'on' if config.air_gapped else 'off'}",
+            f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
+            f"API key: {_api_key_line(config.llm)}",
             title="CyberAI Status",
         )
     )
