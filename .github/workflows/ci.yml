@@ -13,7 +13,11 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        # This project is developed on 3.14 and no job ran it: every green
+        # check spoke about a version nobody uses. The matrix is the
+        # instrument; requires-python, the classifiers and the README badge
+        # are not widened until it reports.
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code
