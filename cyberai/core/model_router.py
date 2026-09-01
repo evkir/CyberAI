@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, Optional
 
-from cyberai.core.config import LLMConfig, RoutingConfig
+from cyberai.core.config import LLMConfig, RoutingConfig, api_key_for
 from cyberai.core.scan_session import ScanPhase
 
 if TYPE_CHECKING:
@@ -73,7 +73,10 @@ class ModelRouter:
         if self._air_gapped:
             provider = self._routing.air_gapped_provider
             base_url = self._routing.air_gapped_base_url
-            api_key = self._base.api_key
+            # The provider changed, so the credential has to be re-resolved:
+            # carrying the base one over is how a cloud key ends up on a
+            # local runtime that has no use for it.
+            api_key = api_key_for(provider)
         else:
             provider = self._base.provider
             base_url = self._base.base_url

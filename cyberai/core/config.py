@@ -94,11 +94,32 @@ _PROVIDER_DEFAULT_MODELS = {
 }
 
 
+_PROVIDER_KEY_ENV = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
+
+
+def api_key_for(provider: str) -> Optional[str]:
+    """The credential the named provider will be called with.
+
+    One variable per provider. ollama is absent on purpose rather than by
+    omission: a local runtime takes no key, and returning None for it is the
+    answer rather than a missing entry.
+    """
+    variable = _PROVIDER_KEY_ENV.get(provider)
+    return os.getenv(variable) if variable else None
+
+
 @dataclass
 class LLMConfig:
     provider: Literal["openai", "anthropic", "ollama"] = "openai"
     model: str = "gpt-4o"
-    api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
+    # None means 'not supplied here', and __post_init__ then resolves the
+    # variable belonging to this provider. The old default_factory read
+    # OPENAI_API_KEY whatever the provider was, so an Anthropic run handed
+    # an OpenAI key to the Anthropic SDK.
+    api_key: Optional[str] = None
     base_url: Optional[str] = None
     max_tokens: int = 4096
     temperature: float = 0.2  # Low temp — we want deterministic pentest reasoning
@@ -114,6 +135,10 @@ class LLMConfig:
     # answers and a caller reading this field needs to tell them apart.
     injection_policy: Optional[str] = None
     injection_threshold: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if self.api_key is None:
+            self.api_key = api_key_for(self.provider)
 
     @staticmethod
     def default_model_for(provider: str) -> str:
