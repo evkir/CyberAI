@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2466%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2482%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%20core%2Ftypes.py%20%2B%20core%2Fsecurity-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)

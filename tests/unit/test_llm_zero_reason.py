@@ -5,7 +5,7 @@ phase asked for a model" call for opposite fixes. The reason field keeps
 those apart, and goes to None the moment a real call is recorded.
 """
 
-from cyberai.core.config import CyberAIConfig
+from cyberai.core.config import CyberAIConfig, LLMConfig
 from cyberai.core.cost_tracker import CostTracker
 from cyberai.core.llm_usage import llm_zero_reason
 from cyberai.core.orchestrator import Orchestrator
@@ -31,6 +31,19 @@ def test_cloud_provider_without_a_key_is_named():
 def test_anthropic_without_a_key_is_named():
     orch = Orchestrator(_config("anthropic"), dry_run=False)
     assert orch._llm_zero_reason() == "no_api_key_for_anthropic"
+
+
+def test_a_provider_holding_its_own_key_is_not_blamed_for_missing_one(monkeypatch):
+    """The negative cases above set the field by hand, so none of them saw
+    the resolver. Before it, an Anthropic run with ANTHROPIC_API_KEY exported
+    still answered no_api_key_for_anthropic: the field read OPENAI_API_KEY,
+    while the SDK quietly found the real key and made the call anyway."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    cfg = CyberAIConfig()
+    cfg.llm = LLMConfig(provider="anthropic")
+    reason = llm_zero_reason(cfg.llm, CostTracker(), client_built=False)
+    assert reason == "no_phase_requested_an_llm"
 
 
 def test_local_provider_needs_no_key_and_blames_the_pipeline():
