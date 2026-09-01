@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/evkir/CyberAI/actions/workflows/ci.yml/badge.svg)
 ![live recon](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/evkir/CyberAI/badges/latest.json)
-![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-2482%20collected-brightgreen)
@@ -422,7 +422,7 @@ methodology and the current scorecard.
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11-3.14 (all four run in CI)
 - OpenAI **or** Anthropic API key (not required for `--dry-run`)
 - Optional: phantom-grid (OOB), nuclei, slither, NVD API key
 
