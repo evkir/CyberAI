@@ -37,6 +37,13 @@ holds 91 modules; a later release moved it by one module in the other
 direction. The dev extra therefore bounds the checker rather than naming a
 floor and admitting every future release.
 
+It also moves with the stubs that happen to be installed. Two modules import
+yaml, and without `types-PyYAML` both report import-untyped and leave the
+clean side. `ignore_missing_imports` does not cover that case: the package is
+installed and it is the stubs that are absent. A workstation that acquired the
+stubs years ago measures a wider clean set than a fresh runner, so the dev
+extra names them.
+
 ## The unchecked side
 
 Six modules carry roughly a third of the 300 errors:
