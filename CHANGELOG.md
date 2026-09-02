@@ -6,6 +6,13 @@ All notable changes to CyberAI are documented here.
 
 ### Changed
 
+- **Typing scope: seven modules to ninety-one.** `mypy --strict` was reading
+  seven modules while ninety-one passed it untouched; the scope was a leftover
+  from switching the checker on, not a decision. It now lists the measured set,
+  the badge states the ratio rather than a path list, and
+  `docs/architecture/typing-scope.md` names the 79 modules left out and the 300
+  errors in them. The checker itself is bounded, so the set stays reproducible.
+
 - **Development status: Alpha to Beta.** The classifier said Alpha while the
   package carried a wired trust boundary, decontaminated benchmark proofs, an
   architecture-tested README and 2200-odd tests. Beta claims the interfaces
