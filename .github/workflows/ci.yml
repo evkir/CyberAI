@@ -124,6 +124,8 @@ jobs:
           pip install -e ".[dev]"
       - name: Run mypy --strict
         run: mypy
+      - name: Report modules that pass strictly outside the declared scope
+        run: python scripts/typing_scope_drift.py
 
   mcp-1x:
     name: MCP surface on mcp 1.x
