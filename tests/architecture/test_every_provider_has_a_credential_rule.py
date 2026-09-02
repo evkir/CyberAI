@@ -13,8 +13,6 @@ a decision.
 
 from typing import get_args, get_type_hints
 
-import pytest
-
 from cyberai.core.config import _PROVIDER_KEY_ENV, LLMConfig, api_key_for
 
 KEYLESS_PROVIDERS = {"ollama"}
@@ -24,25 +22,21 @@ def _declared_providers() -> set[str]:
     return set(get_args(get_type_hints(LLMConfig)["provider"]))
 
 
-@pytest.mark.architecture
 def test_every_declared_provider_is_either_keyed_or_named_keyless():
     undecided = _declared_providers() - set(_PROVIDER_KEY_ENV) - KEYLESS_PROVIDERS
     assert not undecided, f"providers with no credential decision: {undecided}"
 
 
-@pytest.mark.architecture
 def test_no_credential_rule_names_a_provider_that_does_not_exist():
     """The mapping is not allowed to outlive the Literal either."""
     stale = (set(_PROVIDER_KEY_ENV) | KEYLESS_PROVIDERS) - _declared_providers()
     assert not stale, f"credential rules for unknown providers: {stale}"
 
 
-@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     assert _declared_providers() == {"openai", "anthropic", "ollama"}
 
 
-@pytest.mark.architecture
 def test_each_keyed_provider_reads_its_own_variable(monkeypatch):
     for provider, variable in _PROVIDER_KEY_ENV.items():
         for other in _PROVIDER_KEY_ENV.values():

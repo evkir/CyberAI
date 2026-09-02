@@ -15,8 +15,6 @@ tests/architecture/test_ollama_options_do_not_drift.py instead.
 import ast
 import pathlib
 
-import pytest
-
 CLIENT_SOURCE = pathlib.Path(__file__).resolve().parents[2] / "cyberai" / "core" / "llm_client.py"
 
 _SDK_CLIENTS = (
@@ -45,13 +43,11 @@ def _reads(node, field: str) -> bool:
     return any(isinstance(child, ast.Attribute) and child.attr == field for child in ast.walk(node))
 
 
-@pytest.mark.architecture
 def test_every_sdk_branch_reads_the_configured_temperature():
     deaf = [m.name for m in _sdk_methods() if not _reads(m, "temperature")]
     assert not deaf, f"provider branches that never read config.temperature: {deaf}"
 
 
-@pytest.mark.architecture
 def test_every_openai_branch_reads_the_configured_seed():
     """Seed is asked of the providers that have one.
 
@@ -62,7 +58,6 @@ def test_every_openai_branch_reads_the_configured_seed():
     assert not deaf, f"OpenAI branches that never read config.seed: {deaf}"
 
 
-@pytest.mark.architecture
 def test_the_seed_rule_is_not_vacuous():
     found = sorted(m.name for m in _sdk_methods() if "openai" in m.name)
     assert found == [
@@ -73,7 +68,6 @@ def test_the_seed_rule_is_not_vacuous():
     ]
 
 
-@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     """A rule matching nothing passes forever. Eight branches exist today."""
     found = sorted(m.name for m in _sdk_methods())

@@ -32,7 +32,6 @@ import re
 import tomllib
 import urllib.parse
 
-import pytest
 import yaml
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -74,13 +73,11 @@ def _pinned_versions(node: object) -> list[str]:
     return found
 
 
-@pytest.mark.architecture
 def test_matrix_is_sorted_and_has_no_duplicates() -> None:
     versions = _matrix_versions()
     assert versions == sorted(set(versions), key=_key), versions
 
 
-@pytest.mark.architecture
 def test_classifiers_name_exactly_the_matrix_versions() -> None:
     doc = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     declared = [
@@ -91,14 +88,12 @@ def test_classifiers_name_exactly_the_matrix_versions() -> None:
     assert sorted(declared, key=_key) == _matrix_versions(), (declared, _matrix_versions())
 
 
-@pytest.mark.architecture
 def test_requires_python_floor_is_the_lowest_tested_version() -> None:
     doc = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     floor = doc["project"]["requires-python"]
     assert floor == ">=" + _matrix_versions()[0], (floor, _matrix_versions())
 
 
-@pytest.mark.architecture
 def test_readme_badge_names_exactly_the_matrix_versions() -> None:
     message = _BADGE.findall(_README.read_text(encoding="utf-8"))
     assert len(message) == 1, message
@@ -106,7 +101,6 @@ def test_readme_badge_names_exactly_the_matrix_versions() -> None:
     assert shown == _matrix_versions(), (shown, _matrix_versions())
 
 
-@pytest.mark.architecture
 def test_readme_requirement_line_spans_the_matrix_and_counts_it() -> None:
     matched = _REQUIREMENT.findall(_README.read_text(encoding="utf-8"))
     assert len(matched) == 1, matched
@@ -116,7 +110,6 @@ def test_readme_requirement_line_spans_the_matrix_and_counts_it() -> None:
     assert count == _COUNT_WORD[len(versions)], (count, len(versions))
 
 
-@pytest.mark.architecture
 def test_every_single_version_job_runs_a_tested_version() -> None:
     pinned = _pinned_versions(_ci_document())
     assert pinned, "no single-version job found; the walk stopped seeing them"

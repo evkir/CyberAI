@@ -16,8 +16,6 @@ under a different one.
 
 import pathlib
 
-import pytest
-
 from cyberai.core.security.eval_corpus import (
     evaluate,
     label_counts,
@@ -60,13 +58,11 @@ def _without_timestamp(text: str) -> list[str]:
     return [line for line in text.splitlines() if not line.startswith("| timestamp |")]
 
 
-@pytest.mark.architecture
 def test_the_artifact_and_its_recording_exist() -> None:
     assert _ARTIFACT.is_file(), f"missing; produce it with: {_REGENERATE}"
     assert _RECORDING.is_file(), f"missing; produce it with: {_REGENERATE}"
 
 
-@pytest.mark.architecture
 def test_the_committed_report_matches_a_replayed_run() -> None:
     committed = _without_timestamp(_ARTIFACT.read_text(encoding="utf-8"))
     assert committed == _without_timestamp(_fresh()), (
@@ -74,7 +70,6 @@ def test_the_committed_report_matches_a_replayed_run() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_recording_covers_every_sample() -> None:
     """A partial recording would silently measure a mix of two configurations.
 
@@ -87,7 +82,6 @@ def test_the_recording_covers_every_sample() -> None:
     assert not missing, f"no recorded verdict for {missing}; re-run: {_REGENERATE}"
 
 
-@pytest.mark.architecture
 def test_the_two_layer_report_beats_the_one_layer_report() -> None:
     """The reason the layer exists, pinned as a number rather than a claim.
 

@@ -17,8 +17,6 @@ import pathlib
 import re
 import tomllib
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _PYPROJECT = _ROOT / "pyproject.toml"
 _WORKFLOWS = _ROOT / ".github" / "workflows"
@@ -42,7 +40,6 @@ def _literal_installs(tool: str) -> list[str]:
     return found
 
 
-@pytest.mark.architecture
 def test_every_dev_tool_names_an_upper_bound() -> None:
     unbounded = [entry for entry in _dev_requirements().values() if "<" not in entry]
     assert not unbounded, (
@@ -51,7 +48,6 @@ def test_every_dev_tool_names_an_upper_bound() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_linter_is_installed_from_the_declared_specifier() -> None:
     declared = _dev_requirements()["ruff"]
     installed = _literal_installs("ruff")
@@ -61,7 +57,6 @@ def test_the_linter_is_installed_from_the_declared_specifier() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_type_checker_is_installed_from_the_extra_alone() -> None:
     assert not _literal_installs("mypy"), (
         "a workflow installs mypy from its own specifier; the dev extra is the "

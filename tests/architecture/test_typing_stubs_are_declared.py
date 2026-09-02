@@ -28,8 +28,6 @@ import re
 import sys
 import tomllib
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _PACKAGE = _ROOT / "cyberai"
 _PYPROJECT = _ROOT / "pyproject.toml"
@@ -93,7 +91,6 @@ def _declared_dev_distributions() -> set[str]:
     }
 
 
-@pytest.mark.architecture
 def test_no_untyped_import_is_left_undeclared() -> None:
     accounted = set(_STUB_DISTRIBUTION_FOR) | _NO_STUBS_PUBLISHED
     undeclared = sorted(_imports_without_inline_types() - accounted)
@@ -103,7 +100,6 @@ def test_no_untyped_import_is_left_undeclared() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_no_module_is_named_that_the_package_never_imports() -> None:
     imported = _third_party_imports()
     stale = sorted((set(_STUB_DISTRIBUTION_FOR) | _NO_STUBS_PUBLISHED) - imported)
@@ -113,7 +109,6 @@ def test_no_module_is_named_that_the_package_never_imports() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_every_stub_the_scope_needs_is_declared_in_the_dev_extra() -> None:
     declared = _declared_dev_distributions()
     missing = sorted(
@@ -129,7 +124,6 @@ def test_every_stub_the_scope_needs_is_declared_in_the_dev_extra() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_dev_extra_declares_no_stub_nothing_relies_on() -> None:
     needed = set(_STUB_DISTRIBUTION_FOR.values())
     unused = sorted(

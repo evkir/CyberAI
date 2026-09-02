@@ -25,8 +25,6 @@ import re
 import tomllib
 import urllib.parse
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _README = _ROOT / "README.md"
 _PYPROJECT = _ROOT / "pyproject.toml"
@@ -57,7 +55,6 @@ def _claimed_counts() -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-@pytest.mark.architecture
 def test_the_badge_claims_no_more_than_the_checker_reads() -> None:
     claimed, _ = _claimed_counts()
     checked = _checked_modules()
@@ -66,7 +63,6 @@ def test_the_badge_claims_no_more_than_the_checker_reads() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_badge_claims_everything_the_checker_reads() -> None:
     claimed, _ = _claimed_counts()
     checked = _checked_modules()
@@ -75,7 +71,6 @@ def test_the_badge_claims_everything_the_checker_reads() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_badge_names_the_size_of_the_package_it_measures_against() -> None:
     _, denominator = _claimed_counts()
     assert denominator == _package_modules(), (

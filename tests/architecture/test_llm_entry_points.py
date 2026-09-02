@@ -14,8 +14,6 @@ method satisfies or fails on the day it is added.
 import ast
 import pathlib
 
-import pytest
-
 CLIENT_SOURCE = pathlib.Path(__file__).resolve().parents[2] / "cyberai" / "core" / "llm_client.py"
 
 
@@ -42,7 +40,6 @@ def _calls_in(node) -> set[str]:
     return names
 
 
-@pytest.mark.architecture
 def test_every_entry_point_taking_messages_consults_the_guard():
     unguarded = [m.name for m in _public_message_methods() if "_guard" not in _calls_in(m)]
     assert not unguarded, (
@@ -50,7 +47,6 @@ def test_every_entry_point_taking_messages_consults_the_guard():
     )
 
 
-@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     """A rule matching nothing passes forever. Four entry points exist today."""
     found = sorted(m.name for m in _public_message_methods())

@@ -32,8 +32,6 @@ without reading it.
 import pathlib
 import re
 
-import pytest
-
 from cyberai.core.security.eval_corpus import evaluate, load_corpus
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
 
@@ -66,13 +64,11 @@ def _section(text: str, heading: str) -> str:
     return "\n".join(lines[start:end])
 
 
-@pytest.mark.architecture
 def test_the_document_quotes_the_command_that_reproduces_it() -> None:
     body = _DOC.read_text(encoding="utf-8")
     assert "cyberai detector eval --corpus tests/corpus" in body
 
 
-@pytest.mark.architecture
 def test_the_document_quotes_the_command_that_replays_the_second_layer() -> None:
     """A figure nobody can reproduce is a claim, whatever produced it."""
     body = _DOC.read_text(encoding="utf-8")
@@ -80,7 +76,6 @@ def test_the_document_quotes_the_command_that_replays_the_second_layer() -> None
     assert "examples/detector-eval/l2-verdicts.json" in body
 
 
-@pytest.mark.architecture
 def test_production_threshold_figures_come_from_the_artifact() -> None:
     """Every figure in the document, not only those under one heading.
 
@@ -115,7 +110,6 @@ def _rendered_at(threshold: int) -> str:
     return " ".join(parts)
 
 
-@pytest.mark.architecture
 def test_the_blind_subclasses_named_in_prose_are_the_measured_ones() -> None:
     """The list is prose and drifts the way a number does."""
     doc = _section(_DOC.read_text(encoding="utf-8"), "## Measured coverage")
@@ -131,13 +125,11 @@ def test_the_blind_subclasses_named_in_prose_are_the_measured_ones() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_readme_links_to_the_artifact() -> None:
     body = (_ROOT / "README.md").read_text(encoding="utf-8")
     assert "examples/detector-eval/baseline.md" in body
 
 
-@pytest.mark.architecture
 def test_the_readme_links_to_the_research_document() -> None:
     body = (_ROOT / "README.md").read_text(encoding="utf-8")
     assert "docs/research/detector-v2.md" in body

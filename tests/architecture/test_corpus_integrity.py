@@ -34,8 +34,6 @@ import hashlib
 import json
 import pathlib
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _CORPUS = _ROOT / "tests" / "corpus"
 _MANIFEST = _CORPUS / "manifest.jsonl"
@@ -68,20 +66,17 @@ def _sample_files() -> set[str]:
     return found
 
 
-@pytest.mark.architecture
 def test_every_manifest_entry_has_its_file() -> None:
     missing = [e["path"] for e in _entries() if not (_CORPUS / e["path"]).is_file()]
     assert not missing, missing
 
 
-@pytest.mark.architecture
 def test_every_file_has_its_manifest_entry() -> None:
     declared = {e["path"] for e in _entries()}
     orphans = sorted(_sample_files() - declared)
     assert not orphans, orphans
 
 
-@pytest.mark.architecture
 def test_entries_are_complete_and_well_formed() -> None:
     seen_ids = set()
     for e in _entries():
@@ -97,7 +92,6 @@ def test_entries_are_complete_and_well_formed() -> None:
             assert e.get("origin"), e["id"]
 
 
-@pytest.mark.architecture
 def test_both_classes_meet_the_floor() -> None:
     counts = {"injection": 0, "benign": 0}
     for e in _entries():
@@ -106,7 +100,6 @@ def test_both_classes_meet_the_floor() -> None:
         assert n >= MIN_PER_CLASS, (label, n, MIN_PER_CLASS)
 
 
-@pytest.mark.architecture
 def test_no_sample_is_a_copy_of_another() -> None:
     by_digest: dict[str, list[str]] = {}
     for rel in sorted(_sample_files()):
@@ -116,13 +109,11 @@ def test_no_sample_is_a_copy_of_another() -> None:
     assert not dupes, dupes
 
 
-@pytest.mark.architecture
 def test_no_sample_is_empty() -> None:
     empty = [rel for rel in sorted(_sample_files()) if not (_CORPUS / rel).read_bytes().strip()]
     assert not empty, empty
 
 
-@pytest.mark.architecture
 def test_every_injection_declares_how_success_would_be_observed() -> None:
     """Attack success rate needs a predicate per sample, and text cannot supply it.
 
@@ -141,7 +132,6 @@ def test_every_injection_declares_how_success_would_be_observed() -> None:
     assert not wrong, wrong
 
 
-@pytest.mark.architecture
 def test_the_observable_group_is_large_enough_to_divide_by() -> None:
     counts = {name: 0 for name in OUTCOMES}
     unknown = []

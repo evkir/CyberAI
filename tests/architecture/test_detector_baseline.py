@@ -91,7 +91,6 @@ def _pattern_starting_with(prefix: str) -> str:
     return found[0]
 
 
-@pytest.mark.architecture
 @pytest.mark.parametrize("phrase,prefix", _TWO_QUALIFIER_PHRASES)
 def test_a_repeating_group_absorbs_two_qualifiers(phrase: str, prefix: str) -> None:
     """Two qualifiers between the verb and its object must still match.
@@ -113,7 +112,6 @@ def test_a_repeating_group_absorbs_two_qualifiers(phrase: str, prefix: str) -> N
     )
 
 
-@pytest.mark.architecture
 def test_the_exfil_verbs_overlap_a_context_pattern_on_the_same_phrase() -> None:
     """One phrase, two categories, and one of them was never written for it.
 
@@ -129,7 +127,6 @@ def test_the_exfil_verbs_overlap_a_context_pattern_on_the_same_phrase() -> None:
     assert categories == ["context_manipulation", "exfil"], categories
 
 
-@pytest.mark.architecture
 def test_no_captured_tool_output_reaches_the_guard() -> None:
     """The scanner no longer flags itself, and neither does anything else.
 
@@ -147,7 +144,6 @@ def test_no_captured_tool_output_reaches_the_guard() -> None:
     assert scores["cap-nmap-sv.txt"] > 0, "the patterns should still see it, just not act"
 
 
-@pytest.mark.architecture
 def test_the_detector_is_not_degenerate() -> None:
     """Neither class is uniformly scored: the instrument discriminates.
 
@@ -161,7 +157,6 @@ def test_the_detector_is_not_degenerate() -> None:
     assert 0 < sum(1 for s in ben.values() if s > 0) < len(ben)
 
 
-@pytest.mark.architecture
 def test_recall_is_higher_on_injections_than_on_benign() -> None:
     """The weakest property worth keeping: it is better than a coin.
 
@@ -176,7 +171,6 @@ def test_recall_is_higher_on_injections_than_on_benign() -> None:
     assert inj_rate > ben_rate, (inj_rate, ben_rate)
 
 
-@pytest.mark.architecture
 def test_whole_subclasses_are_invisible_today() -> None:
     """Two techniques score below the threshold on every sample they hold.
 

@@ -18,8 +18,6 @@ import re
 import tomllib
 import urllib.parse
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _README = _ROOT / "README.md"
 _PYPROJECT = _ROOT / "pyproject.toml"
@@ -51,14 +49,12 @@ def _scope_size() -> int:
     return len(resolved)
 
 
-@pytest.mark.architecture
 def test_the_page_quotes_the_ratio_the_badge_carries() -> None:
     assert _page_ratio() == _badge_ratio(), (
         f"the page says {_page_ratio()} while the badge says {_badge_ratio()}"
     )
 
 
-@pytest.mark.architecture
 def test_the_page_quotes_the_scope_the_checker_resolves() -> None:
     checked, _ = _page_ratio()
     assert checked == _scope_size(), (
@@ -66,7 +62,6 @@ def test_the_page_quotes_the_scope_the_checker_resolves() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_page_names_the_release_it_was_measured_with() -> None:
     config = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     floor = next(

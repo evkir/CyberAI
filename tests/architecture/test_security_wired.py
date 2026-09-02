@@ -19,8 +19,6 @@ somewhere and that entry point is what shows up as unwired.
 import ast
 import pathlib
 
-import pytest
-
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SECURITY = REPO / "cyberai" / "core" / "security"
 PRODUCTION = REPO / "cyberai"
@@ -107,7 +105,6 @@ def _unwired() -> set[str]:
     return dead
 
 
-@pytest.mark.architecture
 def test_no_new_security_helper_goes_unwired():
     new = _unwired() - set(KNOWN_UNWIRED)
     assert not new, (
@@ -117,20 +114,17 @@ def test_no_new_security_helper_goes_unwired():
     )
 
 
-@pytest.mark.architecture
 def test_the_unwired_list_does_not_go_stale():
     wired_now = set(KNOWN_UNWIRED) - _unwired()
     assert not wired_now, f"these are wired now and must leave KNOWN_UNWIRED: {sorted(wired_now)}"
 
 
-@pytest.mark.architecture
 def test_every_listed_helper_still_exists():
     defined = set(_public_module_functions(SECURITY))
     gone = set(KNOWN_UNWIRED) - defined
     assert not gone, f"listed but no longer defined, drop from KNOWN_UNWIRED: {sorted(gone)}"
 
 
-@pytest.mark.architecture
 def test_scan_messages_is_unwired_for_the_reason_recorded() -> None:
     """The note beside an unwired helper has to describe the real obstacle.
 
@@ -156,7 +150,6 @@ def test_scan_messages_is_unwired_for_the_reason_recorded() -> None:
     assert [d["role"] for d in system_only["details"]] == ["system"]
 
 
-@pytest.mark.architecture
 def test_scoring_before_sanitising_is_what_keeps_an_injection_visible() -> None:
     """Guard order, measured on the tracked corpus rather than asserted.
 

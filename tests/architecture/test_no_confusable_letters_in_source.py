@@ -23,8 +23,6 @@ change the thing being measured.
 
 import pathlib
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _SOURCE_DIRS = ("cyberai", "tests")
 _EXEMPT = ("tests/corpus",)
@@ -60,7 +58,6 @@ def _offenders(path: pathlib.Path) -> list[tuple[int, str]]:
     return hits
 
 
-@pytest.mark.architecture
 def test_no_source_file_holds_a_confusable_letter() -> None:
     found = {
         path.relative_to(_ROOT).as_posix(): _offenders(path)
@@ -73,7 +70,6 @@ def test_no_source_file_holds_a_confusable_letter() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_scan_actually_covers_the_security_package() -> None:
     """A gate that checks nothing passes for the wrong reason."""
     scanned = {p.relative_to(_ROOT).as_posix() for p in _files()}
@@ -81,7 +77,6 @@ def test_the_scan_actually_covers_the_security_package() -> None:
     assert len(scanned) > 100, len(scanned)
 
 
-@pytest.mark.architecture
 def test_the_corpus_is_exempt_and_still_holds_confusables() -> None:
     """The exemption is load-bearing: prove the samples it protects exist."""
     sample = _ROOT / "tests" / "corpus" / "injections" / "homoglyph-cyrillic.txt"
@@ -89,7 +84,6 @@ def test_the_corpus_is_exempt_and_still_holds_confusables() -> None:
     assert any(_is_banned(c) for c in body), "the homoglyph sample lost its homoglyphs"
 
 
-@pytest.mark.architecture
 def test_the_rule_does_not_reach_beyond_confusable_letters() -> None:
     """Typography stays legal. The gate is about impersonation, not about ASCII."""
     for char in ("\u2014", "\u2192", "\u2713", "\u2500", "\u26a0"):
