@@ -25,8 +25,6 @@ copy keeps passing on the day the app changes what it plants.
 import ast
 import pathlib
 
-import pytest
-
 from cyberai.bench import scorecard
 from cyberai.bench.apps import path_traversal
 from cyberai.bench.runner import BenchResult, SuiteReport
@@ -115,7 +113,6 @@ def _report_carrying_a_planted_secret() -> tuple[SuiteReport, str]:
     return SuiteReport(suite="local", total=1, solved=1, results=results), secret
 
 
-@pytest.mark.architecture
 def test_target_output_recorded_in_a_finding_does_not_reach_the_card():
     report, secret = _report_carrying_a_planted_secret()
 
@@ -128,7 +125,6 @@ def test_target_output_recorded_in_a_finding_does_not_reach_the_card():
     )
 
 
-@pytest.mark.architecture
 def test_the_scorecard_reads_only_the_keys_it_declares():
     read = _details_keys_read_by_the_scorecard()
 
@@ -140,7 +136,6 @@ def test_the_scorecard_reads_only_the_keys_it_declares():
     )
 
 
-@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     """A guard over an empty set passes forever.
 

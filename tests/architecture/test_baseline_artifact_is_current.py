@@ -18,8 +18,6 @@ is never to edit this file.
 
 import pathlib
 
-import pytest
-
 from cyberai.core.security.eval_corpus import (
     evaluate,
     label_counts,
@@ -56,19 +54,16 @@ def _fresh() -> str:
     return render_report(result, "tests/corpus", label_counts(samples))
 
 
-@pytest.mark.architecture
 def test_the_artifact_exists() -> None:
     assert _ARTIFACT.is_file(), f"missing; produce it with: {_REGENERATE}"
 
 
-@pytest.mark.architecture
 def test_every_committed_cell_matches_a_fresh_run() -> None:
     committed = _rows(_ARTIFACT.read_text(encoding="utf-8"))
     fresh = _rows(_fresh())
     assert committed == fresh, f"the report is stale or was edited by hand; re-run: {_REGENERATE}"
 
 
-@pytest.mark.architecture
 def test_the_prose_around_the_tables_matches_too() -> None:
     """Not only the numbers: the blind list is prose and drifts the same way."""
     committed = _ARTIFACT.read_text(encoding="utf-8").splitlines()
@@ -79,7 +74,6 @@ def test_the_prose_around_the_tables_matches_too() -> None:
     assert committed == fresh, f"re-run: {_REGENERATE}"
 
 
-@pytest.mark.architecture
 def test_the_artifact_is_measured_at_the_production_threshold() -> None:
     """A report taken at some other threshold would describe a product nobody ships."""
     body = _ARTIFACT.read_text(encoding="utf-8")

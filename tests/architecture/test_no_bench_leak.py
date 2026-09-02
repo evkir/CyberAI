@@ -27,8 +27,6 @@ import ast
 import pathlib
 import re
 
-import pytest
-
 from cyberai.agents.exploit.web_payloads import Proof, WebPayload, WebVulnClass, full_corpus
 from cyberai.bench.apps import path_traversal
 
@@ -72,7 +70,6 @@ def _confirmations(payloads: list[WebPayload]) -> list[str]:
     return violations
 
 
-@pytest.mark.architecture
 def test_no_bench_flag_literal_reaches_the_production_engine():
     offenders = [
         str(p.relative_to(REPO))
@@ -86,13 +83,11 @@ def test_no_bench_flag_literal_reaches_the_production_engine():
     )
 
 
-@pytest.mark.architecture
 def test_no_production_proof_is_satisfied_by_a_bench_target_literal():
     violations = _confirmations(full_corpus())
     assert not violations, "proofs confirmed by our own targets' text: " + "; ".join(violations)
 
 
-@pytest.mark.architecture
 def test_the_rule_is_not_vacuous():
     """A check that scans nothing passes forever.
 
@@ -107,7 +102,6 @@ def test_the_rule_is_not_vacuous():
     assert planted, "the bench no longer plants a flag; this rule now guards nothing"
 
 
-@pytest.mark.architecture
 def test_the_rule_catches_a_contaminated_proof():
     """The guard must fire, not merely pass on a clean corpus.
 

@@ -16,8 +16,6 @@ import re
 import subprocess
 import sys
 
-import pytest
-
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _README = _ROOT / "README.md"
 
@@ -58,7 +56,6 @@ def _claimed() -> int:
     return int(match.group(1))
 
 
-@pytest.mark.architecture
 def test_the_badge_counts_the_tests_that_exist() -> None:
     claimed, collected = _claimed(), _collected()
     assert claimed == collected, (

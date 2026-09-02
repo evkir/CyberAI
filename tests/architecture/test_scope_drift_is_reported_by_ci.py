@@ -21,7 +21,6 @@ a module withdrawn from `files` is named with a non-zero exit.
 
 import pathlib
 
-import pytest
 import yaml
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -47,7 +46,6 @@ def _jobs_running_the_report() -> set[str]:
     return {name for name, job in _jobs().items() if _SCRIPT in _commands(job)}
 
 
-@pytest.mark.architecture
 def test_the_drift_report_is_run_by_a_job() -> None:
     assert (_ROOT / _SCRIPT).exists(), f"{_SCRIPT} is referenced nowhere and exists nowhere"
     running = _jobs_running_the_report()
@@ -57,7 +55,6 @@ def test_the_drift_report_is_run_by_a_job() -> None:
     )
 
 
-@pytest.mark.architecture
 def test_the_drift_report_runs_where_the_stubs_are_installed() -> None:
     without_stubs = sorted(
         name for name in _jobs_running_the_report() if _DEV_EXTRA not in _commands(_jobs()[name])

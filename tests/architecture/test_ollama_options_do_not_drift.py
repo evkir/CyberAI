@@ -19,8 +19,6 @@ takes whatever the session configured. Only the key set is shared.
 import pathlib
 import re
 
-import pytest
-
 from cyberai.core.config import LLMConfig
 from cyberai.core.llm_client import LLMClient
 from cyberai.core.security.llm_classifier import LLMClassifier
@@ -38,18 +36,15 @@ def _classifier_options() -> dict:
     return LLMClassifier(model="qwen2.5:7b")._payload("x")["options"]
 
 
-@pytest.mark.architecture
 def test_both_ollama_builders_send_the_same_option_keys():
     assert set(_client_options()) == set(_classifier_options())
 
 
-@pytest.mark.architecture
 def test_the_shared_keys_are_the_ones_that_decide_reproducibility():
     """A rule over an empty or accidental key set passes forever."""
     assert set(_client_options()) == {"num_ctx", "temperature", "seed"}
 
 
-@pytest.mark.architecture
 def test_the_research_document_names_the_option_keys_the_client_sends():
     """The published sentence about the request must match the request.
 
