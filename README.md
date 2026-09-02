@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2492%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2495%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%2091%2F170%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -402,6 +402,7 @@ methodology and the current scorecard.
 | [docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md) | A self-referential proof, how it was found, what the numbers did |
 | [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md) | The external suite, scored 0/3, with the cause |
 | [docs/architecture/known-issues.md](docs/architecture/known-issues.md) | Known defects and gaps, named rather than implied |
+| [docs/architecture/typing-scope.md](docs/architecture/typing-scope.md) | What the type checker reads, what it does not, and why |
 | [docs/workflows/htb-with-cyberai.md](docs/workflows/htb-with-cyberai.md) | Walkthrough: a lab box end to end |
 | [docs/workflows/web3-discovery.md](docs/workflows/web3-discovery.md) | Walkthrough: contract discovery to Immunefi export |
 | [docs/usage/examples.md](docs/usage/examples.md) | Command recipes by task |
