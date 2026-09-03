@@ -9,56 +9,58 @@ deliberate. Collection is cheap and reproducible; "passing" is a claim about
 a run, and this test is itself part of the run that would have to make it.
 The suite being green is what makes every collected test a passing one, so
 the badge says what is measured here and the CI status badge says the rest.
+
+Counting used to live here, which left the badge readable and unwritable: the
+gate could say the number was wrong and nothing could set it right. The
+counter now lives in scripts/tests_badge.py and this file reads it, so the
+number written by hand and the number checked here cannot be two numbers.
+
+The script is loaded from its path rather than imported by name. scripts/ is
+importable today only because the editable install drops the repository root
+into sys.path; an assertion resting on the install mode is an assertion about
+the machine it last ran on.
 """
 
+import importlib.util
 import pathlib
-import re
-import subprocess
-import sys
+import shutil
+import types
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
-_README = _ROOT / "README.md"
-
-# The same selection CI runs, so the number describes the suite people gate on.
-_MARKERS = "not slow and not smoke"
+_SCRIPT = _ROOT / "scripts" / "tests_badge.py"
 
 
-def _collected() -> int:
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "tests/",
-            "--collect-only",
-            "-q",
-            "-p",
-            "no:cacheprovider",
-            "-m",
-            _MARKERS,
-        ],
-        cwd=_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    match = re.search(r"(\d+)(?:/\d+)? tests? collected", result.stdout)
-    assert match, f"could not read a collection count from pytest:\n{result.stdout[-2000:]}"
-    return int(match.group(1))
-
-
-def _claimed() -> int:
-    line = next(
-        line for line in _README.read_text(encoding="utf-8").splitlines() if "badge/tests-" in line
-    )
-    match = re.search(r"badge/tests-(\d+)", line)
-    assert match, f"the tests badge carries no number: {line}"
-    return int(match.group(1))
+def _badge_tool() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location("tests_badge", _SCRIPT)
+    assert spec and spec.loader, f"no module at {_SCRIPT}"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_the_badge_counts_the_tests_that_exist() -> None:
-    claimed, collected = _claimed(), _collected()
+    tool = _badge_tool()
+    claimed, collected = tool.claimed(), tool.collected()
     assert claimed == collected, (
         f"the README badge says {claimed} tests and the suite collects {collected}. "
-        "Update the badge rather than this number."
+        "Run scripts/tests_badge.py rather than editing this number."
     )
+
+
+def test_the_writer_writes_the_number_the_reader_reads(tmp_path) -> None:
+    """A writer that puts down a different figure is a second producer."""
+    tool = _badge_tool()
+    copy = tmp_path / "README.md"
+    shutil.copy(tool.README, copy)
+    assert tool.rewrite(1, copy) is True
+    assert tool.claimed(copy) == 1
+
+
+def test_rewriting_a_current_badge_leaves_the_file_alone(tmp_path) -> None:
+    """Otherwise every run dirties the tree and the diff stops meaning anything."""
+    tool = _badge_tool()
+    copy = tmp_path / "README.md"
+    shutil.copy(tool.README, copy)
+    before = copy.read_bytes()
+    assert tool.rewrite(tool.claimed(copy), copy) is False
+    assert copy.read_bytes() == before

@@ -8,6 +8,17 @@ cd CyberAI && pip install -e ".[test,dev]"
 pytest tests/unit/ -v
 pytest tests/integration/ -v
 
+The README states how many tests the suite collects, and a gate compares
+that number with a fresh collection. After adding or removing tests, let
+the tool restate it instead of editing the badge by hand:
+
+python3 scripts/tests_badge.py
+
+The typing badge states a ratio of checked modules to package modules, and
+both halves move when modules are added. It has its own tool:
+
+python3 scripts/mypy_badge.py
+
 ## Lint
 ruff check cyberai/ --fix
 
