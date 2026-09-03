@@ -14,6 +14,11 @@ the tool restate it instead of editing the badge by hand:
 
 python3 scripts/tests_badge.py
 
+The typing badge states a ratio of checked modules to package modules, and
+both halves move when modules are added. It has its own tool:
+
+python3 scripts/mypy_badge.py
+
 ## Lint
 ruff check cyberai/ --fix
 
