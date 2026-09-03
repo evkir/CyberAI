@@ -14,6 +14,7 @@ omitted here fails, and a group that outlives its fields fails too.
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import cyberai
@@ -49,11 +50,39 @@ def _printed_labels() -> set[str]:
     raise AssertionError("no status command in __main__")
 
 
+# Both spellings of the invocation the README shows.
+_INVOCATION = re.compile(r"^(?:python -m )?cyberai status\b")
+
+
+def _status_invocations() -> list[str]:
+    return [
+        line for line in _README.read_text(encoding="utf-8").splitlines() if _INVOCATION.match(line)
+    ]
+
+
+def _described_invocations() -> list[str]:
+    """The invocations that also say what the command prints."""
+    return [line for line in _status_invocations() if "#" in line]
+
+
 def _readme_status_line() -> str:
-    for line in _README.read_text(encoding="utf-8").splitlines():
-        if line.startswith("cyberai status"):
-            return line
-    raise AssertionError("README does not show the status command")
+    """The one invocation that says what the command prints.
+
+    Reading the first line that matched made a second description invisible.
+    The README shows the command twice -- once with the field list, once as
+    `python -m cyberai status` in the quick-start block -- so a description
+    added above the checked one would have been read in its place while the
+    older one drifted unread and still wrong.
+
+    A comment on the line above an invocation is out of scope: the quick-start
+    block carries one, and it labels a section rather than describing output.
+    """
+    described = _described_invocations()
+    assert len(described) == 1, (
+        f"{len(described)} invocations describe the output; this reads one of them "
+        f"and the others drift unchecked: {described}"
+    )
+    return described[0]
 
 
 def test_the_groups_cover_exactly_the_labels_the_panel_prints():
