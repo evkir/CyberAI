@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -78,3 +79,64 @@ def test_every_finder_prefers_the_env_override_over_path(tmp_path, monkeypatch):
         with patch.object(module.shutil, "which", return_value=f"/decoy/{name}"):
             resolved = getattr(module, name)()
         assert resolved == str(override), f"{name} read PATH before {variable}"
+
+
+# Each source a finder can read, and the word its docstring uses for it. PATH
+# is matched on a word boundary so that MAS_SENTRY_PATH does not read as the
+# search path.
+_SOURCES = {"env": r"\benv\b", "which": r"\bPATH\b", "fallback": r"\bfallback\b"}
+
+
+def _finder_node(module_path: str, name: str) -> ast.FunctionDef:
+    path = _PACKAGE_ROOT.parent / (module_path.replace(".", "/") + ".py")
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{name} not found in {module_path}")
+
+
+def _body_order(node: ast.FunctionDef) -> list[str]:
+    seen: dict[str, tuple[int, int]] = {}
+    for child in ast.walk(node):
+        source = None
+        if isinstance(child, ast.Attribute) and isinstance(child.value, ast.Name):
+            if child.value.id == "os" and child.attr == "getenv":
+                source = "env"
+            elif child.value.id == "shutil" and child.attr == "which":
+                source = "which"
+        elif isinstance(child, ast.Name) and child.id == "_FALLBACK_PATHS":
+            source = "fallback"
+        if source is not None:
+            here = (child.lineno, child.col_offset)
+            if source not in seen or here < seen[source]:
+                seen[source] = here
+    return [s for s, _ in sorted(seen.items(), key=lambda kv: kv[1])]
+
+
+def _docstring_order(node: ast.FunctionDef) -> list[str]:
+    text = ast.get_docstring(node) or ""
+    found = {}
+    for source, pattern in _SOURCES.items():
+        match = re.search(pattern, text)
+        if match:
+            found[source] = match.start()
+    return [s for s, _ in sorted(found.items(), key=lambda kv: kv[1])]
+
+
+def test_every_docstring_names_the_sources_its_body_reads():
+    """A source reached but unnamed, or named but unreached, is a wrong promise."""
+    for name, (module_path, _) in REGISTRY.items():
+        node = _finder_node(module_path, name)
+        assert set(_docstring_order(node)) == set(_body_order(node)), (
+            f"{name}: docstring names {set(_docstring_order(node))}, "
+            f"body reads {set(_body_order(node))}"
+        )
+
+
+def test_every_docstring_names_them_in_the_order_the_body_reads_them():
+    """find_nuclei promised PATH first and read the env override first."""
+    for name, (module_path, _) in REGISTRY.items():
+        node = _finder_node(module_path, name)
+        assert _docstring_order(node) == _body_order(node), (
+            f"{name}: docstring says {_docstring_order(node)}, body does {_body_order(node)}"
+        )
