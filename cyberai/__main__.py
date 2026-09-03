@@ -10,6 +10,14 @@ from rich.panel import Panel
 
 from cyberai.version import __version__
 
+from .agents.exploit.nuclei_engine import find_nuclei
+from .agents.exploit.searchsploit import find_searchsploit
+from .agents.mcp_scan.mst_bridge import find_mst
+from .agents.web3.aderyn_tool import find_aderyn
+from .agents.web3.anvil_harness import find_anvil
+from .agents.web3.foundry_poc import find_forge
+from .agents.web3.halmos_tool import find_halmos
+from .agents.web3.slither_tool import find_slither
 from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
@@ -20,6 +28,20 @@ from .core.orchestrator import Orchestrator
 from .core.scan_session import ScanPhase
 
 console = Console()
+
+# binary name -> the resolver that already locates it for the agents. Not a
+# second lookup: status calls the same functions the tools call, so a name
+# reported here is the one that will be executed.
+_TOOLCHAIN = {
+    "nuclei": find_nuclei,
+    "searchsploit": find_searchsploit,
+    "forge": find_forge,
+    "aderyn": find_aderyn,
+    "slither": find_slither,
+    "anvil": find_anvil,
+    "halmos": find_halmos,
+    "mas-sentry": find_mst,
+}
 
 
 def _detach_stdin_from_tty() -> None:
@@ -482,6 +504,21 @@ def _seed_line(llm: LLMConfig) -> str:
     return str(llm.seed)
 
 
+def _toolchain_lines() -> tuple[str, str]:
+    """Which external binaries resolve right now, both sides named.
+
+    Both halves are sets of names rather than counts: "7 of 8 found" would
+    say nothing about which one is missing, and a run that needs the missing
+    one fails later with no hint that status already knew.
+    """
+    found = [name for name, finder in _TOOLCHAIN.items() if finder() is not None]
+    missing = [name for name in _TOOLCHAIN if name not in found]
+    return (
+        ", ".join(found) if found else "none",
+        ", ".join(missing) if missing else "none",
+    )
+
+
 def _api_key_line(llm: LLMConfig) -> str:
     """Whether the credential this provider needs is present.
 
@@ -505,6 +542,7 @@ def status() -> None:
     # value; printing the raw setting would name a policy that never acts.
     guard = LLMClient(config.llm).guard
     classifier = guard.classifier
+    tools_found, tools_missing = _toolchain_lines()
     console.print(
         Panel(
             f"Provider: {config.llm.provider}\n"
@@ -516,7 +554,9 @@ def status() -> None:
             f"Temperature: {config.llm.temperature}\n"
             f"Seed: {_seed_line(config.llm)}\n"
             f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
-            f"API key: {_api_key_line(config.llm)}",
+            f"API key: {_api_key_line(config.llm)}\n"
+            f"Tools found: {tools_found}\n"
+            f"Tools missing: {tools_missing}",
             title="CyberAI Status",
         )
     )
