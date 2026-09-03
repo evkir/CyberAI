@@ -21,7 +21,10 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+from click.testing import CliRunner
+
 import cyberai
+from cyberai.__main__ import _TOOLCHAIN, cli
 
 # finder name -> (module, env variable the finder reads first)
 REGISTRY = {
@@ -140,3 +143,58 @@ def test_every_docstring_names_them_in_the_order_the_body_reads_them():
         assert _docstring_order(node) == _body_order(node), (
             f"{name}: docstring says {_docstring_order(node)}, body does {_body_order(node)}"
         )
+
+
+def _binary_asked_for(module_path: str, name: str) -> str:
+    """The literal string the finder hands to shutil.which.
+
+    find_mst passes a module-level constant rather than a literal, so a Name
+    is resolved against the module it was read from instead of being skipped:
+    skipping it would let that one entry drift unwatched.
+    """
+    path = _PACKAGE_ROOT.parent / (module_path.replace(".", "/") + ".py")
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    constants = {
+        target.id: node.value.value
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    for node in ast.walk(_finder_node(module_path, name)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "which"
+        ):
+            argument = node.args[0]
+            if isinstance(argument, ast.Constant):
+                return str(argument.value)
+            if isinstance(argument, ast.Name):
+                return str(constants[argument.id])
+    raise AssertionError(f"{name} asks which for nothing")
+
+
+def test_the_status_display_names_every_finder_that_exists():
+    """A ninth tool must reach the display, or the display is not the set."""
+    displayed = {finder.__name__ for finder in _TOOLCHAIN.values()}
+    assert displayed == _scanned_finders(), (
+        f"display has {displayed - _scanned_finders()}, package has {_scanned_finders() - displayed}"
+    )
+
+
+def test_every_displayed_name_is_the_binary_its_finder_looks_for():
+    """The label is the binary, not a second name for it."""
+    by_finder = {finder.__name__: label for label, finder in _TOOLCHAIN.items()}
+    for name, (module_path, _) in REGISTRY.items():
+        assert by_finder[name] == _binary_asked_for(module_path, name), (
+            f"{name} is displayed as {by_finder[name]} and looks for "
+            f"{_binary_asked_for(module_path, name)}"
+        )
+
+
+def test_status_names_the_tool_it_could_not_find(monkeypatch):
+    """A count would not say which one is missing; the run that needs it would."""
+    monkeypatch.setitem(_TOOLCHAIN, "nuclei", lambda: None)
+    output = CliRunner().invoke(cli, ["status"]).output
+    assert "nuclei" in output.split("Tools missing:")[1]
