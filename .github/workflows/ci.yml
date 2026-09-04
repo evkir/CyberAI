@@ -11,6 +11,12 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
+    # The coverage upload authenticates as this job rather than with a stored
+    # secret, the way the release workflow already publishes to PyPI.
+    permissions:
+      contents: read
+      id-token: write
+
     strategy:
       matrix:
         # This project is developed on 3.14 and no job ran it: every green
@@ -54,10 +60,11 @@ jobs:
           pytest tests/ --cov=cyberai --cov-report=term-missing --cov-report=xml -m "not smoke and not slow"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          files: ./coverage.xml
+          use_oidc: true
+          fail_ci_if_error: true
 
   architecture:
     name: Architecture Invariants
