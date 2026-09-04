@@ -330,12 +330,15 @@ def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
     added to make the bidi_override weight falsifiable (27 -> 28 of 49). It
     fired a fourth time on 2026-08-31, when base64 blobs began to be decoded
     before matching (28 -> 29, and the encoded subclass left the blind list).
+    It fired a fifth time on 2026-09-04, when the two exfil patterns stopped
+    keying on one grammar and one noun (29 -> 30, taking the sample whose
+    decoded text was the phrase that exposed the gap).
     """
     root = Path(__file__).resolve().parents[1] / "corpus"
     result = evaluate(load_corpus(root), threshold=50)
-    assert result.overall.true_positive == 29
+    assert result.overall.true_positive == 30
     assert result.overall.false_positive == 0
-    assert result.overall.recall == pytest.approx(29 / 49)
+    assert result.overall.recall == pytest.approx(30 / 49)
     assert result.overall.false_positive_rate == pytest.approx(0.0)
     assert result.blind_subclasses() == [
         "multilingual",
