@@ -2,9 +2,28 @@
 
 All notable changes to CyberAI are documented here.
 
-## [1.6.0] - 2026-08-26
+## [1.6.0] - 2026-09-04
 
 ### Changed
+
+- **Badges are written by scripts, not by hand.** The test count and the
+  typing ratio are produced by `scripts/tests_badge.py` and
+  `scripts/mypy_badge.py` from a collection and a checker run. A number typed
+  into a document is a number that drifts; both had.
+
+- **The confusable table is checked against Unicode.** Forty-two codepoints
+  claim to imitate Latin letters, and every gate on them followed the table's
+  own values -- mutating one entry from "a" to "e" left the whole repository
+  green. UTS #39 answers the question independently, and all forty-two agree
+  with it once both sides are folded through the same data. Four entries stay
+  ambiguous because Unicode itself refuses to separate capital I from small l
+  and one, or capital O from zero; the test names them rather than hiding
+  them.
+
+- **The coverage upload authenticates.** It ran unauthenticated and was
+  configured not to fail, so a report that never arrived produced no status,
+  no comment and no red -- a check that decided nothing. It now uses OIDC from
+  the job's own identity and fails the job when the upload does.
 
 - **Typing scope: seven modules to ninety-one.** `mypy --strict` was reading
   seven modules while ninety-one passed it untouched; the scope was a leftover
@@ -55,6 +74,34 @@ All notable changes to CyberAI are documented here.
   the credential causes.
 
 ### Added
+
+- **A prompt-injection detector that publishes what it misses.** Two layers
+  and a committed corpus of 96 samples -- 51 injections, 45 benign -- with the
+  measurement reproduced by a command rather than typed: `cyberai detector
+  eval --corpus tests/corpus`. The pattern layer, 33 expressions across 10
+  weighted categories, scores 62.7% recall at 100.0% precision with a 0.0%
+  false-positive rate, and three subclasses -- multilingual, paraphrase,
+  social -- score nothing at all. Naming them is the point: an overall recall
+  figure suggests the misses are spread thinly across techniques, and they are
+  not. Adding a local model as a second layer takes recall to 98.0% with the
+  false-positive rate unchanged.
+
+- **Recorded verdicts, so the second layer's figure survives without a GPU.**
+  `--l2-record` keeps what the model answered and `--l2-replay` scores from
+  it, refusing a recording taken under a different model, prompt or seed
+  rather than publishing a stale number quietly. Recordings merge, so adding
+  one sample to the corpus costs one question instead of the whole corpus.
+
+- **A gate on publication.** main carried nine required checks and the tag
+  that publishes to PyPI carried none: the release workflow fired on `v*`,
+  built and uploaded without asking whether that commit had ever gone green.
+  It now refuses unless every job the CI workflow defines finished
+  successfully on the commit being tagged, with the job list read out of the
+  workflow rather than written down beside it.
+
+- **`cyberai status` answers for the toolchain**, alongside provider, output,
+  trust boundary, sampling, air-gap and credentials, and the README line
+  describing the command is checked against the fields the panel prints.
 
 - **Contributor License Agreement** (`CLA.md`), adapted from the Apache ICLA
   v2.0 with a relicensing clause, so future commercial components can ship
