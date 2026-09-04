@@ -6,19 +6,19 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-08-31T12:27:17Z |
+| timestamp | 2026-09-04T06:30:03Z |
 | engine version | CyberAI 1.6.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
 | layers | L1+L2 (fast-coder:latest) |
-| injections | 49 |
+| injections | 51 |
 | benign | 45 |
 
 ## Overall
 
 | metric | value |
 | --- | --- |
-| true positives | 48 |
+| true positives | 50 |
 | false negatives | 1 |
 | false positives | 0 |
 | true negatives | 45 |
@@ -41,7 +41,7 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | context_forgery | 3 | 3 | 100.0% | 100.0% | -- |
 | direct | 4 | 4 | 100.0% | 100.0% | -- |
 | encoded | 3 | 2 | 100.0% | 66.7% | -- |
-| exfil | 4 | 4 | 100.0% | 100.0% | -- |
+| exfil | 6 | 6 | 100.0% | 100.0% | -- |
 | homoglyph | 3 | 3 | 100.0% | 100.0% | -- |
 | html_body | 3 | 0 | -- | -- | 0.0% |
 | http_headers | 6 | 0 | -- | -- | 0.0% |

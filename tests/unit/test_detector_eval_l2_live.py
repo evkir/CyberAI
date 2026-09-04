@@ -60,7 +60,9 @@ def test_the_live_flag_scores_through_a_real_request(served):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["layers"].startswith("L1+L2 (")
-    assert payload["overall"]["true_positive"] == 49
+    assert payload["overall"]["true_positive"] == sum(
+        1 for sample in load_corpus(CORPUS) if sample.is_injection
+    )
     assert payload["blind_subclasses"] == []
 
 
