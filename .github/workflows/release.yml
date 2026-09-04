@@ -6,8 +6,36 @@ on:
       - "v*"
 
 jobs:
+  guard:
+    name: Refuse to publish an unchecked commit
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      checks: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the workflow parser
+        run: pip install pyyaml
+
+      - name: Every CI job must have passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs?per_page=100" > check-runs.json
+          python3 scripts/release_guard.py --workflow .github/workflows/ci.yml --check-runs check-runs.json
+
   build:
     name: Build distribution
+    needs: guard
     runs-on: ubuntu-latest
 
     steps:
