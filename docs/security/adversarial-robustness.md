@@ -180,12 +180,15 @@ question the code no longer asks is a fact about this repository.
 
 ## Known Limitations
 
-- Pattern-based injection detection is bypassable with obfuscation. This is
-  measured, not assumed: base64 encoding scores zero on every sample in the
-  corpus. Homoglyph substitution is folded before matching and all three of
-  those samples now clear the threshold, which closes that bypass on the
-  corpus without closing it in general -- the fold maps the confusables it
-  knows about.
+- Pattern-based injection detection is bypassable with obfuscation, and the
+  corpus says by how much rather than whether. At the production threshold
+  the encoded subclass reaches 66.7% recall: a bare base64 blob is decoded
+  and rescanned, so two of its three samples clear the threshold. The one
+  that does not carries no base64 at all -- its payload is ROT13, which
+  nothing here decodes. Homoglyph substitution is folded before matching and
+  that subclass reaches 100.0%, which closes that bypass on the corpus
+  without closing it in general -- the fold maps the confusables it knows
+  about.
 - A structural signal alone is never a verdict, by construction. A payload
   assembled entirely from template markers, HTML comments or hex escapes
   scores at most 20 whatever it says. This is the deliberate half of the
