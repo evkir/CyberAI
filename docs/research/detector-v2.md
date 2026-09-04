@@ -28,7 +28,7 @@ Measured on the tracked corpus of 49 injections and 45 benign samples:
 
 | layer | recall | precision | false positives |
 | --- | --- | --- | --- |
-| L1 | 59.2% | 100.0% | 0.0% |
+| L1 | 61.2% | 100.0% | 0.0% |
 | L1+L2 | 98.0% | 100.0% | 0.0% |
 
 The benign half is real tool output — nmap service scans, nuclei JSON, MCP

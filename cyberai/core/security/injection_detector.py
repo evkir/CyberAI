@@ -105,8 +105,18 @@ INJECTION_PATTERNS = [
     (r"bypass (?:all |any |the |your )*(?:safety|filter|restriction|guideline)s?", "jailbreak"),
     (r"disable (safety|filter|restriction)", "jailbreak"),
     # Data exfil via prompt
-    (r"(?:print|reveal|show)(?: me)? (?:your |the |full |entire |system )*prompt", "exfil"),
-    (r"what (?:are|were|is|was) (?:your |the |original |initial |system )*instructions?", "exfil"),
+    (
+        r"(?:print|reveal|show|repeat|output|dump|display|tell me|give me|restate"
+        r"|summari[sz]e|list|echo|write out)(?: me)? "
+        r"(?:your |the |full |entire |initial |original |previous |system )*"
+        r"(?:prompt|instructions?|rules|guidelines|system message)",
+        "exfil",
+    ),
+    (
+        r"what (?:are|were|is|was) (?:your |the |original |initial |system )*"
+        r"(?:instructions?|prompt|rules|guidelines)",
+        "exfil",
+    ),
     (r"repeat (everything|all) (above|before)", "exfil"),
     # Indirect injection via external content
     (r"<\s*script", "xss_attempt"),
