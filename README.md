@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2635%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2636%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%2091%2F170%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -175,7 +175,15 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 - **Every verdict is in the audit trail** — policy, threshold, score,
   categories and how many messages were modified, written per call. Message
   bodies stay out of it.
-- **Prompt-injection detection** — 33 patterns across 10 weighted categories. Also run
+- **Prompt-injection detection** — 33 patterns across 10 weighted categories,
+  measured rather than described. On the tracked corpus the pattern layer
+  scores 62.7% recall at 100.0% precision with a 0.0% false-positive rate,
+  and it is blind to three injection subclasses: multilingual, paraphrase,
+  social. The optional local-model layer takes recall to 98.0% with the
+  false-positive rate unchanged. Neither number is typed by hand — both come
+  out of `cyberai detector eval --corpus tests/corpus`, the second with
+  `--l2-replay examples/detector-eval/l2-verdicts.json`, and a test fails if
+  this paragraph and that command disagree. Also run
   on each phase's *output*, where a hit becomes a MEDIUM finding. That pass
   is an audit signal, not a barrier: it runs after the agent has already
   called the model, and it is labelled as such in the code and the report.

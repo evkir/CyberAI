@@ -41,12 +41,21 @@ _DOC = _ROOT / "docs" / "security" / "adversarial-robustness.md"
 # A rule scoped to one file lets a second file drift, which is the failure
 # this module exists to stop -- one heading, then one file, same shape.
 _RESEARCH = _ROOT / "docs" / "research" / "detector-v2.md"
-_MEASURED_DOCS = (_DOC, _RESEARCH)
+# The README states the same figures for the reader who never opens either.
+# It is the most-read file in the repository and was the one place a figure
+# could be typed by hand without a test noticing.
+_README = _ROOT / "README.md"
+_MEASURED_DOCS = (_DOC, _RESEARCH, _README)
 _ARTIFACT = _ROOT / "examples" / "detector-eval" / "baseline.md"
 _COMBINED = _ROOT / "examples" / "detector-eval" / "combined.md"
 _CORPUS = _ROOT / "tests" / "corpus"
 
 _ALT_THRESHOLD = 25
+
+# Spelled rather than written as a digit, because the count comes from the
+# corpus: a sample added to a blind subclass must not leave a true sentence
+# behind by arithmetic accident.
+_COUNT_WORDS = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 
 
 def _percentages(text: str) -> set[str]:
@@ -116,13 +125,33 @@ def test_the_blind_subclasses_named_in_prose_are_the_measured_ones() -> None:
     measured = evaluate(load_corpus(_CORPUS), threshold=DEFAULT_THRESHOLD).blind_subclasses()
     assert len(measured) > 0, "nothing is blind any more; rewrite the section"
 
-    words = {3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven", 8: "Eight"}
-    word = words.get(len(measured))
+    word = _COUNT_WORDS.get(len(measured))
     assert word, f"add {len(measured)} to the word map"
-    assert re.search(rf"{word} injection subclasses", doc), (
+    assert re.search(rf"{word} injection subclasses", doc, re.IGNORECASE), (
         f"{len(measured)} subclasses are blind now: {measured}. "
         "The document states a different count."
     )
+
+
+def test_the_readme_names_the_subclasses_it_calls_blind() -> None:
+    """The README says which techniques the detector cannot see, by name.
+
+    A recall figure with no list beside it lets a reader assume the misses
+    are spread evenly. They are not: whole subclasses score nothing at all,
+    and that is the finding the number hides. Stating it is only worth
+    anything if it cannot go stale, so the sentence is parsed and compared
+    against a run in both directions -- a subclass that stops being blind
+    fails here just as loudly as one that starts.
+    """
+    body = (_ROOT / "README.md").read_text(encoding="utf-8")
+    measured = evaluate(load_corpus(_CORPUS), threshold=DEFAULT_THRESHOLD).blind_subclasses()
+
+    match = re.search(r"blind to (\w+) injection subclasses: ([^.]+)\.", body, re.DOTALL)
+    assert match, "the README no longer states which subclasses are blind"
+
+    stated = {name.strip() for name in match.group(2).replace("\n", " ").split(",")}
+    assert stated == set(measured), (stated, measured)
+    assert match.group(1).lower() == _COUNT_WORDS[len(measured)], match.group(1)
 
 
 def test_the_readme_links_to_the_artifact() -> None:
