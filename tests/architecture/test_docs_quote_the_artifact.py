@@ -45,7 +45,10 @@ _RESEARCH = _ROOT / "docs" / "research" / "detector-v2.md"
 # It is the most-read file in the repository and was the one place a figure
 # could be typed by hand without a test noticing.
 _README = _ROOT / "README.md"
-_MEASURED_DOCS = (_DOC, _RESEARCH, _README)
+# The release notes quote the same figures a third time, for the reader who
+# arrives from PyPI and opens nothing else.
+_CHANGELOG = _ROOT / "CHANGELOG.md"
+_MEASURED_DOCS = (_DOC, _RESEARCH, _README, _CHANGELOG)
 _ARTIFACT = _ROOT / "examples" / "detector-eval" / "baseline.md"
 _COMBINED = _ROOT / "examples" / "detector-eval" / "combined.md"
 _CORPUS = _ROOT / "tests" / "corpus"
