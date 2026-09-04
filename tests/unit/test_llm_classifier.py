@@ -28,6 +28,7 @@ from cyberai.core.security.llm_classifier import (
     recording_header,
     recording_model,
     recording_transport,
+    write_recording,
 )
 
 # A paraphrased instruction: no trigger word, so the pattern layer scores it
@@ -288,6 +289,55 @@ def test_a_recording_taken_under_another_prompt_is_refused(tmp_path):
     path = _write_recording(tmp_path, {}, prompt_sha256="from an older prompt")
     with pytest.raises(RecordMismatch):
         recorded_transport(path)
+
+
+@pytest.mark.unit
+def test_a_second_run_adds_to_a_recording_instead_of_replacing_it(tmp_path):
+    """One new sample costs one question, not a corpus.
+
+    The writer replaced the file, so a recording that has to answer for every
+    sample could only grow by being taken again from scratch. Ninety-four
+    questions to add one, and the cost looked worse than it was: two
+    questions to a warm model measure 5.4 seconds of wall clock against 30.8
+    for the same two cold, so most of what made this expensive was loading
+    the model once.
+    """
+    path = tmp_path / "verdicts.json"
+    first = write_recording(path, "fast-coder:latest", {"a": "benign", "b": "injection"})
+    second = write_recording(path, "fast-coder:latest", {"c": "injection"})
+
+    assert first == {"added": 2, "rewritten": 0, "total": 2}
+    assert second == {"added": 1, "rewritten": 0, "total": 3}
+    assert json.loads(path.read_text(encoding="utf-8"))["verdicts"] == {
+        "a": "benign",
+        "b": "injection",
+        "c": "injection",
+    }
+
+
+@pytest.mark.unit
+def test_re_asking_a_recorded_question_is_counted_rather_than_hidden(tmp_path):
+    """The instrument for a model tag that moved under the same name.
+
+    The header pins the model by name and cannot pin the weights behind it.
+    A run that answers questions the recording already held is the only place
+    that shows, so the count is returned rather than folded into the total.
+    """
+    path = tmp_path / "verdicts.json"
+    write_recording(path, "fast-coder:latest", {"a": "benign"})
+    again = write_recording(path, "fast-coder:latest", {"a": "injection"})
+
+    assert again == {"added": 0, "rewritten": 1, "total": 1}
+    assert json.loads(path.read_text(encoding="utf-8"))["verdicts"] == {"a": "injection"}
+
+
+@pytest.mark.unit
+def test_merging_into_a_recording_of_another_question_is_refused(tmp_path):
+    """Blending two headers would publish a figure for neither of them."""
+    path = _write_recording(tmp_path, {"a": "benign"}, prompt_sha256="from an older prompt")
+    with pytest.raises(RecordMismatch):
+        write_recording(path, "fast-coder:latest", {"b": "injection"})
+    assert json.loads(path.read_text(encoding="utf-8"))["verdicts"] == {"a": "benign"}
 
 
 @pytest.mark.unit

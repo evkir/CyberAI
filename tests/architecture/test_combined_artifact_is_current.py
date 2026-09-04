@@ -14,6 +14,7 @@ because a recording carries the prompt's fingerprint and refuses to load
 under a different one.
 """
 
+import json
 import pathlib
 
 from cyberai.core.security.eval_corpus import (
@@ -25,6 +26,7 @@ from cyberai.core.security.eval_corpus import (
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
 from cyberai.core.security.llm_classifier import (
     LLMClassifier,
+    _fingerprint,
     combined_scorer,
     recorded_transport,
     recording_model,
@@ -80,6 +82,23 @@ def test_the_recording_covers_every_sample() -> None:
     classifier = LLMClassifier(transport=recorded_transport(_RECORDING))
     missing = [s.id for s in load_corpus(_CORPUS) if classifier.classify(s.text) is None]
     assert not missing, f"no recorded verdict for {missing}; re-run: {_REGENERATE}"
+
+
+def test_the_recording_holds_no_verdict_for_a_sample_that_is_gone() -> None:
+    """The other direction, and merging is why it now needs saying.
+
+    While the writer replaced the file, a key could only exist because a
+    sample had just produced it. The writer merges, so a sample that is
+    renamed away or deleted leaves its answer behind, and the recording would
+    accumulate verdicts for text nothing in the corpus holds. Harmless to a
+    replay, which looks keys up rather than iterating them, and exactly the
+    shape this repository keeps finding: a producer whose output no longer
+    has a consumer.
+    """
+    recorded = set(json.loads(_RECORDING.read_text(encoding="utf-8"))["verdicts"])
+    live = {_fingerprint(sample.text) for sample in load_corpus(_CORPUS)}
+    orphans = sorted(recorded - live)
+    assert not orphans, f"{len(orphans)} verdicts belong to no sample; re-run: {_REGENERATE}"
 
 
 def test_the_two_layer_report_beats_the_one_layer_report() -> None:
