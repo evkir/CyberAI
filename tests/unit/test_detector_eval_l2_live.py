@@ -21,7 +21,7 @@ from click.testing import CliRunner
 
 from cyberai.cli.detector_eval import detector
 from cyberai.core.security.eval_corpus import load_corpus
-from cyberai.core.security.llm_classifier import _fingerprint
+from cyberai.core.security.llm_classifier import _fingerprint, recording_header
 
 CORPUS = str(pathlib.Path(__file__).resolve().parents[2] / "tests" / "corpus")
 
@@ -94,3 +94,30 @@ def test_a_recorded_run_writes_what_a_later_run_can_replay(tmp_path, served):
         detector, ["eval", "--corpus", CORPUS, "--l2", "--l2-url", served, "--json"]
     )
     assert json.loads(replayed.output)["overall"] == json.loads(live_again.output)["overall"]
+
+
+@pytest.mark.unit
+def test_a_recording_from_another_question_stops_the_run(tmp_path, served):
+    """The refusal to merge has to reach the exit code, not just the writer.
+
+    write_recording raising was already asserted at the function. What was
+    not was that the command turns it into a failure: an exception that
+    escapes as a traceback still ends the run, so the writer's test passes
+    either way and a caller reading the exit code learns nothing.
+
+    The message assertion is not decoration. Replacing the raise with a
+    print leaves this run failing anyway -- the next statement reads a name
+    the failed branch never bound -- so the exit code alone does not
+    distinguish a refusal from a crash after one.
+    """
+    recording = tmp_path / "verdicts.json"
+    header = recording_header("fast-coder:latest")
+    header["prompt_sha256"] = "taken under an older prompt"
+    recording.write_text(json.dumps({**header, "verdicts": {}}), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        detector,
+        ["eval", "--corpus", CORPUS, "--l2", "--l2-url", served, "--l2-record", str(recording)],
+    )
+    assert result.exit_code != 0
+    assert "different prompt_sha256" in result.output
