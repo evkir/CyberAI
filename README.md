@@ -5,15 +5,16 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2583%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2585%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%2091%2F170%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
 
 # 🤖 CyberAI
 
-**OOB-driven, agent-trust-aware AI pentest platform**
+**Offensive testing for MCP servers and LLM agents — runtime, not metadata**
 
+> Blind findings proven out-of-band, not inferred from response diffs.
 > Built by someone who red-teams AI, not just with it.
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
