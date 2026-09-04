@@ -113,11 +113,30 @@ INJECTION_PATTERNS = [
         "exfil",
     ),
     (
-        r"what (?:are|were|is|was) (?:your |the |original |initial |system )*"
-        r"(?:instructions?|prompt|rules|guidelines)",
+        r"what (?:(?:are|were|is|was) (?:your |the |original |initial |system )*"
+        r"(?:instructions?|prompt|rules|guidelines)"
+        r"|(?:instructions?|prompt|rules|guidelines) (?:were|was) you (?:given|told))",
         "exfil",
     ),
     (r"repeat (everything|all) (above|before)", "exfil"),
+    # Extraction by position rather than by name. The request never says
+    # "prompt" or "instructions": it points at where the text sits.
+    (
+        r"(?:everything|all|the text|the content|the message|the instructions"
+        r"|the first message|the conversation)[^.\n]{0,30}?"
+        r"(?:above|before this|earlier in|so far|you were given|you were told"
+        r"|in this conversation|of (?:your |the )?context|in (?:your |the )?context)",
+        "exfil",
+    ),
+    # Exfiltration through the output channel. The verb does not ask for the
+    # secret to be revealed, it asks for it to be carried out in the answer.
+    (
+        r"(?:append|include|add|copy|insert|embed|attach)[^.\n]{0,40}?"
+        r"(?:your |the |our |system )*(?:prompt|instructions?|rules|guidelines|configuration)"
+        r"[^.\n]{0,40}?(?:to|into|in|with) (?:the |your |this )?"
+        r"(?:output|reply|response|report|answer|result|summary)",
+        "exfil",
+    ),
     # Indirect injection via external content
     (r"<\s*script", "xss_attempt"),
     (r"<!--.*?-->", "html_injection"),

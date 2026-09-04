@@ -184,6 +184,57 @@ def recording_header(model: str) -> Dict[str, Any]:
     }
 
 
+def write_recording(path: Path | str, model: str, verdicts: Dict[str, str]) -> Dict[str, int]:
+    """Fold this run's verdicts into the recording at ``path``.
+
+    The writer used to replace the file. That made the cost of one new sample
+    equal to the cost of the corpus: a recording has to answer for every
+    sample or the published figure describes a mixture of two
+    configurations, so adding a single line meant asking the model 94 more
+    questions. Merging costs one.
+
+    Merging is only sound because the question is pinned. The header names
+    the model, the prompt's fingerprint and the seed, and a run whose header
+    differs is refused rather than blended -- verdicts taken under a
+    different prompt describe a classifier that no longer exists, which is
+    the same reason a replay refuses one. Within a matching header the model
+    is deterministic at seed zero, so a key answered twice is answered the
+    same way, and the newer answer wins without changing anything.
+
+    What the header cannot pin is the weights behind the name. ``ollama
+    pull`` can move a tag, and a merge across that would be silent. The
+    counts returned are the instrument for that: a run that re-asks a
+    question it already had answered reports it, and a number that should be
+    zero and is not says the tag moved.
+    """
+    target = Path(path)
+    header = recording_header(model)
+    kept: Dict[str, str] = {}
+
+    if target.exists():
+        previous = json.loads(target.read_text(encoding="utf-8"))
+        drifted = [field for field in header if previous.get(field) != header[field]]
+        if drifted:
+            raise RecordMismatch(
+                f"{target} was recorded under a different {', '.join(drifted)}; "
+                "delete it to record afresh rather than merging two questions"
+            )
+        kept = dict(previous["verdicts"])
+
+    merged = {**kept, **verdicts}
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps({**header, "verdicts": dict(sorted(merged.items()))}, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "added": len(merged) - len(kept),
+        "rewritten": len(set(kept) & set(verdicts)),
+        "total": len(merged),
+    }
+
+
 def _default_transport(base_url: str, timeout: float) -> TransportFn:
     """Return a transport that posts one chat completion to ollama."""
 

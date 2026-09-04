@@ -3,7 +3,7 @@
 The six patterns that used to live here are gone. They were a second detector
 answering the same question as core/security/injection_detector.py, with a
 different pattern set and a different verdict, and the two disagreed: this one
-knew six patterns against that one's thirty-one. Two answers to one question
+knew six patterns against that one's thirty-three. Two answers to one question
 is not defence in depth, it is an unresolved disagreement.
 
 What is left is the half of the boundary TrustGuard does not cover. TrustGuard

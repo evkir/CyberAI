@@ -36,9 +36,9 @@ from cyberai.core.security.llm_classifier import (
     RecordMismatch,
     combined_scorer,
     recorded_transport,
-    recording_header,
     recording_model,
     recording_transport,
+    write_recording,
 )
 
 console = Console()
@@ -157,8 +157,11 @@ def detector() -> None:
 @click.option(
     "--l2-record",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
-    help="Write the verdicts this run obtained here, so the figure can be "
-    "replayed without a GPU. Only meaningful with --l2.",
+    help="Keep the verdicts this run obtained here, so the figure can be "
+    "replayed without a GPU. Merges into an existing recording when the "
+    "model, prompt and seed still match, so adding one sample costs one "
+    "question rather than the whole corpus, and refuses to merge when they "
+    "do not. Only meaningful with --l2.",
 )
 @click.option(
     "--l2-replay",
@@ -212,17 +215,15 @@ def detector_eval(
     counts = label_counts(samples)
 
     if l2_record is not None and captured:
-        l2_record.parent.mkdir(parents=True, exist_ok=True)
-        l2_record.write_text(
-            json.dumps(
-                {**recording_header(l2_model), "verdicts": dict(sorted(captured.items()))},
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
+        try:
+            written = write_recording(l2_record, l2_model, captured)
+        except RecordMismatch as exc:
+            raise click.ClickException(str(exc)) from exc
+        console.print(
+            f"[green]verdicts recorded:[/green] {l2_record} "
+            f"({written['added']} new, {written['rewritten']} re-asked, "
+            f"{written['total']} total)"
         )
-        console.print(f"[green]verdicts recorded:[/green] {l2_record} ({len(captured)})")
 
     if report is not None:
         report.parent.mkdir(parents=True, exist_ok=True)

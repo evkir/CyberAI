@@ -30,10 +30,18 @@ def _recording(tmp_path, verdict_for):
 
 @pytest.mark.unit
 def test_replay_scores_the_corpus_without_a_model(tmp_path):
+    """Every injection reaches the replay, whatever the corpus currently holds.
+
+    The count used to be written here as a digit. Adding two samples turned a
+    true assertion false without anything about the replay changing, which is
+    a test measuring the corpus rather than the code under it. The corpus is
+    the instrument, so it supplies the number.
+    """
+    injections = sum(1 for sample in load_corpus(CORPUS) if sample.is_injection)
     path = _recording(tmp_path, lambda s: "injection" if s.is_injection else "benign")
     result = CliRunner().invoke(detector, ["eval", "--corpus", CORPUS, "--l2-replay", str(path)])
     assert result.exit_code == 0, result.output
-    assert "TP 49" in result.output and "FP 0" in result.output
+    assert f"TP {injections}" in result.output and "FP 0" in result.output
 
 
 @pytest.mark.unit

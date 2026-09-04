@@ -54,14 +54,14 @@ the source can forge a line. Set the variable per engagement.
 
 ## Measured coverage
 
-The detector is scored against a corpus tracked in this repository, 49
+The detector is scored against a corpus tracked in this repository, 51
 injections across fifteen techniques and 45 samples of real output captured
 from real tools. Reproduce with:
 
     cyberai detector eval --corpus tests/corpus
 
 At the production threshold of 50, measured 2026-08-31 on CyberAI 1.6.0:
-recall 61.2%, precision 100.0%, false positives 0.0%. The detector's own
+recall 62.7%, precision 100.0%, false positives 0.0%. The detector's own
 `is_injection` cut of 25 gives the same three figures, because no sample in
 either class scores between 25 and 50. That gap is a property of the
 weights rather than a coincidence: a directive category is worth 50 and any
@@ -145,7 +145,7 @@ maximum. Reproduce without a GPU with:
       examples/detector-eval/l2-verdicts.json
 
 At the production threshold the pair measures recall 98.0%, precision
-100.0% and false positives 0.0%, against 61.2% recall for the patterns
+100.0% and false positives 0.0%, against 62.7% recall for the patterns
 alone. No technique in the corpus scores zero any more. One sample escapes
 both layers: it is filed under the encoded subclass and holds no base64,
 its payload is ROT13, and neither layer reads that.
@@ -158,7 +158,7 @@ maximum and not a sum: two suspicions that each fall short are not evidence
 twice over.
 
 The model cannot lower a verdict the patterns reached, and it is asked only
-where they have not already decided -- on the corpus that skips 30 of 94
+where they have not already decided -- on the corpus that skips 32 of 96
 samples, changing nothing. Its answer arrives through constrained decoding
 and is read as data. If it does not arrive at all the layer has no opinion,
 which is a different fact from a benign one and never becomes an exception:
@@ -194,7 +194,7 @@ question the code no longer asks is a fact about this repository.
   scores at most 20 whatever it says. This is the deliberate half of the
   weighting and the half an attacker can aim at.
 - One detector answers for the whole project. `core/safety.py` used to carry a
-  second one, six patterns against the canonical thirty-one; it now reports
+  second one, six patterns against the canonical thirty-three; it now reports
   the canonical verdict and holds no patterns of its own.
 - A single pattern hit blocks a tool argument, at the `sanitize_input`
   decorator's one call site. That path uses the detector's own cut of 25 and

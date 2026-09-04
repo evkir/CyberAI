@@ -10,7 +10,7 @@ Nothing in this file is typed by hand.
 
 ## L1 — pattern layer
 
-31 patterns in 10 categories. The score is the sum of per-category weights
+33 patterns in 10 categories. The score is the sum of per-category weights
 over the *distinct* categories that matched, capped at 100:
 
 | weight | categories |
@@ -24,11 +24,11 @@ which counted patterns rather than categories: seven categories held more
 than one pattern, so a single category could reach the threshold alone while
 the documentation claimed two had to agree.
 
-Measured on the tracked corpus of 49 injections and 45 benign samples:
+Measured on the tracked corpus of 51 injections and 45 benign samples:
 
 | layer | recall | precision | false positives |
 | --- | --- | --- | --- |
-| L1 | 61.2% | 100.0% | 0.0% |
+| L1 | 62.7% | 100.0% | 0.0% |
 | L1+L2 | 98.0% | 100.0% | 0.0% |
 
 The benign half is real tool output — nmap service scans, nuclei JSON, MCP
@@ -41,7 +41,7 @@ why precision is reported next to recall and not instead of it.
 A local model over Ollama answers one question about one piece of text.
 Composition is `max(L1, L2)`: the second layer is worth exactly one directive
 category and cannot lower a verdict the first layer already reached. It runs
-only when L1 scored below the threshold, which skips 28 of 94 samples and
+only when L1 scored below the threshold, which skips 32 of 96 samples and
 changes no verdict.
 
 It is off unless `CYBERAI_DETECTOR_L2=1`. Measured on the development
@@ -97,7 +97,7 @@ so the measurement has become possible and has not yet been made. A number
 from a run that cannot be repeated is not a measurement; the absence of a
 number is not evidence either way.
 
-**Anything outside the corpus.** Recall is recall against 49 samples chosen
+**Anything outside the corpus.** Recall is recall against 51 samples chosen
 by the author. It is a floor for what the detector catches and says nothing
 about techniques nobody wrote a sample for.
 
