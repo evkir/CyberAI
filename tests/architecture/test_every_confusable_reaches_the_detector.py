@@ -18,15 +18,15 @@ appears in at least one of them. An entry with no carrier fails rather than
 being skipped, because a skipped entry is exactly the silence this file
 exists to end.
 
-What this does not check is which Latin letter an entry should map to, and
-that is measured rather than assumed: mutating one Greek entry from "a" to
-"e" leaves every test in the repository green. The carrier is chosen by the
-declared value, so the substitution follows the mapping wherever it points
-and folds back either way. Nothing in a test can see a glyph, so the
-resemblance stays authored data, the way an injection's outcome does. What
-is enforced here is narrower and still worth having: the entry is reachable,
-it folds to exactly one letter, and the folded text is what the matcher
-scores.
+What this does not check is which Latin letter an entry should map to. The
+carrier is chosen by the declared value, so the substitution follows the
+mapping wherever it points and folds back either way, and mutating one Greek
+entry from "a" to "e" used to leave every test in the repository green. What
+is enforced here is narrower: the entry is reachable, it folds to exactly one
+letter, and the folded text is what the matcher scores.
+
+The value is checked, by an oracle rather than by a glyph anyone looked at,
+in test_the_confusable_table_agrees_with_unicode.py.
 """
 
 import pytest
