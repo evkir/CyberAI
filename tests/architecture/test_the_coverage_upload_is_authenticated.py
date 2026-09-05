@@ -20,6 +20,15 @@ the cost of the upload being load-bearing; the alternative is the state this
 repository was already in, where the report was optional and therefore
 ignored.
 
+An authenticated upload can still be filed against the wrong commit. The
+uploads were arriving and being accepted for a month while codecov/project
+never appeared, and the reason was the checkout: at depth one Codecov cannot
+resolve the merge commit a pull request is built from, so it recorded every
+report on branch main and left pull 265 with compared_to null. A project
+status compares against a base commit; with none resolved there was nothing
+to compare and nothing to send. The depth is asserted below rather than
+trusted to a comment in the workflow.
+
 What that costs and what is not measured here: a pull request opened from a
 fork cannot be granted id-token: write, so the upload has nothing to
 authenticate with and the job fails on a contribution the contributor cannot
@@ -76,3 +85,22 @@ def test_a_failed_upload_is_visible() -> None:
     """An upload allowed to fail quietly is the check that decides nothing."""
     for name, _, step in _uploads():
         assert step["with"]["fail_ci_if_error"] is True, name
+
+
+def test_the_uploading_job_checks_out_enough_history() -> None:
+    """Depth one hides the parent, and a report with no base decides nothing.
+
+    Zero rather than two: the documented remedy is a full fetch, and a
+    shallow-but-deeper checkout would work until the day a pull request sat
+    further from its base than the number written here.
+    """
+    for name, job, _ in _uploads():
+        checkouts = [
+            step
+            for step in job["steps"]
+            if str(step.get("uses", "")).startswith("actions/checkout")
+        ]
+        assert checkouts, f"{name} uploads coverage without checking anything out"
+        for step in checkouts:
+            depth = (step.get("with") or {}).get("fetch-depth")
+            assert depth == 0, f"{name} checks out at fetch-depth {depth!r}"

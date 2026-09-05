@@ -28,6 +28,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Codecov reads the commit SHA out of git history. At the default
+          # depth of one a pull request's merge commit has no parent here, so
+          # the report is filed against the wrong commit: every upload landed
+          # on branch main, and pull 265 recorded compared_to null. The
+          # project status compares against the base commit, found none, and
+          # was never sent -- while patch, computed from the diff, was.
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
