@@ -13,7 +13,7 @@ not exist yet, it says so.
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
 pipeline over a shared knowledge base.
-2665 tests collected under the gated selection run before every commit, with the
+2666 tests collected under the gated selection run before every commit, with the
 slow and smoke tests deselected there and run separately, `mypy --strict`
 clean on the typed core (`cyberai/core/types.py`), Apache-2.0.
 
