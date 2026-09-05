@@ -65,9 +65,45 @@ def _status_invocations() -> list[str]:
     ]
 
 
+# Two labels, not one. A single field name appears in prose that is not a
+# description at all -- the dry-run line mentions an API key while describing
+# something else entirely -- and treating that as a field list would make the
+# rule fire on comments nobody meant as documentation.
+_MIN_LABELS = 2
+
+
+def _annotations() -> list[str]:
+    """Comment text attached to a status invocation, inline or on the line above.
+
+    The fix for DK looked at inline comments only. A comment sitting above
+    the command reads as its description to every human eye and to no test,
+    so a field list written there would drift unwatched. Section labels are
+    not excluded by position -- they are excluded below, by not naming
+    fields.
+    """
+    lines = _README.read_text(encoding="utf-8").splitlines()
+    found = []
+    for index, line in enumerate(lines):
+        if not _INVOCATION.match(line):
+            continue
+        if "#" in line:
+            found.append(line.split("#", 1)[1])
+        above = lines[index - 1].strip() if index else ""
+        if above.startswith("#") and not above.startswith("##"):
+            found.append(above.split("#", 1)[1])
+    return found
+
+
+def _describes_output(text: str) -> bool:
+    """Whether a comment is listing what the panel prints."""
+    lowered = text.lower()
+    named = sum(1 for label in _printed_labels() if label.lower() in lowered)
+    return named >= _MIN_LABELS
+
+
 def _described_invocations() -> list[str]:
-    """The invocations that also say what the command prints."""
-    return [line for line in _status_invocations() if "#" in line]
+    """The comments that say what the command prints."""
+    return [text for text in _annotations() if _describes_output(text)]
 
 
 def _readme_status_line() -> str:
