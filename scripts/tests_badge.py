@@ -25,11 +25,18 @@ import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
 README = _ROOT / "README.md"
+# The launch post states the same figure for a reader who never opens the
+# repository. It said 2252 while the suite collected 2650, because nothing
+# wrote it and nothing read it. One counter, two places it is written.
+POST = _ROOT / "blog" / "launch-post-draft.md"
 
 # The same selection CI runs, so the number describes the suite people gate on.
 MARKERS = "not slow and not smoke"
 
 _BADGE = re.compile(r"badge/tests-(\d+)")
+# The phrase is matched across a line break as well, so a reflowed
+# paragraph does not silently stop being written to.
+_POST = re.compile(r"(\d+) tests collected under the gated\s+selection")
 
 
 def collected() -> int:
@@ -75,6 +82,23 @@ def rewrite(count: int, readme: pathlib.Path = README) -> bool:
     return True
 
 
+def claimed_in_post(post: pathlib.Path = POST) -> int:
+    """The number the launch post currently states."""
+    match = _POST.search(post.read_text(encoding="utf-8"))
+    assert match, "the launch post no longer states a collected count"
+    return int(match.group(1))
+
+
+def rewrite_post(count: int, post: pathlib.Path = POST) -> bool:
+    """Put count into the launch post. True when the file changed."""
+    text = post.read_text(encoding="utf-8")
+    updated = _POST.sub(f"{count} tests collected under the gated selection", text, count=1)
+    if updated == text:
+        return False
+    post.write_text(updated, encoding="utf-8")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -85,15 +109,19 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     count = collected()
     if arguments.check:
-        if claimed() == count:
-            print(f"badge is current: {count}")
+        stale = [
+            (name, stated)
+            for name, stated in (("badge", claimed()), ("post", claimed_in_post()))
+            if stated != count
+        ]
+        if not stale:
+            print(f"badge and post are current: {count}")
             return 0
-        print(f"badge says {claimed()}, the suite collects {count}")
+        for name, stated in stale:
+            print(f"{name} says {stated}, the suite collects {count}")
         return 1
-    if rewrite(count):
-        print(f"badge set to {count}")
-    else:
-        print(f"badge already said {count}")
+    for name, changed in (("badge", rewrite(count)), ("post", rewrite_post(count))):
+        print(f"{name} set to {count}" if changed else f"{name} already said {count}")
     return 0
 
 
