@@ -17,8 +17,6 @@ import ast
 import re
 from pathlib import Path
 
-import cyberai
-
 # what the README line calls it -> the labels the panel prints under it
 _STATUS_GROUPS = {
     "provider": ["Provider", "Model"],
@@ -30,8 +28,15 @@ _STATUS_GROUPS = {
     "toolchain": ["Tools found", "Tools missing"],
 }
 
-_README = Path(cyberai.__file__).parent.parent / "README.md"
-_MAIN = Path(cyberai.__file__).parent / "__main__.py"
+# Both files are located from this file rather than from the imported
+# package. Deriving a repository path from cyberai.__file__ points at
+# wherever the package happens to be installed, and when a released wheel
+# sat in site-packages this test went looking for a README beside it and
+# failed with FileNotFoundError -- a symptom of the environment, reported
+# as if the README were at fault.
+_ROOT = Path(__file__).resolve().parents[2]
+_README = _ROOT / "README.md"
+_MAIN = _ROOT / "cyberai" / "__main__.py"
 
 
 def _printed_labels() -> set[str]:
