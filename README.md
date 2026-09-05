@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.6.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2646%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2650%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%2091%2F170%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -27,10 +27,12 @@
 
 ## What is CyberAI?
 
-CyberAI is a multi-agent orchestration layer for offensive security. Five
-specialized agents — **Recon, Intel, Exploit, Report, Web3** — run a typed,
-auditable pipeline that turns a target into actionable attack paths and a
-validated report.
+CyberAI is a multi-agent orchestration layer for offensive security. Eight
+specialized agents run a typed, auditable pipeline that turns a target into
+actionable attack paths and a validated report. Four of them — **Recon,
+Intel, Exploit, Report** — form the network chain; **Web3**, **MCP Scan** and
+**Redteam** take their own kinds of target, and **Planner** orders the work
+the others do. The table below says what each one takes and produces.
 
 Two things set it apart from "LLM wrapper over nmap":
 
@@ -128,6 +130,9 @@ flowchart LR
 | **Exploit** | intel kb | attack paths, OOB findings | nuclei, searchsploit, OOB/SSRF/XXE workflows |
 | **Report** | session kb | structured Markdown / H1 export | LLM summary + LLM-as-judge validation |
 | **Web3** | .sol path / address | severity-tiered findings | Slither, Etherscan, Immunefi classifier |
+| **Planner** | kb relationship graph | ordered subtask plan | deterministic ranking, critic that decides retry vs skip |
+| **MCP Scan** | MCP endpoint (stdio or HTTP/SSE) | capability surface, poisoning and over-privilege findings | live probe, attestation posture, MST bridge |
+| **Redteam** | LLM or RAG channel | injection fuzz report | payload corpus, channel fuzzer, acknowledgement detection |
 
 ---
 
