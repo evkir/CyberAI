@@ -1,6 +1,8 @@
 # CyberAI is alive: honest benchmarks, offensive MCP/LLM red-team, and on-chain Web3 proof
 
-> **Status: draft.** Not published yet. Numbers below are re-verified before release.
+> **Status: draft.** Not published yet. The test count is written by
+> `scripts/tests_badge.py` from a collection, and every benchmark figure below
+> is checked against the document it comes from.
 
 Most offensive-security AI projects announce capabilities. This post announces
 numbers, source paths, and a command you can run yourself. Where a number does
@@ -11,7 +13,7 @@ not exist yet, it says so.
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
 pipeline over a shared knowledge base.
-2662 tests collected under the gated selection run before every commit, with the
+2665 tests collected under the gated selection run before every commit, with the
 slow and smoke tests deselected there and run separately, `mypy --strict`
 clean on the typed core (`cyberai/core/types.py`), Apache-2.0.
 

@@ -30,6 +30,20 @@ _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _POST = _ROOT / "blog" / "launch-post-draft.md"
 _AGENT_GATE = _ROOT / "tests" / "architecture" / "test_the_readme_names_every_agent.py"
 
+# Where a benchmark figure in the post is allowed to come from. The post is a
+# quoting document: it re-states results measured elsewhere, and every one of
+# those places is already pinned to a run by its own gate. A figure that
+# appears in none of them was typed, which is how 2252 got there.
+_SOURCES = (
+    _ROOT / "examples" / "local-bench" / "scorecard-agent.md",
+    _ROOT / "docs" / "benchmarks" / "local-suite.md",
+    _ROOT / "docs" / "benchmarks" / "cve-bench.md",
+    _ROOT / "README.md",
+)
+_BENCH_HEADING = "## 3. Honest benchmarks"
+_NEXT_HEADING = "## Air-gapped by construction"
+_FIGURE = re.compile(r"\b\d+/\d+\b|\b\d+(?:\.\d+)?%")
+
 _FENCED = re.compile(r"```.*?```", re.DOTALL)
 _INLINE = re.compile(r"`([^`\s]+)`")
 
@@ -97,4 +111,50 @@ def test_the_post_states_the_agent_count_it_measured() -> None:
     assert word, f"add {len(packages)} to the word map"
     assert re.search(rf"{word} agents", _body(), re.IGNORECASE), (
         f"{len(packages)} agent packages ship and the post states a different count"
+    )
+
+
+def _benchmark_section() -> str:
+    body = _body()
+    start = body.find(_BENCH_HEADING)
+    end = body.find(_NEXT_HEADING)
+    assert start != -1 and end > start, "the benchmark section headings moved"
+    return body[start:end]
+
+
+def test_every_benchmark_figure_the_post_states_appears_in_a_source() -> None:
+    """A quoting document may not introduce a figure of its own.
+
+    Presence, not position: this asserts the string occurs in a document
+    that a run produced, which is weaker than parsing each claim back to
+    the cell it came from. It is the boundary of this gate, and it catches
+    the failure that actually happened -- a number nobody could trace.
+    """
+    texts = [path.read_text(encoding="utf-8") for path in _SOURCES if path.exists()]
+    assert len(texts) == len(_SOURCES), [p.name for p in _SOURCES if not p.exists()]
+
+    figures = set(_FIGURE.findall(_benchmark_section()))
+    unsourced = sorted(f for f in figures if not any(f in text for text in texts))
+    assert not unsourced, (
+        f"the post states {unsourced} and no committed measurement carries them. "
+        "Quote a document that a run produced, or drop the figure."
+    )
+
+
+def test_the_scan_finds_figures_at_all() -> None:
+    """Matching nothing would make the rule above vacuous."""
+    figures = set(_FIGURE.findall(_benchmark_section()))
+    assert len(figures) >= 5, sorted(figures)
+
+
+def test_the_status_note_names_who_writes_the_numbers() -> None:
+    """It used to promise the numbers were re-verified before release.
+
+    They were not, and the release happened. A promise with no named
+    author ages into a false statement; a named producer can be followed.
+    """
+    body = _body()
+    assert "scripts/tests_badge.py" in body, "the status note no longer names the writer"
+    assert "re-verified before release" not in body, (
+        "the post is promising a verification nobody performs"
     )
