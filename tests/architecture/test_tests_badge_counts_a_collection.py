@@ -15,6 +15,12 @@ gate could say the number was wrong and nothing could set it right. The
 counter now lives in scripts/tests_badge.py and this file reads it, so the
 number written by hand and the number checked here cannot be two numbers.
 
+The launch post states the same figure and is written by the same script.
+It said 2252 while the suite collected 2650, and it is the document an
+outside reader meets first. Rather than run a second collection here, the
+post is compared against the badge: the badge is already pinned to a
+collection above, so one measurement reaches both readers.
+
 The script is loaded from its path rather than imported by name. scripts/ is
 importable today only because the editable install drops the repository root
 into sys.path; an assertion resting on the install mode is an assertion about
@@ -64,3 +70,45 @@ def test_rewriting_a_current_badge_leaves_the_file_alone(tmp_path) -> None:
     before = copy.read_bytes()
     assert tool.rewrite(tool.claimed(copy), copy) is False
     assert copy.read_bytes() == before
+
+
+def test_the_post_states_the_number_the_badge_states() -> None:
+    tool = _badge_tool()
+    post, badge = tool.claimed_in_post(), tool.claimed()
+    assert post == badge, (
+        f"the launch post says {post} tests and the README badge says {badge}. "
+        "Run scripts/tests_badge.py rather than editing either number."
+    )
+
+
+def test_the_post_writer_writes_the_number_the_post_reader_reads(tmp_path) -> None:
+    tool = _badge_tool()
+    copy = tmp_path / "launch-post-draft.md"
+    shutil.copy(tool.POST, copy)
+    assert tool.rewrite_post(1, copy) is True
+    assert tool.claimed_in_post(copy) == 1
+
+
+def test_rewriting_a_current_post_leaves_the_file_alone(tmp_path) -> None:
+    tool = _badge_tool()
+    copy = tmp_path / "launch-post-draft.md"
+    shutil.copy(tool.POST, copy)
+    before = copy.read_bytes()
+    assert tool.rewrite_post(tool.claimed_in_post(copy), copy) is False
+    assert copy.read_bytes() == before
+
+
+def test_the_sentence_is_found_across_a_line_break(tmp_path) -> None:
+    """A reflowed paragraph must not silently stop being written to.
+
+    Markdown wraps, and the phrase this script edits is long enough to be
+    split by an editor or by a later rewording. Matched on one line only,
+    the writer would report no change and the reader would go on quoting
+    whatever number was there before.
+    """
+    tool = _badge_tool()
+    copy = tmp_path / "launch-post-draft.md"
+    copy.write_text("7 tests collected under the gated\nselection.\n", encoding="utf-8")
+    assert tool.claimed_in_post(copy) == 7
+    assert tool.rewrite_post(9, copy) is True
+    assert tool.claimed_in_post(copy) == 9

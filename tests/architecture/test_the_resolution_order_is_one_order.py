@@ -23,7 +23,6 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-import cyberai
 from cyberai.__main__ import _TOOLCHAIN, cli
 
 # finder name -> (module, env variable the finder reads first)
@@ -38,7 +37,10 @@ REGISTRY = {
     "find_mst": ("cyberai.agents.mcp_scan.mst_bridge", "MAS_SENTRY_PATH"),
 }
 
-_PACKAGE_ROOT = Path(cyberai.__file__).parent
+# Scanned out of this tree, not out of the imported package: with a released
+# wheel installed the scan would have read that copy and stayed green about
+# a ninth finder added here.
+_PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "cyberai"
 
 
 def _reads_which(node: ast.FunctionDef) -> bool:
