@@ -68,9 +68,39 @@ def _uploads() -> list[tuple[str, dict, dict]]:
     return found
 
 
-def test_exactly_one_job_uploads_coverage() -> None:
-    """Two uploads would be two reports, and the second one would win."""
+def test_exactly_one_step_uploads_coverage() -> None:
+    """A second upload step would be a second report from the same commit."""
     assert len(_uploads()) == 1, [name for name, _, _ in _uploads()]
+
+
+def test_the_upload_is_repeated_by_the_matrix_and_narrowed_by_nothing() -> None:
+    """One step is not one upload, and the docstring above used to imply it was.
+
+    The uploading job runs a version matrix, and the step carries no condition,
+    so the report is posted once per entry -- four times per commit today, each
+    an anonymous session of the same measurement, each now declaring the same
+    pull request through override_pr. Codecov merges sessions on a commit, so
+    the count has never been visible from the outside and nothing here claims
+    which one is decisive.
+
+    What this pins is that the multiplicity is deliberate. An `if` narrowing
+    the step to one entry, or a `flags` or `name` telling the sessions apart,
+    are both reasonable answers to four identical uploads, and both change what
+    the paragraph above says. This reds on the day either arrives so the
+    sentence gets rewritten with the change rather than a year later.
+    """
+    for name, job, step in _uploads():
+        combinations = (job.get("strategy") or {}).get("matrix") or {}
+        assert combinations, f"{name} uploads outside any matrix; the count above is stale"
+        assert "if" not in step, (
+            f"{name} narrows the upload with a condition; it no longer runs once per "
+            "matrix entry and the reasoning above needs rewriting"
+        )
+        for label in ("flags", "name"):
+            assert label not in step["with"], (
+                f"{name} distinguishes its uploads with {label}; the sessions are no "
+                "longer anonymous and merging is no longer what happens"
+            )
 
 
 def test_the_upload_is_a_version_that_can_authenticate() -> None:
