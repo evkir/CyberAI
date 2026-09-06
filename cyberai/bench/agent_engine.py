@@ -39,7 +39,7 @@ from cyberai.agents.exploit.web_payloads import classes_from_description
 from cyberai.agents.recon.agent import ReconAgent
 from cyberai.bench.docker_builder import DockerBuilder
 from cyberai.bench.evaluator import probe_for
-from cyberai.bench.runner import BenchResult, BenchTask
+from cyberai.bench.runner import BenchResult, BenchTask, TaskRunner
 from cyberai.bench.targets import LocalSuiteAdapter, VulnTarget
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.cost_tracker import CostTracker
@@ -191,7 +191,7 @@ def make_agent_runner(
     builder: Optional[DockerBuilder] = None,
     attacker: Optional[AttackFn] = None,
     judge: Optional[JudgeFn] = None,
-):
+) -> TaskRunner:
     """Build a TaskRunner that measures the agents and cross-checks the probe.
 
     The returned callable matches runner.TaskRunner: BenchTask -> BenchResult.
