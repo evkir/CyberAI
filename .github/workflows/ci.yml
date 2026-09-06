@@ -149,6 +149,8 @@ jobs:
         run: mypy
       - name: Report modules that pass strictly outside the declared scope
         run: python scripts/typing_scope_drift.py
+      - name: Check the declared stubs are the stubs that ship
+        run: python scripts/stub_distributions.py
 
   mcp-1x:
     name: MCP surface on mcp 1.x

@@ -27,17 +27,27 @@ import pathlib
 import re
 import sys
 import tomllib
+import types
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _PACKAGE = _ROOT / "cyberai"
 _PYPROJECT = _ROOT / "pyproject.toml"
+_STUB_SCRIPT = _ROOT / "scripts" / "stub_distributions.py"
 
-# Imported modules that ship no `py.typed`, mapped to the distribution that
-# supplies their stubs. Every value has to appear in the dev extra.
-_STUB_DISTRIBUTION_FOR = {
-    "yaml": "types-PyYAML",
-    "networkx": "types-networkx",
-}
+
+def _stub_tool() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location("stub_distributions", _STUB_SCRIPT)
+    assert spec and spec.loader, f"no module at {_STUB_SCRIPT}"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The mapping from an untyped import to the distribution that stubs it lives in
+# `scripts/stub_distributions.py`, which is also what asks each distribution
+# whether it really ships those stubs. Reading it here keeps one module named in
+# one place; a copy would be a second producer that agrees until it does not.
+_STUB_DISTRIBUTION_FOR = _stub_tool().STUB_DISTRIBUTION_FOR
 
 # Imported, installed, no `py.typed`, and typeshed publishes nothing for it.
 # `ignore_missing_imports` renders it `Any` on every machine, so unlike an
