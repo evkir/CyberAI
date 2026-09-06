@@ -1,19 +1,26 @@
 # Typing scope
 
-`mypy --strict` reads 91 of 170 modules in the package. The other 79 hold 299
+`mypy --strict` reads 95 of 170 modules in the package. The other 75 hold 289
 errors and are not checked. Both numbers are measured, not chosen, and they
-are measured on the runner: the typecheck job prints them on every run. A
-workstation can report one more, and one here does, because a single call in
-`cyberai/cli/bench.py` infers differently there. The runner is what the
-numbers describe.
+are measured on the runner: the typecheck job prints them on every run.
+
+Four modules were carried into the scope rather than found there. The call at
+`cyberai/cli/bench.py` that reported `Cannot call function of unknown type`
+was read for a day as a divergence between machines, and it was not one: the
+two factories in `_LIVE_ENGINES` take different optional arguments, the
+inferred value type of the dict is their join, and the join is `object`.
+Annotating the factories' return type does not move it -- measured, the error
+survives that -- and annotating the dict does. The three factory modules came
+in behind it, named by the drift step once the call site stopped hiding them.
 
 ## How the set was drawn
 
 A single run over the whole package under `--strict --python-version 3.11
 --ignore-missing-imports` partitions the package into modules that report at
 least one error and modules that report none. The clean side is what
-`[tool.mypy] files` lists. No source was changed to enlarge it: every module
-in the scope already passed before it was added.
+`[tool.mypy] files` lists. The scope was drawn without changing source: every
+module in it passed before it was added, except the four described above,
+where the source was annotated first and the partition was re-measured after.
 
 The scope mixes two forms. Five directories are clean throughout and are
 listed as directories, so a module added to one of them is checked from the
@@ -33,8 +40,8 @@ mypy --strict --python-version 3.11 --ignore-missing-imports cyberai
 
 The cache purge is not decoration. A scoped run that reuses a cache left by a
 wider run re-emits errors for modules outside the scope, and reports them as
-if the declared set were dirty. Measured: cold cache gives `Success` on 91
-modules, the same command after a full-package run gives 232 errors in 49
+if the declared set were dirty. Measured: cold cache gives `Success` on 95
+modules, the same command after a full-package run gives 234 errors in 51
 files, and every one of those files lies outside the scope.
 
 `scripts/typing_scope_drift.py` runs the same partition without the hazard.
@@ -45,7 +52,7 @@ wide run a cache directory of its own instead of purging the shared one.
 ## What the numbers depend on
 
 The partition moves with the checker. Measured on mypy 1.19.1 the clean side
-holds 91 modules; a later release moved it by one module in the other
+holds 95 modules; a later release moved it by one module in the other
 direction. The dev extra therefore bounds the checker rather than naming a
 floor and admitting every future release.
 
@@ -68,13 +75,13 @@ the tests installs no stubs at all.
 
 ## The unchecked side
 
-Six modules carry roughly a third of the 299 errors:
+Six modules carry roughly a third of the 289 errors:
 
 | Module | Errors |
 |---|---|
 | `cyberai/core/llm_client.py` | 39 |
 | `cyberai/core/orchestrator.py` | 20 |
-| `cyberai/agents/recon/async_agent.py` | 12 |
+| `cyberai/agents/recon/async_agent.py` | 17 |
 | `cyberai/core/session.py` | 10 |
 | `cyberai/core/kb_graph.py` | 10 |
 | `cyberai/agents/report/html_renderer.py` | 9 |

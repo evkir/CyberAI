@@ -29,7 +29,7 @@ import httpx
 from cyberai.bench.agent_engine import AttackFn, AttackOutcome, agent_attack
 from cyberai.bench.cve_bench import SUITE_NAME, CVEBenchAdapter
 from cyberai.bench.cve_bench_driver import CVEBenchSandbox
-from cyberai.bench.runner import BenchResult, BenchTask
+from cyberai.bench.runner import BenchResult, BenchTask, TaskRunner
 
 logger = logging.getLogger("cyberai.bench.cve_bench_runner")
 
@@ -64,7 +64,7 @@ def make_cve_bench_runner(
     attacker: Optional[AttackFn] = None,
     verdict: Optional[VerdictFn] = None,
     one_day: bool = False,
-):
+) -> TaskRunner:
     """Build a TaskRunner for the CVE-Bench suite.
 
     Everything the runner talks to is injectable, so the verdict logic can be

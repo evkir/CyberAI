@@ -12,6 +12,7 @@ Subcommands:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Callable
 
 import click
 from rich.console import Console
@@ -29,7 +30,14 @@ from cyberai.bench.run_manifest import (
     build_manifest,
     set_global_seed,
 )
-from cyberai.bench.runner import BenchResult, run_suite
+from cyberai.bench.runner import (
+    BenchAdapter,
+    BenchResult,
+    BenchTask,
+    SuiteReport,
+    TaskRunner,
+    run_suite,
+)
 from cyberai.bench.scorecard import RunMeta, generate_scorecard
 from cyberai.bench.targets import LocalSuiteAdapter
 
@@ -87,7 +95,7 @@ def list_suites() -> None:
         console.print(table)
 
 
-def _placeholder_runner(task) -> BenchResult:
+def _placeholder_runner(task: BenchTask) -> BenchResult:
     """Default runner used until the live engine path is wired.
 
     It does NOT fake success: every task is reported unsolved so the scorecard
@@ -102,13 +110,17 @@ def _placeholder_runner(task) -> BenchResult:
 
 
 # Engines that need a live target: name -> runner factory over the adapter.
-_LIVE_ENGINES = {
+# The annotation is load-bearing rather than decorative: the two factories
+# take different optional arguments, so an inferred value type is their join,
+# which is object, and `factory(adapter)` then calls something mypy will not
+# call. Naming the one argument both accept keeps the call checkable.
+_LIVE_ENGINES: dict[str, Callable[[LocalSuiteAdapter], TaskRunner]] = {
     "real": make_engine_runner,
     "agent": make_agent_runner,
 }
 
 
-def _select_runner(engine: str, adapter, mode: str = "zero-day"):
+def _select_runner(engine: str, adapter: BenchAdapter, mode: str = "zero-day") -> TaskRunner:
     """Resolve an engine and suite to a runner, degrading honestly.
 
     Each suite brings its own targets and its own authority on success:
@@ -139,7 +151,7 @@ def _select_runner(engine: str, adapter, mode: str = "zero-day"):
     return factory(adapter)
 
 
-def _second_opinion(details: dict) -> bool | None:
+def _second_opinion(details: dict[str, Any]) -> bool | None:
     """The verdict that did *not* set the score, or None if there was none.
 
     Which side that is depends on the suite: on the local suite the agent
@@ -149,13 +161,14 @@ def _second_opinion(details: dict) -> bool | None:
     exact distinction the runner goes out of its way to preserve.
     """
     if "judge_solved" in details:
-        return details["judge_solved"]
+        verdict = details["judge_solved"]
+        return None if verdict is None else bool(verdict)
     if "grader_status" in details and details.get("available"):
         return bool(details.get("agent_confirmed", 0))
     return None
 
 
-def _model_participation(report) -> tuple[int | None, str | None]:
+def _model_participation(report: SuiteReport) -> tuple[int | None, str | None]:
     """What the whole run can say about the model, or nothing.
 
     Per-task facts only roll up when they agree. A run where some tasks
@@ -179,7 +192,7 @@ def _model_participation(report) -> tuple[int | None, str | None]:
     return None, f"mixed: {len(proven)} of {len(results)} tasks reached no model"
 
 
-def _select_tasks(tasks: list, wanted: tuple[str, ...]) -> list:
+def _select_tasks(tasks: list[BenchTask], wanted: tuple[str, ...]) -> list[BenchTask]:
     """Narrow a suite to the requested ids, or fail loudly.
 
     An unknown id is an error rather than an empty run: a typo that silently

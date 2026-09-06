@@ -30,7 +30,7 @@ from typing import Optional
 
 from cyberai.bench.docker_builder import DockerBuilder
 from cyberai.bench.evaluator import probe_for
-from cyberai.bench.runner import BenchResult, BenchTask
+from cyberai.bench.runner import BenchResult, BenchTask, TaskRunner
 from cyberai.bench.targets import LocalSuiteAdapter
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 def make_engine_runner(
     adapter: LocalSuiteAdapter,
     builder: Optional[DockerBuilder] = None,
-):
+) -> TaskRunner:
     """Build a TaskRunner closure over a local adapter and a docker builder.
 
     The returned callable matches runner.TaskRunner: BenchTask -> BenchResult.
