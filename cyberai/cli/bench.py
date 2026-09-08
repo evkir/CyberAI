@@ -212,6 +212,28 @@ def _surface_profile(report: SuiteReport) -> dict[str, str]:
     return {k: ("on" if v else "off") for k, v in sorted(first.items())}
 
 
+def _unavailable_note(report: SuiteReport) -> str | None:
+    """Which targets never came up, when any engine recorded that at all.
+
+    A task refused before it started scores the same zero as a task the agent
+    walked and lost, and the score cannot tell them apart. The scorecard
+    carries an availability column for exactly this reason; a plain run does
+    not write one, so the caveat stayed in a file nobody asked for.
+
+    Silence when nothing was recorded: the placeholder engine measures no
+    availability, and a line reading `all targets up` would be a claim it
+    never made.
+    """
+    down = [r for r in report.results if r.details.get("available") is False]
+    if not down:
+        return None
+    reasons = sorted({r.error for r in down if r.error})
+    note = f"{len(down)} of {len(report.results)} targets never came up: " + ", ".join(
+        r.task_id for r in down
+    )
+    return note + (f" ({'; '.join(reasons)})" if reasons else "")
+
+
 def _select_tasks(tasks: list[BenchTask], wanted: tuple[str, ...]) -> list[BenchTask]:
     """Narrow a suite to the requested ids, or fail loudly.
 
@@ -350,6 +372,12 @@ def run(
         table.add_row(*row)
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
+
+    # A zero earned by an agent and a zero handed out because nothing was
+    # listening are the same number, and only one of them is about the agent.
+    unavailable = _unavailable_note(report)
+    if unavailable:
+        console.print(f"[yellow]{unavailable}[/yellow]")
 
     # The score and the model's part in it belong in the same place. This was
     # computed only when a scorecard was asked for, so a plain run printed a
