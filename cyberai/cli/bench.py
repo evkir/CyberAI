@@ -331,6 +331,15 @@ def run(
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
 
+    # The score and the model's part in it belong in the same place. This was
+    # computed only when a scorecard was asked for, so a plain run printed a
+    # rate and left the reader to assume a model produced it.
+    calls, reason = _model_participation(report)
+    if calls == 0:
+        console.print(f"[yellow]llm calls: 0 ({reason})[/yellow]")
+    elif reason:
+        console.print(f"[yellow]llm calls: {reason}[/yellow]")
+
     if engine == "agent":
         for r in report.results:
             note = r.details.get("disagreement")
@@ -363,7 +372,6 @@ def run(
             extra["filtered"] = f"{len(selected)} of {len(all_tasks)} tasks: " + ", ".join(
                 t.id for t in selected
             )
-        calls, reason = _model_participation(report)
         md = generate_scorecard(
             report,
             RunMeta(
