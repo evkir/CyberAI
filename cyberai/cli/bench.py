@@ -192,6 +192,48 @@ def _model_participation(report: SuiteReport) -> tuple[int | None, str | None]:
     return None, f"mixed: {len(proven)} of {len(results)} tasks reached no model"
 
 
+def _surface_profile(report: SuiteReport) -> dict[str, str]:
+    """The flags that shaped the surface, when every task agrees on them.
+
+    A manifest exists so a number can be reproduced. api_discovery is the
+    difference between 15 endpoints and none on a spec-driven target, and it
+    reaches the bench from the environment, so two runs of the same suite can
+    fingerprint identically and mean different things. Tasks that disagree
+    report the disagreement: a profile averaged over a split run describes
+    neither half.
+    """
+    seen = [r.details.get("surface_profile") for r in report.results]
+    present = [p for p in seen if isinstance(p, dict)]
+    if not present:
+        return {}
+    first = present[0]
+    if len(present) != len(seen) or any(p != first for p in present):
+        return {"surface_profile": "mixed across tasks"}
+    return {k: ("on" if v else "off") for k, v in sorted(first.items())}
+
+
+def _unavailable_note(report: SuiteReport) -> str | None:
+    """Which targets never came up, when any engine recorded that at all.
+
+    A task refused before it started scores the same zero as a task the agent
+    walked and lost, and the score cannot tell them apart. The scorecard
+    carries an availability column for exactly this reason; a plain run does
+    not write one, so the caveat stayed in a file nobody asked for.
+
+    Silence when nothing was recorded: the placeholder engine measures no
+    availability, and a line reading `all targets up` would be a claim it
+    never made.
+    """
+    down = [r for r in report.results if r.details.get("available") is False]
+    if not down:
+        return None
+    reasons = sorted({r.error for r in down if r.error})
+    note = f"{len(down)} of {len(report.results)} targets never came up: " + ", ".join(
+        r.task_id for r in down
+    )
+    return note + (f" ({'; '.join(reasons)})" if reasons else "")
+
+
 def _select_tasks(tasks: list[BenchTask], wanted: tuple[str, ...]) -> list[BenchTask]:
     """Narrow a suite to the requested ids, or fail loudly.
 
@@ -331,6 +373,21 @@ def run(
     console.print(table)
     console.print(f"[bold]pass@1: {report.solved}/{report.total} = {report.pass_at_1:.1%}[/bold]")
 
+    # A zero earned by an agent and a zero handed out because nothing was
+    # listening are the same number, and only one of them is about the agent.
+    unavailable = _unavailable_note(report)
+    if unavailable:
+        console.print(f"[yellow]{unavailable}[/yellow]")
+
+    # The score and the model's part in it belong in the same place. This was
+    # computed only when a scorecard was asked for, so a plain run printed a
+    # rate and left the reader to assume a model produced it.
+    calls, reason = _model_participation(report)
+    if calls == 0:
+        console.print(f"[yellow]llm calls: 0 ({reason})[/yellow]")
+    elif reason:
+        console.print(f"[yellow]llm calls: {reason}[/yellow]")
+
     if engine == "agent":
         for r in report.results:
             note = r.details.get("disagreement")
@@ -346,7 +403,10 @@ def run(
             suite=suite,
             tasks=selected,
             report=report,
-            config=RunConfig(seed=seed, extra={"engine": engine, "mode": mode}),
+            config=RunConfig(
+                seed=seed,
+                extra={"engine": engine, "mode": mode, **_surface_profile(report)},
+            ),
         )
 
     if manifest_path and manifest is not None:
@@ -363,7 +423,6 @@ def run(
             extra["filtered"] = f"{len(selected)} of {len(all_tasks)} tasks: " + ", ".join(
                 t.id for t in selected
             )
-        calls, reason = _model_participation(report)
         md = generate_scorecard(
             report,
             RunMeta(

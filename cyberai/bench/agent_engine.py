@@ -64,6 +64,10 @@ class AttackOutcome:
     # counted. Both stay None unless the attacker establishes otherwise.
     llm_calls: Optional[int] = None
     llm_zero_reason: Optional[str] = None
+    # The flags that decide how much surface the run could see at all. Read
+    # off the config the attack actually used, not off the environment at
+    # reporting time, so a manifest describes the run it fingerprints.
+    surface_profile: Optional[dict[str, bool]] = None
 
     @property
     def solved(self) -> bool:
@@ -114,9 +118,14 @@ def agent_attack(
     """
     # The bench profile turns on what the measured path needs. use_oob is
     # the third of those: one suite target is blind, so without it the
-    # agent fails a task it solves. The cost is bounded -- oob_max_params
-    # caps confirmation at 3 parameters, _OOB_MAX_WAIT at 5s each -- so a
-    # task pays at most 15s for a capability it needs to be scored fairly.
+    # agent fails a task it solves. The cost is bounded but not by
+    # oob_max_params alone: the wait is charged per delivery, and a run
+    # sends the base corpus and then its mutations, so the bound is
+    # oob_workflow.worst_case_wait_seconds(category, max_wait, max_params)
+    # rather than max_params * max_wait. This comment claimed 15s a task;
+    # measured 2026-09-08 on VAmPI with three blind parameters, the walk
+    # took roughly four minutes, and 149 requests against 101 with the
+    # capability off.
     # A fourth flag was measured and rejected. use_api_discovery grows the
     # surface from 19 endpoints to 252 on CVE-2024-5084, and the request
     # budget then caps at 400 spent with 236 endpoints never reached --
@@ -134,6 +143,16 @@ def agent_attack(
         use_oob=True,
     )
     session = ScanSession(target=base_url)
+    # Measured 2026-09-08 on live targets: without api_discovery the walk
+    # sees 0 endpoints on both Juice Shop and VAmPI, with it 15 and 5. The
+    # rejection above is a CVE-Bench measurement and holds for that class of
+    # target; it does not describe an application whose surface lives in a
+    # spec. Which way a run went is now recorded rather than assumed.
+    surface_profile = {
+        "api_discovery": bool(cfg.use_api_discovery),
+        "route_probing": bool(cfg.use_route_probing),
+        "oob": bool(cfg.use_oob),
+    }
 
     description = str((task.metadata if task else {}).get("one_day_description", ""))
     classes = classes_from_description(description) if one_day and description else None
@@ -169,6 +188,7 @@ def agent_attack(
             if model_free
             else None
         ),
+        surface_profile=surface_profile,
     )
 
 
@@ -242,6 +262,7 @@ def make_agent_runner(
                 "findings": outcome.findings,
                 "llm_calls": outcome.llm_calls,
                 "llm_zero_reason": outcome.llm_zero_reason,
+                "surface_profile": outcome.surface_profile,
                 "judge_solved": judged,
                 "agreement": None if judged is None else outcome.solved == judged,
             }
