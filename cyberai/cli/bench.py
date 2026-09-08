@@ -192,6 +192,26 @@ def _model_participation(report: SuiteReport) -> tuple[int | None, str | None]:
     return None, f"mixed: {len(proven)} of {len(results)} tasks reached no model"
 
 
+def _surface_profile(report: SuiteReport) -> dict[str, str]:
+    """The flags that shaped the surface, when every task agrees on them.
+
+    A manifest exists so a number can be reproduced. api_discovery is the
+    difference between 15 endpoints and none on a spec-driven target, and it
+    reaches the bench from the environment, so two runs of the same suite can
+    fingerprint identically and mean different things. Tasks that disagree
+    report the disagreement: a profile averaged over a split run describes
+    neither half.
+    """
+    seen = [r.details.get("surface_profile") for r in report.results]
+    present = [p for p in seen if isinstance(p, dict)]
+    if not present:
+        return {}
+    first = present[0]
+    if len(present) != len(seen) or any(p != first for p in present):
+        return {"surface_profile": "mixed across tasks"}
+    return {k: ("on" if v else "off") for k, v in sorted(first.items())}
+
+
 def _select_tasks(tasks: list[BenchTask], wanted: tuple[str, ...]) -> list[BenchTask]:
     """Narrow a suite to the requested ids, or fail loudly.
 
@@ -355,7 +375,10 @@ def run(
             suite=suite,
             tasks=selected,
             report=report,
-            config=RunConfig(seed=seed, extra={"engine": engine, "mode": mode}),
+            config=RunConfig(
+                seed=seed,
+                extra={"engine": engine, "mode": mode, **_surface_profile(report)},
+            ),
         )
 
     if manifest_path and manifest is not None:
