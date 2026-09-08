@@ -407,6 +407,14 @@ def scan(
     for key, value in summary.items():
         console.print(f"  {key}: {value}")
 
+    # `$?` is what a shell script or a CI step reads, and it reported success
+    # for a run whose exploit phase raised. The summary is printed first: the
+    # exit code replaces neither the report nor the saved session.
+    # A partial run keeps 0 -- every phase ran and said what it could not
+    # check, which is a result, not a failure.
+    if failed:
+        raise SystemExit(1)
+
 
 @cli.command()
 @click.argument("session_id")
