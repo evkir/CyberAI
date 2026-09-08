@@ -118,9 +118,14 @@ def agent_attack(
     """
     # The bench profile turns on what the measured path needs. use_oob is
     # the third of those: one suite target is blind, so without it the
-    # agent fails a task it solves. The cost is bounded -- oob_max_params
-    # caps confirmation at 3 parameters, _OOB_MAX_WAIT at 5s each -- so a
-    # task pays at most 15s for a capability it needs to be scored fairly.
+    # agent fails a task it solves. The cost is bounded but not by
+    # oob_max_params alone: the wait is charged per delivery, and a run
+    # sends the base corpus and then its mutations, so the bound is
+    # oob_workflow.worst_case_wait_seconds(category, max_wait, max_params)
+    # rather than max_params * max_wait. This comment claimed 15s a task;
+    # measured 2026-09-08 on VAmPI with three blind parameters, the walk
+    # took roughly four minutes, and 149 requests against 101 with the
+    # capability off.
     # A fourth flag was measured and rejected. use_api_discovery grows the
     # surface from 19 endpoints to 252 on CVE-2024-5084, and the request
     # budget then caps at 400 spent with 236 endpoints never reached --
