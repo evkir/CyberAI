@@ -42,6 +42,9 @@ class MCPProbeResult:
     tools: list[dict[str, Any]] = field(default_factory=list)
     prompts: list[dict[str, Any]] = field(default_factory=list)
     resources: list[dict[str, Any]] = field(default_factory=list)
+    protocol_version: str | None = None
+    capabilities: dict[str, Any] = field(default_factory=dict)
+    instructions: str | None = None
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -73,10 +76,12 @@ def _stdio_params(endpoint: str) -> StdioServerParameters:
 async def _open_streams(endpoint: str, transport: Transport) -> AsyncIterator[tuple[Any, Any]]:
     """Yield (read, write) streams for the chosen transport.
 
-    The transports unpack asymmetrically: ``streamablehttp_client`` yields a
-    3-tuple (read, write, get_session_id) while ``stdio_client`` and
-    ``sse_client`` yield a 2-tuple. This helper hides that difference so the
-    probe body only ever sees (read, write).
+    The transports have not agreed on an arity across SDK releases:
+    ``streamablehttp_client`` yielded (read, write, get_session_id) on mcp 1.x
+    and yields (read, write) on 2.x, while ``stdio_client`` and ``sse_client``
+    have always yielded two. Unpacking a fixed count binds the probe to one
+    release; taking the first two elements works on both, and the extra
+    element was never used.
     """
     if transport == "stdio":
         async with stdio_client(_stdio_params(endpoint)) as (read, write):
@@ -86,8 +91,8 @@ async def _open_streams(endpoint: str, transport: Transport) -> AsyncIterator[tu
         async with sse_client(url) as (read, write):
             yield read, write
     else:  # http
-        async with streamablehttp_client(endpoint) as (read, write, _get_session_id):
-            yield read, write
+        async with streamablehttp_client(endpoint) as streams:
+            yield streams[0], streams[1]
 
 
 async def _list_page(list_fn: Callable[..., Awaitable[Any]], cursor: str | None) -> Any:
@@ -145,6 +150,20 @@ async def inventory(session: ClientSession) -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def _describe(exc: BaseException) -> str:
+    """Name the failure a caller can act on, not the machinery around it.
+
+    Every transport runs inside a task group, so a refused connection, a TLS
+    failure and a client-side bug all reach the caller as the same
+    "ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)". That
+    string hid a ValueError in this module for as long as the HTTP transport
+    has existed. The leaves carry the cause, so the leaves are reported.
+    """
+    if isinstance(exc, BaseExceptionGroup):
+        return "; ".join(_describe(inner) for inner in exc.exceptions)
+    return f"{type(exc).__name__}: {exc}"
+
+
 async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeResult:
     """Connect to a target MCP endpoint and inventory its capability surface."""
     transport = transport or detect_transport(endpoint)
@@ -157,13 +176,25 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
                 # by_alias keeps the wire spelling. mcp 1.x names the field
                 # serverInfo, 2.0 renamed the python attribute to server_info;
                 # the wire name is the stable one -- same reason _dump() uses it.
-                info = init.model_dump(mode="json", by_alias=True)["serverInfo"]
+                data = init.model_dump(mode="json", by_alias=True)
+                info = data["serverInfo"]
                 result.server_name = info["name"]
                 result.server_version = info["version"]
+                # The negotiated revision decides which surfaces exist at all:
+                # icons and URL-mode elicitation arrive in 2025-11-25, the
+                # stateless core in 2026-07-28. serverInfo alone reports the
+                # vendor's version string and says nothing about the protocol
+                # actually spoken. `instructions` is optional in the spec and
+                # measured absent on our own server; it is server-controlled
+                # text that reaches the model's system context, so it is
+                # inventory, not decoration.
+                result.protocol_version = data["protocolVersion"]
+                result.capabilities = data["capabilities"]
+                result.instructions = data.get("instructions")
                 surface = await inventory(session)
                 result.tools = surface["tools"]
                 result.prompts = surface["prompts"]
                 result.resources = surface["resources"]
     except Exception as exc:  # noqa: BLE001 — surface connection errors on result
-        result.error = f"{type(exc).__name__}: {exc}"
+        result.error = _describe(exc)
     return result

@@ -25,6 +25,7 @@ from cyberai.agents.mcp_scan.scorecard import build_mcp_scorecard
 from cyberai.agents.mcp_scan.trust import analyze_trust_propagation
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
+from cyberai.mcp.auth_metadata import probe_auth_metadata
 from cyberai.mcp.client_probe import probe
 
 
@@ -87,6 +88,7 @@ class MCPScanAgent(BaseAgent):
             "endpoint": target,
             "transport": probe_result["transport"],
             "connected": probe_result["connected"],
+            "protocol_version": probe_result["protocol_version"],
             "tools": len(probe_result["tools"]),
             "prompts": len(probe_result["prompts"]),
             "resources": len(probe_result["resources"]),
@@ -99,6 +101,7 @@ class MCPScanAgent(BaseAgent):
             target, probe_result["transport"], probe_result["connected"], probe_result["error"]
         )
         trust = self._analyze_trust(target, probe_result["tools"])
+        auth_metadata = probe_auth_metadata(target, probe_result["transport"]).to_dict()
         mst = self._run_mst(target, probe_result["transport"], context)
         result: dict[str, Any] = {
             **summary,
@@ -107,6 +110,7 @@ class MCPScanAgent(BaseAgent):
             "exposure": exposure,
             "attestation": attestation,
             "trust": trust,
+            "auth_metadata": auth_metadata,
             "mst": mst,
             "probe": probe_result,
         }

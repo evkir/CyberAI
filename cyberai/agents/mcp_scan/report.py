@@ -180,6 +180,59 @@ def _severity_summary(result: Dict[str, Any], rows: List[RiskRow]) -> Dict[str, 
     return {level: sevs.count(level) for level in _ORDER}
 
 
+def _authorization_lines(result: Dict[str, Any]) -> List[str]:
+    """Render the published authorization posture, or say why there is none.
+
+    Every value here is either measured or explicitly unknown. stdio has no
+    network origin, so the section says so rather than reporting a missing
+    PRM as if it were a gap. A key absent from a metadata document is not the
+    same as a server declining the capability, and prints as "not advertised".
+    """
+    auth = result.get("auth_metadata") or {}
+    if not auth:
+        return []
+    lines = ["## Authorization metadata", ""]
+    if not auth.get("applicable"):
+        lines += ["- not applicable: stdio has no network origin", ""]
+        return lines
+    if auth.get("error"):
+        lines += [f"- error: {auth['error']}", ""]
+        return lines
+
+    def _tri(value: Any) -> str:
+        return "not advertised" if value is None else ("yes" if value else "no")
+
+    lines.append(f"- 401 challenge: {_tri(auth.get('challenged'))}")
+    lines.append(f"- protected resource metadata: {_tri(auth.get('prm_present'))}")
+    lines.append(f"- metadata pointer: {auth.get('prm_source')}")
+    if auth.get("resource_metadata_url"):
+        lines.append(f"- metadata document: {auth['resource_metadata_url']}")
+    if auth.get("resource"):
+        lines.append(f"- resource: {auth['resource']}")
+    if auth.get("resource_scope"):
+        lines.append(f"- token audience vs endpoint: {auth['resource_scope']}")
+    if auth.get("issuer"):
+        lines.append(f"- issuer: {auth['issuer']}")
+    lines.append(f"- dynamic client registration offered: {_tri(auth.get('dcr_offered'))}")
+    lines.append(f"- client id metadata documents: {_tri(auth.get('cimd_supported'))}")
+    lines.append(f"- iss in authorization response: {_tri(auth.get('iss_parameter_advertised'))}")
+    lines.append("")
+    return lines
+
+
+def _revision(result: Dict[str, Any]) -> str:
+    """Render the negotiated protocol revision, or say why there is none.
+
+    A session that never connected negotiated nothing, and that absence is a
+    measurement. A session that did connect and still carries no revision is
+    not the same thing: the value was lost between the probe and here. Naming
+    the two cases apart keeps a wiring defect from reading as an honest zero.
+    """
+    if not result.get("connected"):
+        return "not negotiated"
+    return str(result.get("protocol_version") or "unreported")
+
+
 def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     """Render an MCP red-team report (Markdown, structured dict) from a scan result.
 
@@ -199,6 +252,7 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     lines.append("")
     lines.append(f"- transport: {result.get('transport', '?')}")
     lines.append(f"- connected: {result.get('connected', False)}")
+    lines.append(f"- protocol revision: {_revision(result)}")
     lines.append(f"- tools probed: {result.get('tools', 0)}")
     if result.get("error"):
         lines.append(f"- error: {result.get('error')}")
@@ -208,6 +262,7 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     for level in _ORDER:
         lines.append(f"- {level}: {summary[level]}")
     lines.append("")
+    lines += _authorization_lines(result)
     lines.append("## OWASP MCP Top 10 / MITRE ATLAS mapping")
     lines.append("")
     lines.append("| Stage | OWASP MCP Top 10 | MITRE ATLAS | Severity | Signals |")
@@ -236,6 +291,8 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         "endpoint": endpoint,
         "transport": result.get("transport"),
         "connected": result.get("connected", False),
+        "protocol_version": result.get("protocol_version"),
+        "auth_metadata": result.get("auth_metadata"),
         "tools_probed": result.get("tools", 0),
         "severity_summary": summary,
         "owasp_categories": owasp_hit,
