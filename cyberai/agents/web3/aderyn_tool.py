@@ -133,6 +133,23 @@ class AderynTool:
     def available(self) -> bool:
         return bool(self.aderyn_path and os.path.exists(self.aderyn_path))
 
+    def _argv(self, target: str, out_path: str) -> List[str]:
+        """Build the aderyn argv for one .sol file or for a project root.
+
+        Measured against aderyn 0.1.9: a .sol path passed as ROOT makes the
+        driver panic with rc=101 ("Not a directory") — it opens ROOT as a
+        directory. The shape that works is the containing directory plus
+        --path-includes. The include string must be the bare file name;
+        an absolute path matches nothing and aderyn exits 1.
+        """
+        source = Path(target)
+        is_file = target.endswith(".sol")
+        root = str(source.parent) if is_file else target
+        argv = [self.aderyn_path or "aderyn", root, "-o", out_path, "--skip-update-check"]
+        if is_file:
+            argv += ["--path-includes", source.name]
+        return argv
+
     def analyze(self, target: str) -> List[AderynFinding]:
         """Run aderyn on a .sol file / project root. [] when unavailable or on failure."""
         if not self.available:
@@ -140,23 +157,27 @@ class AderynTool:
             return []
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "aderyn-report.json")
-            cmd = [
-                self.aderyn_path or "aderyn",
-                target,
-                "-o",
-                out_path,
-                "--skip-update-check",
-            ]
+            cmd = self._argv(target, out_path)
             try:
-                run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
+                proc = run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
             except subprocess.TimeoutExpired:
                 logger.warning("aderyn timed out after %ss", self.timeout)
                 return []
             except Exception as exc:  # noqa: BLE001 — never hard-fail
                 logger.warning("aderyn execution failed: %s", exc)
                 return []
+            if proc.returncode != 0:
+                logger.warning(
+                    "aderyn exited %s: %s",
+                    proc.returncode,
+                    (proc.stderr or "").strip()[-300:],
+                )
             report = Path(out_path)
             if not report.exists():
+                logger.warning(
+                    "aderyn wrote no report (rc=%s) — treating as zero findings",
+                    proc.returncode,
+                )
                 return []
             try:
                 return parse_aderyn_json(report.read_text(encoding="utf-8"))
