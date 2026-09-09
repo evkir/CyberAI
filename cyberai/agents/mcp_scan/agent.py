@@ -87,6 +87,7 @@ class MCPScanAgent(BaseAgent):
             "endpoint": target,
             "transport": probe_result["transport"],
             "connected": probe_result["connected"],
+            "protocol_version": probe_result["protocol_version"],
             "tools": len(probe_result["tools"]),
             "prompts": len(probe_result["prompts"]),
             "resources": len(probe_result["resources"]),

@@ -7,6 +7,29 @@ from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
 
 from cyberai.__main__ import cli
+from cyberai.mcp.client_probe import MCPProbeResult
+
+REVISION = "2025-11-25"
+
+
+def _probe() -> dict:
+    """Build the probe payload from the producer, not by hand.
+
+    A hand-written dict is a snapshot of what the probe returned on the day
+    the test was written. When the probe grew protocol_version the CLI read a
+    key three tests had never heard of, and they failed on a shape production
+    never sends. Serializing the real dataclass keeps the fake in step with
+    the field list by construction.
+    """
+    return MCPProbeResult(
+        endpoint="http://t/mcp",
+        transport="http",
+        connected=True,
+        server_name="t",
+        server_version="1.0",
+        protocol_version=REVISION,
+        tools=[{"name": "read_env", "description": "reads env"}],
+    ).to_dict()
 
 
 def _result() -> dict:
@@ -14,15 +37,12 @@ def _result() -> dict:
         "endpoint": "http://t/mcp",
         "transport": "http",
         "connected": True,
+        "protocol_version": REVISION,
         "tools": 2,
         "prompts": 0,
         "resources": 0,
         "error": None,
-        "probe": {
-            "server_name": "t",
-            "server_version": "1.0",
-            "tools": [{"name": "read_env", "description": "reads env"}],
-        },
+        "probe": _probe(),
         "poisoning": {"suspicious": 1, "tools": [{"tool_name": "read_env", "severity": "HIGH"}]},
         "overprivilege": {"overprivileged": 0, "tools": []},
         "exposure": {"exposed": True, "scan": {"severity": "HIGH"}},

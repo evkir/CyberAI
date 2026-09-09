@@ -180,6 +180,19 @@ def _severity_summary(result: Dict[str, Any], rows: List[RiskRow]) -> Dict[str, 
     return {level: sevs.count(level) for level in _ORDER}
 
 
+def _revision(result: Dict[str, Any]) -> str:
+    """Render the negotiated protocol revision, or say why there is none.
+
+    A session that never connected negotiated nothing, and that absence is a
+    measurement. A session that did connect and still carries no revision is
+    not the same thing: the value was lost between the probe and here. Naming
+    the two cases apart keeps a wiring defect from reading as an honest zero.
+    """
+    if not result.get("connected"):
+        return "not negotiated"
+    return str(result.get("protocol_version") or "unreported")
+
+
 def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     """Render an MCP red-team report (Markdown, structured dict) from a scan result.
 
@@ -199,6 +212,7 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     lines.append("")
     lines.append(f"- transport: {result.get('transport', '?')}")
     lines.append(f"- connected: {result.get('connected', False)}")
+    lines.append(f"- protocol revision: {_revision(result)}")
     lines.append(f"- tools probed: {result.get('tools', 0)}")
     if result.get("error"):
         lines.append(f"- error: {result.get('error')}")
@@ -236,6 +250,7 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         "endpoint": endpoint,
         "transport": result.get("transport"),
         "connected": result.get("connected", False),
+        "protocol_version": result.get("protocol_version"),
         "tools_probed": result.get("tools", 0),
         "severity_summary": summary,
         "owasp_categories": owasp_hit,

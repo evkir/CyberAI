@@ -102,6 +102,9 @@ def mcp_scan(
     console.print(
         f"  server: {result['probe']['server_name']} v{result['probe']['server_version']}"
     )
+    # highlight=False: rich colourises digit runs, which splits the revision
+    # into escape-separated fragments and makes the line ungreppable.
+    console.print(f"  revision: {result['probe']['protocol_version']}", highlight=False)
     console.print(
         f"  tools: {result['tools']}  prompts: {result['prompts']}  "
         f"resources: {result['resources']}"
