@@ -42,6 +42,9 @@ class MCPProbeResult:
     tools: list[dict[str, Any]] = field(default_factory=list)
     prompts: list[dict[str, Any]] = field(default_factory=list)
     resources: list[dict[str, Any]] = field(default_factory=list)
+    protocol_version: str | None = None
+    capabilities: dict[str, Any] = field(default_factory=dict)
+    instructions: str | None = None
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -157,9 +160,21 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
                 # by_alias keeps the wire spelling. mcp 1.x names the field
                 # serverInfo, 2.0 renamed the python attribute to server_info;
                 # the wire name is the stable one -- same reason _dump() uses it.
-                info = init.model_dump(mode="json", by_alias=True)["serverInfo"]
+                data = init.model_dump(mode="json", by_alias=True)
+                info = data["serverInfo"]
                 result.server_name = info["name"]
                 result.server_version = info["version"]
+                # The negotiated revision decides which surfaces exist at all:
+                # icons and URL-mode elicitation arrive in 2025-11-25, the
+                # stateless core in 2026-07-28. serverInfo alone reports the
+                # vendor's version string and says nothing about the protocol
+                # actually spoken. `instructions` is optional in the spec and
+                # measured absent on our own server; it is server-controlled
+                # text that reaches the model's system context, so it is
+                # inventory, not decoration.
+                result.protocol_version = data["protocolVersion"]
+                result.capabilities = data["capabilities"]
+                result.instructions = data.get("instructions")
                 surface = await inventory(session)
                 result.tools = surface["tools"]
                 result.prompts = surface["prompts"]
