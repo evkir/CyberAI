@@ -162,3 +162,82 @@ def test_audit_without_merge_still_prints_slither():
     res = _run(["contracts/Vault.sol"])
     assert res.exit_code == 0, res.output
     assert "reentrancy-eth" in res.output
+
+
+def _ctx_run(args: list[str]):
+    """Invoke the CLI and return the context the agent was called with."""
+    fake = MagicMock()
+    fake.run.return_value = _merged_result()
+    with (
+        patch("cyberai.cli.web3_audit.CyberAIConfig"),
+        patch("cyberai.cli.web3_audit.ScanSession"),
+        patch("cyberai.cli.web3_audit.LLMClient"),
+        patch("cyberai.cli.web3_audit.AuditLogger"),
+        patch("cyberai.cli.web3_audit.SmartContractAgent", return_value=fake),
+    ):
+        res = CliRunner().invoke(cli, ["web3", "audit", *args])
+    return res, fake.run.call_args
+
+
+def test_foundry_options_reach_the_agent(tmp_path):
+    """Without this the PoC runner is unreachable: agent.run got no context."""
+    res, call = _ctx_run(
+        [
+            "contracts/Vault.sol",
+            "--foundry-project",
+            str(tmp_path),
+            "--fork-rpc",
+            "http://127.0.0.1:8545",
+            "--poc-match",
+            "testDrain",
+        ]
+    )
+    assert res.exit_code == 0, res.output
+    ctx = call.kwargs["context"]
+    assert ctx["foundry_project"] == str(tmp_path)
+    assert ctx["fork_rpc"] == "http://127.0.0.1:8545"
+    assert ctx["poc_match"] == "testDrain"
+
+
+def test_halmos_options_reach_the_agent(tmp_path):
+    res, call = _ctx_run(
+        ["contracts/Vault.sol", "--halmos-project", str(tmp_path), "--halmos-contract", "VSymTest"]
+    )
+    assert res.exit_code == 0, res.output
+    ctx = call.kwargs["context"]
+    assert ctx["halmos_project"] == str(tmp_path)
+    assert ctx["halmos_contract"] == "VSymTest"
+
+
+def test_no_project_means_no_stray_knobs():
+    """poc_match and halmos_loop have defaults; alone they are not a request."""
+    res, call = _ctx_run(["contracts/Vault.sol"])
+    assert res.exit_code == 0, res.output
+    assert call.kwargs["context"] == {}
+
+
+def test_poc_finding_is_printed_with_profit():
+    result = _merged_result()
+    result["poc_findings"] = [
+        {
+            "check": "onchain-poc-exploit",
+            "test": "testExploit()",
+            "confirmed": True,
+            "profit_wei": 3 * 10**18,
+        }
+    ]
+    fake = MagicMock()
+    fake.run.return_value = result
+    with (
+        patch("cyberai.cli.web3_audit.CyberAIConfig"),
+        patch("cyberai.cli.web3_audit.ScanSession"),
+        patch("cyberai.cli.web3_audit.LLMClient"),
+        patch("cyberai.cli.web3_audit.AuditLogger"),
+        patch("cyberai.cli.web3_audit.SmartContractAgent", return_value=fake),
+    ):
+        res = CliRunner().invoke(cli, ["web3", "audit", "contracts/Vault.sol"])
+    assert res.exit_code == 0, res.output
+    out = res.output.replace("\n", " ")
+    assert "testExploit()" in out
+    assert "confirmed" in out
+    assert "3.000000 ETH" in out
