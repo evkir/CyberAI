@@ -241,3 +241,36 @@ def test_poc_finding_is_printed_with_profit():
     assert "testExploit()" in out
     assert "confirmed" in out
     assert "3.000000 ETH" in out
+
+
+def _run_with(result: dict):
+    fake = MagicMock()
+    fake.run.return_value = result
+    with (
+        patch("cyberai.cli.web3_audit.CyberAIConfig"),
+        patch("cyberai.cli.web3_audit.ScanSession"),
+        patch("cyberai.cli.web3_audit.LLMClient"),
+        patch("cyberai.cli.web3_audit.AuditLogger"),
+        patch("cyberai.cli.web3_audit.SmartContractAgent", return_value=fake),
+    ):
+        return CliRunner().invoke(cli, ["web3", "audit", "contracts/Vault.sol"])
+
+
+def test_halmos_finding_is_printed():
+    """A symbolic counterexample is evidence; it had no line of its own."""
+    result = _merged_result()
+    result["halmos_findings"] = [
+        {"check": "halmos-counterexample", "test": "check_balance(uint256)"}
+    ]
+    res = _run_with(result)
+    assert res.exit_code == 0, res.output
+    out = res.output.replace("\n", " ")
+    assert "halmos-counterexample" in out
+    assert "check_balance" in out
+
+
+def test_clean_contract_says_so():
+    """Every bucket empty must print something, not an empty block of output."""
+    res = _run_with({"mode": "local", "highest_severity": "Insight"})
+    assert res.exit_code == 0, res.output
+    assert "no findings" in res.output
