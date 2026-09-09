@@ -76,10 +76,12 @@ def _stdio_params(endpoint: str) -> StdioServerParameters:
 async def _open_streams(endpoint: str, transport: Transport) -> AsyncIterator[tuple[Any, Any]]:
     """Yield (read, write) streams for the chosen transport.
 
-    The transports unpack asymmetrically: ``streamablehttp_client`` yields a
-    3-tuple (read, write, get_session_id) while ``stdio_client`` and
-    ``sse_client`` yield a 2-tuple. This helper hides that difference so the
-    probe body only ever sees (read, write).
+    The transports have not agreed on an arity across SDK releases:
+    ``streamablehttp_client`` yielded (read, write, get_session_id) on mcp 1.x
+    and yields (read, write) on 2.x, while ``stdio_client`` and ``sse_client``
+    have always yielded two. Unpacking a fixed count binds the probe to one
+    release; taking the first two elements works on both, and the extra
+    element was never used.
     """
     if transport == "stdio":
         async with stdio_client(_stdio_params(endpoint)) as (read, write):
@@ -89,8 +91,8 @@ async def _open_streams(endpoint: str, transport: Transport) -> AsyncIterator[tu
         async with sse_client(url) as (read, write):
             yield read, write
     else:  # http
-        async with streamablehttp_client(endpoint) as (read, write, _get_session_id):
-            yield read, write
+        async with streamablehttp_client(endpoint) as streams:
+            yield streams[0], streams[1]
 
 
 async def _list_page(list_fn: Callable[..., Awaitable[Any]], cursor: str | None) -> Any:
@@ -148,6 +150,20 @@ async def inventory(session: ClientSession) -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def _describe(exc: BaseException) -> str:
+    """Name the failure a caller can act on, not the machinery around it.
+
+    Every transport runs inside a task group, so a refused connection, a TLS
+    failure and a client-side bug all reach the caller as the same
+    "ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)". That
+    string hid a ValueError in this module for as long as the HTTP transport
+    has existed. The leaves carry the cause, so the leaves are reported.
+    """
+    if isinstance(exc, BaseExceptionGroup):
+        return "; ".join(_describe(inner) for inner in exc.exceptions)
+    return f"{type(exc).__name__}: {exc}"
+
+
 async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeResult:
     """Connect to a target MCP endpoint and inventory its capability surface."""
     transport = transport or detect_transport(endpoint)
@@ -180,5 +196,5 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
                 result.prompts = surface["prompts"]
                 result.resources = surface["resources"]
     except Exception as exc:  # noqa: BLE001 — surface connection errors on result
-        result.error = f"{type(exc).__name__}: {exc}"
+        result.error = _describe(exc)
     return result
