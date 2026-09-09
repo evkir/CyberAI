@@ -80,3 +80,85 @@ def test_audit_help_lists_command():
     res = CliRunner().invoke(cli, ["web3", "--help"])
     assert res.exit_code == 0
     assert "audit" in res.output
+
+
+def _merged_result() -> dict:
+    """A local run as the agent really shapes it: every bucket populated."""
+    return {
+        "mode": "local",
+        "highest_severity": "Critical",
+        "findings": [{"check": "controlled-delegatecall", "immunefi_severity": "Critical"}],
+        "aderyn_findings": [
+            {"check": "delegate-call-unchecked-address", "immunefi_severity": "Critical"},
+            {"check": "send-ether-no-checks", "immunefi_severity": "High"},
+        ],
+        "merged_findings": [
+            {
+                "check": "controlled-delegatecall",
+                "swc": "SWC-112",
+                "immunefi_severity": "Critical",
+                "confidence": "cross-validated",
+                "sources": ["aderyn", "slither"],
+            },
+            {
+                "check": "send-ether-no-checks",
+                "swc": "SWC-105",
+                "immunefi_severity": "High",
+                "confidence": "single-tool",
+                "sources": ["aderyn"],
+            },
+        ],
+        # The shape analyze_source really produces: impact/confidence, and no
+        # serialized tier at all (rule 90).
+        "access_findings": [
+            {
+                "check": "missing-auth",
+                "impact": "High",
+                "confidence": "High",
+                "contract": "Vault",
+                "function": "setOwner",
+                "source": "access-control",
+            }
+        ],
+        "escalation_paths": [
+            {
+                "entry": "setOwner",
+                "grants": "ownership",
+                "unlocks": ["withdrawAll"],
+                "source": "access-control",
+            }
+        ],
+    }
+
+
+def test_audit_prints_every_bucket_not_just_slither():
+    res = _run(["contracts/Vault.sol"], result=_merged_result())
+    assert res.exit_code == 0, res.output
+    # short tokens: rich wraps these lines (rule 100)
+    assert "send-ether-no-checks" in res.output
+    assert "SWC-105" in res.output
+    assert "cross-validated" in res.output
+    assert "setOwner" in res.output
+    assert "escalation" in res.output
+    assert "withdrawAll" in res.output
+
+
+def test_access_findings_are_classified_not_read_from_a_missing_key():
+    """access dicts carry no tier; printing one requires classifying it."""
+    res = _run(["contracts/Vault.sol"], result=_merged_result())
+    line = next(x for x in res.output.splitlines() if "missing-auth" in x)
+    assert "Critical" in line
+    assert "Insight" not in line
+
+
+def test_audit_prints_both_counts():
+    res = _run(["contracts/Vault.sol"], result=_merged_result())
+    out = res.output.replace("\n", " ")
+    assert "aderyn 2" in out
+    assert "swc groups: 2" in out
+
+
+def test_audit_without_merge_still_prints_slither():
+    res = _run(["contracts/Vault.sol"])
+    assert res.exit_code == 0, res.output
+    assert "reentrancy-eth" in res.output

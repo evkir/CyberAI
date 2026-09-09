@@ -68,3 +68,19 @@ def test_run_graceful_without_aderyn(tmp_path, monkeypatch):
     assert res["highest_severity"] == "Critical"  # slither-only still works
     assert len(res["merged_findings"]) == 1
     assert res["merged_findings"][0]["confidence"] == "single-tool"
+
+
+def test_aderyn_only_critical_raises_the_headline(tmp_path, monkeypatch):
+    """A Critical only aderyn saw used to leave the headline at Insight."""
+    sol = tmp_path / "V.sol"
+    sol.write_text("contract V {}")
+    _mock_tools(
+        monkeypatch,
+        '{"results":{"detectors":[]}}',
+        '{"high_issues":{"issues":[{"title":"unprotected initializer","description":"d",'
+        '"detector_name":"unprotected-initializer","instances":[{}]}]}}',
+    )
+    res = _agent().run(str(sol))
+    assert res["findings"] == []
+    assert len(res["aderyn_findings"]) == 1
+    assert res["highest_severity"] == "Critical"
