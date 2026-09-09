@@ -5,7 +5,8 @@ reported by *both* tools for the same SWC is cross-validated (higher
 confidence); single-tool findings are kept but flagged. Findings that do not map
 to a known SWC are kept per-detector so nothing is silently dropped.
 
-Aderyn detector names are taken from the live `aderyn registry` output.
+Aderyn detector names are snapshotted from `aderyn registry` (0.1.9) and
+guarded by a test — a name absent from that registry can never match.
 """
 
 from __future__ import annotations
@@ -21,62 +22,90 @@ _TIER_RANK = {t: i for i, t in enumerate(IMMUNEFI_TIERS)}
 
 Finding = Union[SlitherFinding, AderynFinding]
 
-# Detector name (slither check or aderyn detector_name) -> SWC Registry id.
-# Slither names are well-established; aderyn names below are verified only.
-DETECTOR_TO_SWC: Dict[str, str] = {
+# Slither detector check -> SWC Registry id.
+SLITHER_DETECTOR_SWC: Dict[str, str] = {
     # reentrancy -> SWC-107
     "reentrancy-eth": "SWC-107",
     "reentrancy-no-eth": "SWC-107",
     "reentrancy-benign": "SWC-107",
     "reentrancy-events": "SWC-107",
-    "reentrancy-state-change": "SWC-107",  # aderyn
-    "non-reentrant-not-first": "SWC-107",  # aderyn
     # delegatecall to untrusted callee -> SWC-112
     "controlled-delegatecall": "SWC-112",
     "delegatecall-loop": "SWC-112",
-    "delegatecall-in-loop": "SWC-112",  # aderyn
-    "delegate-call-unchecked-address": "SWC-112",  # aderyn
     # authorization through tx.origin -> SWC-115
     "tx-origin": "SWC-115",
-    "tx-origin-used-for-auth": "SWC-115",  # aderyn
     # unchecked call return value -> SWC-104
     "unchecked-lowlevel": "SWC-104",
     "unchecked-send": "SWC-104",
     "unchecked-transfer": "SWC-104",
-    "unchecked-low-level-call": "SWC-104",  # aderyn
-    "unchecked-return": "SWC-104",  # aderyn
-    "eth-send-unchecked-address": "SWC-104",  # aderyn
     # unprotected SELFDESTRUCT -> SWC-106
     "suicidal": "SWC-106",
-    "selfdestruct": "SWC-106",  # aderyn
     # unprotected ether withdrawal / arbitrary send -> SWC-105
     "arbitrary-send-eth": "SWC-105",
     "arbitrary-send-erc20": "SWC-105",
-    "arbitrary-transfer-from": "SWC-105",  # aderyn
     # block values as proxy for time -> SWC-116
     "timestamp": "SWC-116",
-    "block-timestamp-deadline": "SWC-116",  # aderyn
     # weak sources of randomness -> SWC-120
     "weak-prng": "SWC-120",
-    "weak-randomness": "SWC-120",  # aderyn
-    # signature malleability -> SWC-117
-    "ecrecover": "SWC-117",  # aderyn
     # uninitialized storage pointer -> SWC-109
     "uninitialized-storage": "SWC-109",
     "uninitialized-state": "SWC-109",
     # shadowing state variables -> SWC-119
     "shadowing-state": "SWC-119",
-    "state-variable-shadowing": "SWC-119",  # aderyn
-    "builtin-symbol-shadowing": "SWC-119",  # aderyn
     # floating / outdated pragma -> SWC-103
     "solc-version": "SWC-103",
     "pragma": "SWC-103",
-    "unspecific-solidity-pragma": "SWC-103",  # aderyn
-    # right-to-left override -> SWC-130
-    "rtlo": "SWC-130",  # aderyn
-    # dangerous typographical unary (=+) -> SWC-129
-    "dangerous-unary-operator": "SWC-129",  # aderyn
 }
+
+# Aderyn detector_name -> SWC Registry id.
+#
+# Every key exists in `aderyn registry` for aderyn 0.1.9, snapshotted in
+# tests/fixtures/aderyn_registry_0.1.9.json and guarded by a test. Seven keys
+# earlier releases carried were never in that registry — plausible-looking
+# names, not measured ones, unable to match any finding:
+# reentrancy-state-change, non-reentrant-not-first, delegatecall-in-loop,
+# unchecked-low-level-call, eth-send-unchecked-address, selfdestruct,
+# builtin-symbol-shadowing.
+#
+# Aderyn 0.1.9 ships no reentrancy detector, so SWC-107 can only ever be
+# raised by slither: reentrancy is single-tool by construction, not by
+# accident, and the report should not imply otherwise.
+ADERYN_DETECTOR_SWC: Dict[str, str] = {
+    # nonReentrant modifier ordering -> SWC-107
+    "non-reentrant-before-others": "SWC-107",
+    # delegatecall to untrusted callee -> SWC-112
+    "delegate-call-in-loop": "SWC-112",
+    "delegate-call-unchecked-address": "SWC-112",
+    # authorization through tx.origin -> SWC-115
+    "tx-origin-used-for-auth": "SWC-115",
+    # unchecked call return value -> SWC-104
+    "unchecked-return": "SWC-104",
+    "unchecked-send": "SWC-104",
+    # deprecated SELFDESTRUCT -> SWC-106
+    "selfdestruct-identifier": "SWC-106",
+    # unprotected ether withdrawal / arbitrary send -> SWC-105
+    "send-ether-no-checks": "SWC-105",
+    "arbitrary-transfer-from": "SWC-105",
+    # block values as proxy for time -> SWC-116
+    "block-timestamp-deadline": "SWC-116",
+    # weak sources of randomness -> SWC-120
+    "weak-randomness": "SWC-120",
+    # signature malleability -> SWC-117
+    "ecrecover": "SWC-117",
+    # uninitialized state -> SWC-109
+    "uninitialized-state-variable": "SWC-109",
+    # shadowing state variables -> SWC-119
+    "state-variable-shadowing": "SWC-119",
+    # floating / outdated pragma -> SWC-103
+    "unspecific-solidity-pragma": "SWC-103",
+    # right-to-left override -> SWC-130
+    "rtlo": "SWC-130",
+    # dangerous typographical unary (=+) -> SWC-129
+    "dangerous-unary-operator": "SWC-129",
+}
+
+# Detector name (slither check or aderyn detector_name) -> SWC Registry id.
+DETECTOR_TO_SWC: Dict[str, str] = {**SLITHER_DETECTOR_SWC, **ADERYN_DETECTOR_SWC}
 
 
 @dataclass

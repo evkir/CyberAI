@@ -39,7 +39,7 @@ def test_run_merges_and_cross_validates(tmp_path, monkeypatch):
         '{"results":{"detectors":[{"check":"controlled-delegatecall","impact":"High",'
         '"confidence":"High","description":"d","id":"1"}]}}',
         '{"high_issues":{"issues":[{"title":"delegatecall in loop","description":"d",'
-        '"detector_name":"delegatecall-in-loop","instances":[{}]}]}}',
+        '"detector_name":"delegate-call-in-loop","instances":[{}]}]}}',
     )
     res = _agent().run(str(sol))
     assert res["mode"] == "local"
