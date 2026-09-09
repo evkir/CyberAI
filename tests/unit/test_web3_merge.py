@@ -20,14 +20,14 @@ def _ad(detector, severity="High"):
 
 
 def test_cross_validation_same_swc_from_both_tools():
-    # slither controlled-delegatecall and aderyn delegatecall-in-loop both map to SWC-112.
-    merged = merge_findings([_sl("controlled-delegatecall")], [_ad("delegatecall-in-loop")])
+    # slither controlled-delegatecall and aderyn delegate-call-in-loop both map to SWC-112.
+    merged = merge_findings([_sl("controlled-delegatecall")], [_ad("delegate-call-in-loop")])
     assert len(merged) == 1
     m = merged[0]
     assert m.swc == "SWC-112"
     assert m.confidence == "cross-validated"
     assert m.sources == ["aderyn", "slither"]
-    assert set(m.checks) == {"controlled-delegatecall", "delegatecall-in-loop"}
+    assert set(m.checks) == {"controlled-delegatecall", "delegate-call-in-loop"}
     assert m.immunefi_severity == "Critical"  # worst across the group
 
 
@@ -51,7 +51,7 @@ def test_unmapped_detector_kept_separate():
 def test_sorted_high_first_and_crossvalidated_ahead():
     merged = merge_findings(
         [_sl("controlled-delegatecall"), _sl("pragma", impact="Informational", confidence="High")],
-        [_ad("delegatecall-in-loop")],
+        [_ad("delegate-call-in-loop")],
     )
     # Critical cross-validated delegatecall first, low-severity pragma last.
     assert merged[0].swc == "SWC-112"
@@ -60,7 +60,7 @@ def test_sorted_high_first_and_crossvalidated_ahead():
 
 
 def test_swc_map_covers_verified_aderyn_names():
-    assert DETECTOR_TO_SWC["delegatecall-in-loop"] == "SWC-112"
+    assert DETECTOR_TO_SWC["delegate-call-in-loop"] == "SWC-112"
     assert DETECTOR_TO_SWC["ecrecover"] == "SWC-117"
 
 
@@ -70,8 +70,8 @@ def test_empty_inputs():
 
 def test_extended_aderyn_swc_mappings():
     # Real aderyn detector names now map to their SWC ids.
-    assert DETECTOR_TO_SWC["delegatecall-in-loop"] == "SWC-112"
-    assert DETECTOR_TO_SWC["reentrancy-state-change"] == "SWC-107"
+    assert DETECTOR_TO_SWC["delegate-call-in-loop"] == "SWC-112"
+    assert DETECTOR_TO_SWC["send-ether-no-checks"] == "SWC-105"
     assert DETECTOR_TO_SWC["tx-origin-used-for-auth"] == "SWC-115"
     assert DETECTOR_TO_SWC["weak-randomness"] == "SWC-120"
     assert DETECTOR_TO_SWC["rtlo"] == "SWC-130"
@@ -81,6 +81,6 @@ def test_aderyn_names_classify_precisely():
     from cyberai.agents.web3.immunefi_severity import CHECK_TO_IMMUNEFI
 
     assert CHECK_TO_IMMUNEFI["arbitrary-transfer-from"] == "Critical"
-    assert CHECK_TO_IMMUNEFI["reentrancy-state-change"] == "High"
+    assert CHECK_TO_IMMUNEFI["send-ether-no-checks"] == "High"
     assert CHECK_TO_IMMUNEFI["block-timestamp-deadline"] == "Low"
     assert CHECK_TO_IMMUNEFI["centralization-risk"] == "Insight"

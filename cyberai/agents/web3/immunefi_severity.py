@@ -25,7 +25,7 @@ IMMUNEFI_TIERS = ["Critical", "High", "Medium", "Low", "Insight"]
 _TIER_RANK = {t: i for i, t in enumerate(IMMUNEFI_TIERS)}
 
 # Precise per-check mapping for high-signal slither detectors.
-CHECK_TO_IMMUNEFI = {
+SLITHER_CHECK_TO_IMMUNEFI = {
     # direct fund loss / takeover -> Critical
     "reentrancy-eth": "Critical",
     "arbitrary-send-eth": "Critical",
@@ -65,44 +65,63 @@ CHECK_TO_IMMUNEFI = {
     "dead-code": "Insight",
     "assembly": "Insight",
     "external-function": "Insight",
-    # --- aderyn detectors (names from `aderyn registry`) ---
+}
+
+# Aderyn detector_name -> Immunefi tier.
+#
+# Every key exists in `aderyn registry` for aderyn 0.1.9, snapshotted in
+# tests/fixtures/aderyn_registry_0.1.9.json and guarded by a test. Sixteen keys
+# earlier releases carried were not in that registry and could never classify a
+# finding. Where the registry ships the same weakness under another spelling the
+# mapping moved to the real name: selfdestruct -> selfdestruct-identifier,
+# delegatecall-in-loop -> delegate-call-in-loop, eth-send-unchecked-address ->
+# send-ether-no-checks, unchecked-low-level-call -> unchecked-return,
+# non-reentrant-not-first -> non-reentrant-before-others, unsafe-casting ->
+# unsafe-casting-detector, unsafe-erc20-operation -> unsafe-erc20-functions,
+# strict-equality-contract-balance ->
+# dangerous-strict-equailty-on-contract-balance (aderyn's own typo, copied
+# verbatim because that is the string a finding carries), todo ->
+# contract-with-todos. The rest had no counterpart and are gone.
+ADERYN_CHECK_TO_IMMUNEFI = {
     # direct fund loss / takeover -> Critical
     "arbitrary-transfer-from": "Critical",
-    "selfdestruct": "Critical",
+    "selfdestruct-identifier": "Critical",
     "delegate-call-unchecked-address": "Critical",
     "unprotected-initializer": "Critical",
     # exploitable / conditional -> High
-    "reentrancy-state-change": "High",
-    "delegatecall-in-loop": "High",
+    "delegate-call-in-loop": "High",
     "tx-origin-used-for-auth": "High",
     "weak-randomness": "High",
-    "eth-send-unchecked-address": "High",
-    "function-selector-collision": "High",
+    "send-ether-no-checks": "High",
     "contract-locks-ether": "High",
     # logic / contained -> Medium
-    "non-reentrant-not-first": "Medium",
-    "unchecked-low-level-call": "Medium",
+    "non-reentrant-before-others": "Medium",
     "unchecked-return": "Medium",
-    "unsafe-casting": "Medium",
+    "unsafe-casting-detector": "Medium",
     "dangerous-unary-operator": "Medium",
-    "strict-equality-contract-balance": "Medium",
-    "unsafe-erc20-operation": "Medium",
+    "dangerous-strict-equailty-on-contract-balance": "Medium",
+    "unsafe-erc20-functions": "Medium",
     "msg-value-in-loop": "Medium",
+    "uninitialized-state-variable": "Medium",
     # best-practice / contained -> Low
     "block-timestamp-deadline": "Low",
+    "ecrecover": "Low",
     "state-variable-shadowing": "Low",
-    "builtin-symbol-shadowing": "Low",
     "rtlo": "Low",
-    "incorrect-erc20-interface": "Low",
-    "incorrect-erc721-interface": "Low",
+    "zero-address-check": "Low",
     # informational -> Insight
     "centralization-risk": "Insight",
     "unspecific-solidity-pragma": "Insight",
-    "todo": "Insight",
-    "unused-import": "Insight",
-    "unused-state-variable": "Insight",
+    "contract-with-todos": "Insight",
     "empty-block": "Insight",
+    "push-zero-opcode": "Insight",
+    "useless-public-function": "Insight",
+    "useless-modifier": "Insight",
+    "unindexed-events": "Insight",
 }
+
+# Detector check (slither or aderyn) -> Immunefi tier.
+CHECK_TO_IMMUNEFI = {**SLITHER_CHECK_TO_IMMUNEFI, **ADERYN_CHECK_TO_IMMUNEFI}
 
 # Fallback: slither impact + confidence -> Immunefi tier.
 _IMPACT_FALLBACK = {

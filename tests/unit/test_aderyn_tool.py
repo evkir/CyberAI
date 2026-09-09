@@ -17,7 +17,7 @@ _FIXTURE = Path(__file__).parent.parent / "fixtures" / "aderyn_report.json"
 
 def test_parse_fixture_report():
     findings = parse_aderyn_json(_FIXTURE.read_text(encoding="utf-8"))
-    assert [f.detector_name for f in findings] == ["delegatecall-in-loop", "ecrecover"]
+    assert [f.detector_name for f in findings] == ["delegate-call-in-loop", "ecrecover"]
     high, low = findings
     assert high.severity == "High"
     assert high.instances == 1
@@ -26,14 +26,18 @@ def test_parse_fixture_report():
 
 
 def test_finding_is_classify_compatible():
-    # AderynFinding exposes .check/.impact/.confidence like SlitherFinding,
-    # so immunefi.classify can consume it via the fallback table.
-    f = AderynFinding(detector_name="ecrecover", title="t", severity="High", description="d")
-    assert f.check == "ecrecover"
+    # AderynFinding exposes .check/.impact/.confidence like SlitherFinding, so
+    # immunefi.classify can consume it via the fallback table. ecrecover no
+    # longer proves that — it has an explicit tier now, so the precise table
+    # would answer and the fallback would never run. yul-return is a real
+    # aderyn 0.1.9 detector with no tier of its own.
+    from cyberai.agents.web3.immunefi_severity import CHECK_TO_IMMUNEFI, classify
+
+    f = AderynFinding(detector_name="yul-return", title="t", severity="High", description="d")
+    assert f.check == "yul-return"
     assert f.impact == "High"
     assert f.confidence == "Medium"
-    from cyberai.agents.web3.immunefi_severity import classify
-
+    assert "yul-return" not in CHECK_TO_IMMUNEFI
     assert classify(f) == "High"  # ("High","Medium") fallback
 
 

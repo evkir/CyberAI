@@ -216,8 +216,17 @@ class SmartContractAgent(BaseAgent):
             result["access_findings"] = [f.to_dict() for f in access_findings]
             result["escalation_paths"] = [p.to_dict() for p in escalation_paths]
             result["merged_findings"] = [m.to_dict() for m in merged]
+            # aderyn belongs in the ranking: a Critical only aderyn raises
+            # (unprotected-initializer, say) otherwise leaves the audit
+            # reporting Insight while the merged list shows Critical.
             result["highest_severity"] = highest_tier(
-                [*slither_findings, *halmos_findings, *poc_findings, *access_findings]
+                [
+                    *slither_findings,
+                    *aderyn_findings,
+                    *halmos_findings,
+                    *poc_findings,
+                    *access_findings,
+                ]
             )
             result["slither_available"] = slither_tool.available
             result["aderyn_available"] = aderyn_tool.available
