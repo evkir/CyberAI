@@ -10,10 +10,11 @@ alongside a still-offered registration endpoint, and no mention of the RFC
 from __future__ import annotations
 
 import json
+import socket
 
 import httpx
 
-from cyberai.mcp.auth_metadata import probe_auth_metadata
+from cyberai.mcp.auth_metadata import AuthMetadata, probe_auth_metadata
 
 ENDPOINT = "https://mcp.example.dev/mcp"
 POINTED = "https://mcp.example.dev/.well-known/oauth-protected-resource/mcp"
@@ -151,3 +152,131 @@ def test_an_unreachable_endpoint_records_the_error_and_claims_nothing():
     assert result.error is not None
     assert result.prm_present is False
     assert result.dcr_offered is None
+
+
+def test_a_server_that_advertises_a_document_it_does_not_serve():
+    """The pointer is kept even when the document behind it is missing.
+
+    A 401 that names a metadata URL and then 404s there is a posture worth
+    reporting: the client is told where to look and finds nothing.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE}, json={})
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.challenged is True
+    assert result.resource_metadata_url == POINTED
+    assert result.prm_present is False
+    assert result.authorization_servers == []
+
+
+def test_a_server_that_publishes_nothing_claims_nothing():
+    """No challenge, no document at either path: every field stays unknown."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": {}})
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.prm_source == "none"
+    assert result.prm_present is False
+    assert result.issuer is None
+    assert result.dcr_offered is None
+
+
+def test_a_well_known_path_answering_html_is_not_a_metadata_document():
+    """Catch-all web servers answer every path with 200 and a page."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE}, json={})
+        return httpx.Response(200, text="<html>not found</html>")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.prm_present is False
+
+
+def test_metadata_without_an_authorization_server_stops_before_the_issuer():
+    """Nothing to fetch next, so the issuer stays unknown rather than guessed."""
+    prm = {"resource": ENDPOINT}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE}, json={})
+        if str(request.url) == POINTED:
+            return httpx.Response(200, json=prm)
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.prm_present is True
+    assert result.authorization_servers == []
+    assert result.issuer is None
+    assert result.cimd_supported is None
+
+
+def test_an_authorization_server_that_will_not_answer_leaves_the_issuer_unknown():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE}, json={})
+        if str(request.url) == POINTED:
+            return httpx.Response(200, json=PRM)
+        raise httpx.ConnectError("refused")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.prm_present is True
+    assert result.authorization_servers == ["https://mcp.example.dev"]
+    assert result.issuer is None
+    assert result.dcr_offered is None
+
+
+def test_a_resource_naming_a_different_host_is_unrelated_not_wider():
+    """A document describing something else is a different defect from a wide one."""
+    prm = dict(PRM, resource="https://other.example.dev/mcp")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE}, json={})
+        if str(request.url) == POINTED:
+            return httpx.Response(200, json=prm)
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_auth_metadata(ENDPOINT, "http", client=client)
+
+    assert result.resource_scope == "unrelated"
+
+
+def test_a_posture_with_no_resource_scopes_to_nothing():
+    """to_dict carries the derived scope, and no resource means no comparison."""
+    data = AuthMetadata(endpoint=ENDPOINT).to_dict()
+
+    assert data["resource_scope"] is None
+    assert data["applicable"] is True
+    assert data["prm_source"] == "none"
+
+
+def test_the_probe_owns_and_closes_the_client_it_creates():
+    """No client passed: one is built, used against a dead port, and released."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = int(sock.getsockname()[1])
+
+    result = probe_auth_metadata(f"http://127.0.0.1:{port}/mcp", "http")
+
+    assert result.error is not None
+    assert "Connect" in result.error, result.error
+    assert result.prm_present is False

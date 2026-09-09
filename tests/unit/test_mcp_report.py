@@ -9,6 +9,7 @@ from cyberai.agents.mcp_scan.report import (
     build_risk_rows,
     render_mcp_report_json,
 )
+from cyberai.mcp.auth_metadata import AuthMetadata
 
 
 def _clean_result() -> dict:
@@ -142,3 +143,38 @@ def test_render_json_roundtrip():
     assert data["endpoint"] == "http://evil.example.com/mcp"
     assert data["transport"] == "http"
     assert isinstance(data["risks"], list) and len(data["risks"]) == 5
+
+
+def test_a_stdio_target_says_the_section_does_not_apply():
+    """Reporting a missing PRM on stdio would be a finding invented from a
+    category error: there is no network origin to protect."""
+    result = _clean_result()
+    result["auth_metadata"] = AuthMetadata(endpoint="python3 s.py", applicable=False).to_dict()
+
+    markdown, _ = build_mcp_report(result)
+
+    assert "- not applicable: stdio has no network origin" in markdown
+    assert "- protected resource metadata:" not in markdown
+
+
+def test_an_unreachable_authorization_endpoint_is_named_not_scored():
+    """A posture that could not be read must not print as a posture of "no"."""
+    result = _clean_result()
+    result["auth_metadata"] = AuthMetadata(
+        endpoint="http://t/mcp", error="ConnectError: refused"
+    ).to_dict()
+
+    markdown, data = build_mcp_report(result)
+
+    assert "- error: ConnectError: refused" in markdown
+    assert "- protected resource metadata:" not in markdown
+    assert data["auth_metadata"]["error"] == "ConnectError: refused"
+
+
+def test_a_failed_session_puts_its_error_in_the_report_header():
+    result = dict(_clean_result(), connected=False, error="ConnectError: refused")
+
+    markdown, _ = build_mcp_report(result)
+
+    assert "- error: ConnectError: refused" in markdown
+    assert "- protocol revision: not negotiated" in markdown
