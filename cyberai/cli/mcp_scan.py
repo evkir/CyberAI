@@ -11,6 +11,7 @@ or an sse:// URL.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import click
 from rich.console import Console
@@ -23,6 +24,24 @@ from cyberai.core.logger import AuditLogger
 from cyberai.core.scan_session import ScanSession
 
 console = Console()
+
+
+def _tri(value: object) -> str:
+    """Three-state rendering: a key absent from metadata is not a refusal."""
+    return "n/a" if value is None else ("yes" if value else "no")
+
+
+def _auth_line(result: dict[str, Any]) -> str | None:
+    """One line of published authorization posture, or None where it cannot apply."""
+    auth = result.get("auth_metadata") or {}
+    if not auth.get("applicable"):
+        return None
+    return (
+        f"  auth: PRM {'yes' if auth['prm_present'] else 'no'} "
+        f"(via {auth['prm_source']})  DCR {_tri(auth['dcr_offered'])}  "
+        f"CIMD {_tri(auth['cimd_supported'])}  "
+        f"iss {_tri(auth['iss_parameter_advertised'])}"
+    )
 
 
 @click.command("mcp-scan")
@@ -96,6 +115,12 @@ def mcp_scan(
 
     status = "[green]connected[/green]" if result["connected"] else "[red]failed[/red]"
     console.print(f"[bold]MCP scan[/bold] {endpoint} ({result['transport']}) — {status}")
+    # The posture is a property of the endpoint, not of the session: a server
+    # that refuses an anonymous session is exactly the one whose published
+    # metadata is the only thing left to measure. Printed before the exit.
+    line = _auth_line(result)
+    if line:
+        console.print(line, highlight=False)
     if result["error"]:
         console.print(f"[red]error:[/red] {result['error']}")
         return

@@ -1,10 +1,10 @@
 # Typing scope
 
-`mypy --strict` reads 97 of 170 modules in the package. The other 73 hold 285
+`mypy --strict` reads 98 of 171 modules in the package. The other 73 hold 285
 errors and are not checked.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 97 modules in the scope, 21 import a module outside it at module level,
+the 98 modules in the scope, 21 import a module outside it at module level,
 and between them they reach 28 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured by appending
 an unannotated function to `cyberai/core/config.py`, which is outside the
@@ -75,7 +75,7 @@ wide run a cache directory of its own instead of purging the shared one.
 ## What the numbers depend on
 
 The partition moves with the checker. Measured on mypy 1.19.1 the clean side
-holds 97 modules; a later release moved it by one module in the other
+holds 98 modules; a later release moved it by one module in the other
 direction. The dev extra therefore bounds the checker rather than naming a
 floor and admitting every future release.
 

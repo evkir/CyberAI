@@ -13,9 +13,9 @@ not exist yet, it says so.
 CyberAI is a multi-agent offensive-security platform: eight agents (recon,
 intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
 pipeline over a shared knowledge base.
-2734 tests collected under the gated selection run before every commit, with the
+2747 tests collected under the gated selection run before every commit, with the
 slow and smoke tests deselected there and run separately, `mypy --strict`
-clean over 97 of 170 modules, Apache-2.0.
+clean over 98 of 171 modules, Apache-2.0.
 
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.

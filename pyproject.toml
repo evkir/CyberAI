@@ -161,6 +161,7 @@ files = [
     "cyberai/integrations/__init__.py",
     "cyberai/integrations/phantom_grid_poller.py",
     "cyberai/mcp/__init__.py",
+    "cyberai/mcp/auth_metadata.py",
     "cyberai/utils/__init__.py",
     "cyberai/version.py",
     "cyberai/web/__init__.py",
