@@ -190,7 +190,7 @@ class HalmosTool:
             if contract:
                 cmd += ["--contract", contract]
             try:
-                run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
+                proc = run_sealed(cmd, timeout=self.timeout, home=operator_home(), check=False)
             except subprocess.TimeoutExpired:
                 logger.warning("halmos timed out after %ss", self.timeout)
                 return []
@@ -199,6 +199,14 @@ class HalmosTool:
                 return []
             report = Path(out_path)
             if not report.exists():
+                # A halmos exit code is semantic (1 is a counterexample, not a
+                # failure), so the code alone says nothing. A missing report
+                # does: the run never got far enough to write one.
+                logger.warning(
+                    "halmos wrote no report (rc=%s): %s",
+                    proc.returncode,
+                    (proc.stderr or "").strip()[-300:],
+                )
                 return []
             try:
                 return parse_halmos_json(report.read_text(encoding="utf-8"))

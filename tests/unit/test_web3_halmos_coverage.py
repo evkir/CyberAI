@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from cyberai.agents.web3 import halmos_tool as ht
 from cyberai.agents.web3.halmos_tool import HalmosTool, find_halmos, parse_halmos_json
@@ -44,10 +44,21 @@ def _project(tmp_path):
     return str(root)
 
 
+class _Proc:
+    """What subprocess.run returns. A mock returning None returns a shape
+    production never sees — the same defect the argument-shape guard reports."""
+
+    def __init__(self, returncode=0, stderr=""):
+        self.returncode = returncode
+        self.stdout = ""
+        self.stderr = stderr
+
+
 def _write_report(cmd, payload):
     out = cmd[cmd.index("--json-output") + 1]
     with open(out, "w") as fh:
         fh.write(payload)
+    return _Proc(returncode=1)  # halmos exits 1 on a counterexample
 
 
 def test_analyze_happy_path(tmp_path):
@@ -86,12 +97,17 @@ def test_analyze_generic_exception(tmp_path):
         assert tool.analyze(_project(tmp_path)) == []
 
 
-def test_analyze_report_missing(tmp_path):
+def test_analyze_report_missing(tmp_path, caplog):
     fake = tmp_path / "halmos"
     fake.write_text("x")
     tool = HalmosTool(halmos_path=str(fake))
-    with patch.object(ht.subprocess, "run", return_value=MagicMock()):
-        assert tool.analyze(_project(tmp_path)) == []
+    with caplog.at_level("WARNING", logger="cyberai.web3.halmos"):
+        with patch.object(ht.subprocess, "run", return_value=_Proc(3, "stuck")):
+            assert tool.analyze(_project(tmp_path)) == []
+    # The wrapper says it wrote nothing; a silent [] is indistinguishable from
+    # a project with no counterexamples (rule 114).
+    assert "rc=3" in caplog.text
+    assert "stuck" in caplog.text
 
 
 def test_analyze_report_read_error(tmp_path):
@@ -102,6 +118,7 @@ def test_analyze_report_read_error(tmp_path):
     def make_dir(cmd, **k):
         out = cmd[cmd.index("--json-output") + 1]
         os.mkdir(out)  # report path is a directory -> read_text raises OSError
+        return _Proc()
 
     with patch.object(ht.subprocess, "run", side_effect=make_dir):
         assert tool.analyze(_project(tmp_path)) == []
