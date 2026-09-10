@@ -157,7 +157,7 @@ class BaseAgent(ABC):
             raise ValueError(f"Tool '{tool_name}' not registered in {self.AGENT_NAME}")
         tool = self.tools[tool_name]
         self.audit.agent_action(self.AGENT_NAME, f"calling tool: {tool_name}", kwargs)
-        console.print(f"[dim cyan][{self.AGENT_NAME}] → {tool_name}[/dim cyan]")
+        console.print(f"[dim cyan]\\[{self.AGENT_NAME}] → {tool_name}[/dim cyan]")
         return tool.func(**kwargs)
 
     # ── iteration safety ──────────────────────────────────────────────
@@ -178,7 +178,7 @@ class BaseAgent(ABC):
     def log(self, msg: str, data: Any = None) -> None:
         """Structured log + console echo."""
         self.audit.agent_action(self.AGENT_NAME, msg, data)
-        console.print(f"[cyan][{self.AGENT_NAME}][/cyan] {msg}")
+        console.print(f"[cyan]\\[{self.AGENT_NAME}][/cyan] {msg}")
 
     def _log(self, msg: str, data: Any = None) -> None:
         """
