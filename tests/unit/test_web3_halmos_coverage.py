@@ -32,6 +32,18 @@ def test_parse_non_dict_results():
     assert parse_halmos_json('{"test_results": 123}') == []
 
 
+def _project(tmp_path):
+    """A real project root — the argument shape production sends (rule 90).
+
+    halmos builds through forge, so --root must name a directory that exists;
+    a name that does not resolve never reaches analyze() outside the tests.
+    """
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "foundry.toml").write_text("[profile.default]\n", encoding="utf-8")
+    return str(root)
+
+
 def _write_report(cmd, payload):
     out = cmd[cmd.index("--json-output") + 1]
     with open(out, "w") as fh:
@@ -42,16 +54,20 @@ def test_analyze_happy_path(tmp_path):
     fake = tmp_path / "halmos"
     fake.write_text("#!/bin/sh\n")
     tool = HalmosTool(halmos_path=str(fake))
+    root = _project(tmp_path)
     assert tool.available is True
     report = json.dumps(
         {"test_results": {"A:A": [{"name": "check_x()", "exitcode": 1, "num_models": 1}]}}
     )
     with patch.object(
         ht.subprocess, "run", side_effect=lambda cmd, **k: _write_report(cmd, report)
-    ):
-        findings = tool.analyze("/proj", contract="A", loop=3)
+    ) as run:
+        findings = tool.analyze(root, contract="A", loop=3)
     assert len(findings) == 1
     assert findings[0].test_name == "check_x()"
+    argv = run.call_args.args[0]
+    # halmos gets the project root as given, not a path derived from it.
+    assert argv[argv.index("--root") + 1] == root
 
 
 def test_analyze_timeout(tmp_path):
@@ -59,7 +75,7 @@ def test_analyze_timeout(tmp_path):
     fake.write_text("x")
     tool = HalmosTool(halmos_path=str(fake))
     with patch.object(ht.subprocess, "run", side_effect=ht.subprocess.TimeoutExpired("halmos", 1)):
-        assert tool.analyze("/proj") == []
+        assert tool.analyze(_project(tmp_path)) == []
 
 
 def test_analyze_generic_exception(tmp_path):
@@ -67,7 +83,7 @@ def test_analyze_generic_exception(tmp_path):
     fake.write_text("x")
     tool = HalmosTool(halmos_path=str(fake))
     with patch.object(ht.subprocess, "run", side_effect=RuntimeError("boom")):
-        assert tool.analyze("/proj") == []
+        assert tool.analyze(_project(tmp_path)) == []
 
 
 def test_analyze_report_missing(tmp_path):
@@ -75,7 +91,7 @@ def test_analyze_report_missing(tmp_path):
     fake.write_text("x")
     tool = HalmosTool(halmos_path=str(fake))
     with patch.object(ht.subprocess, "run", return_value=MagicMock()):
-        assert tool.analyze("/proj") == []
+        assert tool.analyze(_project(tmp_path)) == []
 
 
 def test_analyze_report_read_error(tmp_path):
@@ -88,7 +104,7 @@ def test_analyze_report_read_error(tmp_path):
         os.mkdir(out)  # report path is a directory -> read_text raises OSError
 
     with patch.object(ht.subprocess, "run", side_effect=make_dir):
-        assert tool.analyze("/proj") == []
+        assert tool.analyze(_project(tmp_path)) == []
 
 
 def test_classify_generic_and_unnamed():

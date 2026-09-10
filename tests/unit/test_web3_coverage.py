@@ -128,13 +128,13 @@ def test_analyze_timeout_graceful(tmp_path):
         "cyberai.agents.web3.aderyn_tool.subprocess.run",
         side_effect=subprocess.TimeoutExpired(cmd="aderyn", timeout=1),
     ):
-        assert tool.analyze("V.sol") == []
+        assert tool.analyze(str(_sol(tmp_path))) == []
 
 
 def test_analyze_exception_graceful(tmp_path):
     tool = _tool(tmp_path)
     with patch("cyberai.agents.web3.aderyn_tool.subprocess.run", side_effect=OSError("boom")):
-        assert tool.analyze("V.sol") == []
+        assert tool.analyze(str(_sol(tmp_path))) == []
 
 
 def test_analyze_missing_report_returns_empty(tmp_path):
@@ -142,7 +142,7 @@ def test_analyze_missing_report_returns_empty(tmp_path):
     with patch(
         "cyberai.agents.web3.aderyn_tool.subprocess.run", side_effect=lambda *a, **k: _Proc()
     ):
-        assert tool.analyze("V.sol") == []  # no report file written
+        assert tool.analyze(str(_sol(tmp_path))) == []  # no report file written
 
 
 def test_find_aderyn_fallback_path(monkeypatch):
@@ -215,6 +215,7 @@ def test_find_aderyn_via_which(monkeypatch):
 
 def test_analyze_unreadable_report(tmp_path):
     tool = _tool(tmp_path)
+    sol = _sol(tmp_path)  # read_text is patched below; build the path first
 
     def _write(cmd, **kwargs):
         out = cmd[cmd.index("-o") + 1]
@@ -223,7 +224,7 @@ def test_analyze_unreadable_report(tmp_path):
 
     with patch("cyberai.agents.web3.aderyn_tool.subprocess.run", side_effect=_write):
         with patch.object(at.Path, "read_text", side_effect=OSError("perm")):
-            assert tool.analyze("V.sol") == []
+            assert tool.analyze(str(sol)) == []
 
 
 def test_slither_scan_tool_method(monkeypatch):
