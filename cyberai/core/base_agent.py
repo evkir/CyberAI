@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from .llm_client import LLMClient
     from .scan_session import ScanSession
 
-console = Console()
+console = Console(stderr=True)
 
 
 # ── Tool ──────────────────────────────────────────────────────────────
