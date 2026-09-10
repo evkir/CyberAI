@@ -136,3 +136,23 @@ def mcp_scan(
     )
     for tool in result["probe"]["tools"]:
         console.print(f"    [cyan]{tool['name']}[/cyan] — {tool.get('description', '')}")
+
+    # The analyses ran either way; until now only --report and --report-json
+    # could see them, so the default exit inventoried the surface and threw
+    # every finding away. Same producer as the report, no second renderer.
+    _, report = build_mcp_report(result)
+    summary = report["severity_summary"]
+    console.print(
+        "  risks: " + "  ".join(f"{level} {count}" for level, count in summary.items()),
+        highlight=False,
+    )
+    flagged = [row for row in report["risks"] if row["signals"] > 0]
+    if not flagged:
+        console.print("  no stage raised a signal", highlight=False)
+        return
+    for row in flagged:
+        named = ", ".join(row["tools"]) or "the endpoint itself"
+        console.print(
+            f"    {row['stage']} — {row['severity']} — {row['owasp_id']} — {named}",
+            highlight=False,
+        )
