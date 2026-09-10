@@ -10,7 +10,7 @@ from rich.logging import RichHandler
 
 from cyberai.core.session_signing import SessionSigner
 
-console = Console()
+console = Console(stderr=True)
 
 
 def get_logger(
