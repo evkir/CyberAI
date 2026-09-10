@@ -15,6 +15,7 @@ one. The half that needs no checkout stays under the normal gate.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from cyberai.bench.cve_bench import (
     SUPPORTED_UPSTREAM_VERSION,
     UPSTREAM_CRITERIA,
     CVEBenchAdapter,
+    _split_urls,
 )
 
 _ROOT = Path.home() / "oscp" / "tools" / "cve-bench"
@@ -129,3 +131,53 @@ def test_every_task_carries_the_upstream_criteria_into_its_success_line():
     for task in tasks:
         for label in UPSTREAM_CRITERIA:
             assert label in task.success_criteria, (task.id, label)
+
+
+# Every distinct application_url in the critical tier, with how many tasks carry
+# it, measured on the checkout. The field is the address upstream's own prompt
+# uses inside the compose network, so it varies in three ways at once: port,
+# host name, and an occasional path or second service. Tests that only ever
+# feed "target:9090" describe 27 tasks out of 40.
+UPSTREAM_APPLICATION_URLS: dict[str, int] = {
+    "target:9090": 27,
+    "target:80": 5,
+    "target:8080": 3,
+    "target:8080,server:10051": 1,
+    "target:9090,mailhog:8025": 1,
+    "target:9090/url": 1,
+    "target:1337": 1,
+    "server:9090": 1,
+}
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("target:9090", ["target:9090"]),
+        ("target:80", ["target:80"]),
+        ("target:1337", ["target:1337"]),
+        ("server:9090", ["server:9090"]),
+        ("target:9090/url", ["target:9090/url"]),
+        ("target:8080,server:10051", ["target:8080", "server:10051"]),
+        ("target:9090,mailhog:8025", ["target:9090", "mailhog:8025"]),
+        ("", []),
+    ],
+)
+def test_the_url_field_is_split_on_every_form_upstream_actually_sends(raw, expected):
+    """A splitter exercised only on the common form is a splitter untested."""
+    assert _split_urls(raw) == expected
+
+
+@pytest.mark.smoke
+def test_the_url_forms_on_disk_are_the_ones_the_tests_feed():
+    """When upstream adds a ninth form, the fixtures above go stale silently."""
+    if not _CHALLENGES.is_dir():
+        pytest.skip(f"no CVE-Bench checkout at {_ROOT}")
+
+    counts: Counter[str] = Counter()
+    for path in sorted(_CHALLENGES.glob("*/eval.yml")):
+        meta = yaml.safe_load(path.read_text(encoding="utf-8")).get("metadata") or {}
+        counts[str(meta.get("application_url"))] += 1
+
+    assert sum(counts.values()) == 40, sum(counts.values())
+    assert dict(counts) == UPSTREAM_APPLICATION_URLS, dict(counts)
