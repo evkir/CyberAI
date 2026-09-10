@@ -87,33 +87,49 @@ def test_parse_report_yields_findings():
 # -- analyze -----------------------------------------------------------
 
 
-def test_analyze_unavailable_returns_empty():
+def _sol(tmp_path: Path) -> str:
+    """A target in the form production sends: an existing .sol file.
+
+    web3/agent.py gates static analysis on
+    ``Path(target).exists() and target.endswith(".sol")``, so a bare name that
+    is not on disk never reaches analyze() outside the tests.
+    """
+    path = tmp_path / "dao.sol"
+    path.write_text("contract DAO {}\n", encoding="utf-8")
+    return str(path)
+
+
+def test_analyze_unavailable_returns_empty(tmp_path):
     with patch.object(st, "find_slither", return_value=None):
         tool = SlitherTool()
     assert tool.available is False
     with patch.object(st, "run_sealed") as run:
-        assert tool.analyze("x.sol") == []
+        assert tool.analyze(_sol(tmp_path)) == []
         run.assert_not_called()
 
 
 @patch("cyberai.agents.web3.slither_tool.os.path.exists", return_value=True)
 @patch("cyberai.agents.web3.slither_tool.run_sealed")
-def test_analyze_parses_stdout(mock_run, _exists):
+def test_analyze_parses_stdout(mock_run, _exists, tmp_path):
     mock_run.return_value = MagicMock(stdout=_REPORT, returncode=255)
     tool = SlitherTool(slither_path="/fake/slither")
-    findings = tool.analyze("dao.sol")
+    target = _sol(tmp_path)
+    findings = tool.analyze(target)
     assert [f.check for f in findings] == ["reentrancy-eth"]
     argv = mock_run.call_args.args[0]
     assert argv[:1] == ["/fake/slither"]
     assert "--json" in argv
+    # The target reaches the binary as given, not as its parent directory:
+    # aderyn needed the parent and was silently getting the file (day 39).
+    assert argv[1] == target
 
 
 @patch("cyberai.agents.web3.slither_tool.os.path.exists", return_value=True)
 @patch("cyberai.agents.web3.slither_tool.run_sealed")
-def test_analyze_uses_sealed_exec(mock_run, _exists):
+def test_analyze_uses_sealed_exec(mock_run, _exists, tmp_path):
     """The child must not inherit the operator environment."""
     mock_run.return_value = MagicMock(stdout="", returncode=0)
-    SlitherTool(slither_path="/fake/slither").analyze("dao.sol")
+    SlitherTool(slither_path="/fake/slither").analyze(_sol(tmp_path))
     kwargs = mock_run.call_args.kwargs
     assert kwargs["home"] == Path.home()  # slither reads ~/.solc-select
     assert "capture_output" not in kwargs  # run_sealed applies it itself
@@ -121,13 +137,13 @@ def test_analyze_uses_sealed_exec(mock_run, _exists):
 
 @patch("cyberai.agents.web3.slither_tool.os.path.exists", return_value=True)
 @patch("cyberai.agents.web3.slither_tool.run_sealed")
-def test_analyze_timeout_returns_empty(mock_run, _exists):
+def test_analyze_timeout_returns_empty(mock_run, _exists, tmp_path):
     mock_run.side_effect = subprocess.TimeoutExpired(cmd="slither", timeout=1)
-    assert SlitherTool(slither_path="/fake/slither").analyze("dao.sol") == []
+    assert SlitherTool(slither_path="/fake/slither").analyze(_sol(tmp_path)) == []
 
 
 @patch("cyberai.agents.web3.slither_tool.os.path.exists", return_value=True)
 @patch("cyberai.agents.web3.slither_tool.run_sealed")
-def test_analyze_execution_failure_returns_empty(mock_run, _exists):
+def test_analyze_execution_failure_returns_empty(mock_run, _exists, tmp_path):
     mock_run.side_effect = OSError("cannot execute")
-    assert SlitherTool(slither_path="/fake/slither").analyze("dao.sol") == []
+    assert SlitherTool(slither_path="/fake/slither").analyze(_sol(tmp_path)) == []

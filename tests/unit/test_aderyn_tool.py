@@ -62,12 +62,14 @@ def test_find_aderyn_env_override(tmp_path, monkeypatch):
     assert find_aderyn() == str(fake)
 
 
-def test_available_false_and_analyze_graceful(monkeypatch):
+def test_available_false_and_analyze_graceful(monkeypatch, tmp_path):
     monkeypatch.delenv("ADERYN_PATH", raising=False)
+    sol = tmp_path / "Vault.sol"
+    sol.write_text("contract Vault {}\n", encoding="utf-8")
     with patch("cyberai.agents.web3.aderyn_tool.shutil.which", return_value=None):
         with patch("cyberai.agents.web3.aderyn_tool.os.path.exists", return_value=False):
             tool = AderynTool()
             assert tool.available is False
             with patch("cyberai.agents.web3.aderyn_tool.subprocess.run") as run:
-                assert tool.analyze("Vault.sol") == []
+                assert tool.analyze(str(sol)) == []
                 run.assert_not_called()
