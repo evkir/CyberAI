@@ -22,9 +22,13 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from cyberai.mcp.tools import TOOL_REGISTRY
+from cyberai.version import __version__
 
 SERVER_NAME = "cyberai"
-SERVER_VERSION = "0.4.0"
+# The version a client sees over the wire is the package version. It used to be
+# a literal, and it sat four minor releases behind while every scanner that
+# handshakes with us -- ours included -- reported the stale number as fact.
+SERVER_VERSION = __version__
 
 
 async def list_tools() -> List[Tool]:
