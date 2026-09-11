@@ -208,12 +208,14 @@ class EscalationPath:
     entry: str
     grants: str
     unlocks: List[str] = field(default_factory=list)
+    contract: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "entry": self.entry,
             "grants": self.grants,
             "unlocks": self.unlocks,
+            "contract": self.contract,
             "source": "access-control",
         }
 
@@ -235,7 +237,14 @@ def _paths_for_model(model: ContractModel) -> List[EscalationPath]:
             continue
         unlocks = [name for name in guarded_privileged if name != fn.name]
         if unlocks:
-            paths.append(EscalationPath(entry=fn.name, grants="ownership", unlocks=unlocks))
+            paths.append(
+                EscalationPath(
+                    entry=fn.name,
+                    grants="ownership",
+                    unlocks=unlocks,
+                    contract=model.name,
+                )
+            )
     return paths
 
 
