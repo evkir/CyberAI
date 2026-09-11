@@ -18,8 +18,16 @@ What this does not cover, measured rather than assumed: the day-36 instance
 (a bare host against a URL) is invisible here, because that function compared
 its parameter against strings and never touched a boundary — nothing in the
 body says which shape is right. The day-38 instance (no test ever took the
-HTTP branch) is a coverage property, not an argument shape. Two more
-detectors, not this one.
+HTTP branch) is a coverage property, not an argument shape. The day-36 form
+is covered since day 43 by the sibling detector that reads the parameter
+name instead of the body.
+
+The blind zone is measured rather than assumed. Of the 204 arguments that
+reach a parameter whose body declares a shape, 64 are string literals and
+140 are not -- names, calls, one binary operation. Folding names bound to a
+single string assignment in the same file recovers 7 of the 140 and finds
+no new violation, which is why it is not done. Both numbers are asserted
+below, so the zone cannot grow in silence.
 """
 
 from __future__ import annotations
@@ -62,6 +70,15 @@ _EXTS = (
 # Literals a production call site cannot produce, kept with the reason they
 # are allowed anyway. An entry that stops firing fails the staleness check
 # below: an allowlist nobody re-earns is an allowlist nobody reads.
+# Measured on this tree: 2079 calls resolved, the largest single suite
+# contributing 101 of them; 64 literals and 140 blind arguments on shaped
+# parameters, the largest suite contributing 32 of the blind. Each bound sits
+# one suite of that size away from the measurement, so losing or doubling a
+# suite does not fire it and a resolver going quiet does.
+_RESOLVED_FLOOR = 1900
+_LITERAL_FLOOR = 45
+_BLIND_CEILING = 0.75
+
 ALLOWED = {
     (
         "cyberai/agents/mcp_scan/mst_bridge.py::MSTBridge._parse_report",
@@ -285,6 +302,24 @@ def scan(root: pathlib.Path) -> tuple[set[tuple[str, str, str]], int]:
     return violations, resolved
 
 
+def shaped_arguments(root: pathlib.Path) -> tuple[int, int]:
+    """String literals and everything else reaching a shape-carrying parameter."""
+    funcs, classes = _index(root)
+    literals = blind = 0
+    for path in sorted((root / "tests").rglob("*.py")):
+        for fn, call in _resolve(path, funcs, classes):
+            args = [(fn.params[i], arg) for i, arg in enumerate(call.args) if i < len(fn.params)]
+            args += [(kw.arg, kw.value) for kw in call.keywords if kw.arg]
+            for param, arg in args:
+                if not fn.use.get(param or "", set()) & {"URL", "PATH", "ARGV", "HOST"}:
+                    continue
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    literals += 1
+                else:
+                    blind += 1
+    return literals, blind
+
+
 def _plant(root: pathlib.Path) -> None:
     """A package and a suite holding one known-bad call of each shape."""
     package = root / "cyberai" / "agents"
@@ -322,7 +357,11 @@ def _plant(root: pathlib.Path) -> None:
         "\n"
         "\n"
         "def test_url_shape():\n"
-        "    assert fetch('api.acme.com') == ''\n",
+        "    assert fetch('api.acme.com') == ''\n"
+        "\n"
+        "\n"
+        "def test_url_shape_by_keyword():\n"
+        "    assert fetch(url='api.beta.com') == ''\n",
         encoding="utf-8",
     )
 
@@ -347,15 +386,32 @@ def test_every_allowed_entry_is_still_earned() -> None:
 def test_the_walk_reaches_the_suite() -> None:
     """A resolver that resolves nothing reports nothing and looks clean."""
     _, resolved = scan(REPO)
-    assert resolved > 500, f"only {resolved} calls resolved — the resolver is broken, not the suite"
+    assert resolved >= _RESOLVED_FLOOR, (
+        f"only {resolved} calls resolved — the resolver is broken, not the suite"
+    )
+
+
+def test_the_blind_zone_is_a_measured_share_of_the_shaped_arguments() -> None:
+    """A rule reading literals only is worth what the share of literals is."""
+    literals, blind = shaped_arguments(REPO)
+    assert literals >= _LITERAL_FLOOR, f"only {literals} literals reach a shaped parameter"
+    share = blind / (literals + blind)
+    assert share <= _BLIND_CEILING, (
+        f"{blind} of {literals + blind} arguments on shaped parameters are not "
+        f"literals ({share:.1%}) — the rule now sees less than it is credited with"
+    )
 
 
 def test_a_planted_shape_of_each_kind_is_caught(tmp_path: pathlib.Path) -> None:
     """The guard is measured against known-bad input, not trusted on silence."""
     _plant(tmp_path)
     violations, resolved = scan(tmp_path)
-    assert resolved == 2, resolved  # analyze(...) and fetch(...); Tool() is a constructor
+    # analyze(...) and two fetch(...); Tool() is a constructor. The keyword call
+    # is here so a walk that reads positional arguments only is a red guard.
+    assert resolved == 3, resolved
+    assert shaped_arguments(tmp_path) == (3, 0), shaped_arguments(tmp_path)
     assert violations == {
         ("cyberai/agents/tool.py::Tool.analyze", "target", "Vault.sol"),
         ("cyberai/agents/tool.py::fetch", "url", "api.acme.com"),
+        ("cyberai/agents/tool.py::fetch", "url", "api.beta.com"),
     }
