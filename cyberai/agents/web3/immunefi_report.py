@@ -116,18 +116,86 @@ _FINDING_KEYS = (
 )
 
 
+# Immunefi tiers strongest first, for picking the tier of an escalation path
+# from the findings it unlocks.
+_TIER_ORDER = ("Critical", "High", "Medium", "Low", "Insight")
+
+
+def escalation_note(path: dict[str, Any]) -> str:
+    """One sentence naming the entry, what it grants and what that unlocks."""
+    entry = str(path.get("entry", "")).strip() or "an unguarded entry point"
+    grants = str(path.get("grants", "")).strip() or "authority"
+    unlocks = [str(name).strip() for name in path.get("unlocks") or [] if str(name).strip()]
+    reached = ", ".join(unlocks) if unlocks else "no guarded function found"
+    return f"Escalation path: {entry} grants {grants}, which unlocks {reached}."
+
+
+def _tier_of_unlocked(path: dict[str, Any], by_function: dict[str, str]) -> str:
+    """The strongest tier among the findings on the functions this path unlocks.
+
+    An escalation path carries no `check`, so `classify` has nothing to read and
+    would call every path an Insight. The severity here is borrowed from
+    findings that already exist rather than invented for the path.
+    """
+    tiers = [by_function[name] for name in path.get("unlocks") or [] if name in by_function]
+    for tier in _TIER_ORDER:
+        if tier in tiers:
+            return tier
+    return "Insight"
+
+
+def escalation_path_to_section(path: dict[str, Any], tier: str) -> ReportSection:
+    """A ReportSection for a path no finding covers, titled by its entry point."""
+    entry = str(path.get("entry", "")).strip() or "unknown entry"
+    note = escalation_note(path)
+    return ReportSection(
+        title=f"Privilege escalation via {entry}",
+        severity=_TIER_TO_INTERNAL.get(tier, "INFO"),
+        impact=note,
+        findings=[note],
+    )
+
+
 def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
     """Render every finding in a Web3 agent result as an Immunefi submission.
 
     Collects findings across the agent's tool buckets (confirmed PoC first),
     builds a ReportSection per finding, estimates funds-at-risk, and renders each
     with the shared Immunefi exporter. A confirmed PoC's transaction summary is
-    passed through as the proof-of-concept block. Returns one Markdown document
-    per finding; an empty result yields an empty list.
+    passed through as the proof-of-concept block.
+
+    Escalation paths are evidence for the finding on their entry function, not
+    separate bugs, so a path whose entry carries a finding is folded into that
+    submission. A path no finding covers becomes its own submission rather than
+    being dropped, and takes the strongest tier among the functions it unlocks.
+
+    `merged_findings` is deliberately not read: measured on the access-control
+    fixture, all twelve of its checks already appear in the buckets above and
+    its stored severity agreed with the derived one twelve times out of twelve,
+    so reading it would duplicate twelve submissions and add nothing.
+
+    Returns one Markdown document per finding; an empty result yields an empty
+    list.
     """
     from cyberai.agents.report.immunefi_exporter import export_immunefi
 
+    paths = [p for p in agent_result.get("escalation_paths") or [] if isinstance(p, dict)]
+    by_entry: dict[str, list[dict[str, Any]]] = {}
+    for path in paths:
+        by_entry.setdefault(str(path.get("entry", "")).strip(), []).append(path)
+
+    by_function: dict[str, str] = {}
+    for key in _FINDING_KEYS:
+        for finding in agent_result.get(key, []) or []:
+            if isinstance(finding, dict) and finding.get("function"):
+                name = str(finding["function"]).strip()
+                tier = immunefi_tier(finding)
+                current = by_function.get(name)
+                if current is None or _TIER_ORDER.index(tier) < _TIER_ORDER.index(current):
+                    by_function[name] = tier
+
     submissions: list[str] = []
+    attached: set[int] = set()
     for key in _FINDING_KEYS:
         for finding in agent_result.get(key, []) or []:
             if not isinstance(finding, dict):
@@ -138,5 +206,19 @@ def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
             poc = ""
             if finding.get("confirmed") and finding.get("test"):
                 poc = f"Foundry test `{finding['test']}` passed on a mainnet fork."
+            for path in by_entry.get(str(finding.get("function", "")).strip(), []):
+                note = escalation_note(path)
+                section.findings.append(note)
+                section.impact = f"{section.impact}\n\n{note}".strip()
+                attached.add(id(path))
             submissions.append(export_immunefi(section, funds_at_risk=far, proof_of_concept=poc))
+
+    for path in paths:
+        if id(path) in attached:
+            continue
+        tier = _tier_of_unlocked(path, by_function)
+        section = escalation_path_to_section(path, tier)
+        submissions.append(
+            export_immunefi(section, funds_at_risk=estimate_funds_at_risk(path, tier))
+        )
     return submissions
