@@ -216,3 +216,106 @@ def test_build_submissions_poc_without_test_has_no_poc_block():
     subs = build_immunefi_submissions(result)
     assert len(subs) == 1
     assert "_No proof of concept provided._" in subs[0]
+
+
+# --- escalation paths ------------------------------------------------------
+
+
+def _escalation_result() -> dict:
+    """Findings on three functions, three paths: attached, orphan, dead-end."""
+    return {
+        "findings": [
+            {
+                "check": "reentrancy-eth",
+                "impact": "High",
+                "confidence": "High",
+                "description": "ETH before state",
+                "contract": "Vault",
+                "function": "withdraw",
+            }
+        ],
+        "access_findings": [
+            {
+                "check": "missing-auth",
+                "impact": "High",
+                "confidence": "High",
+                "description": "setOwner has no guard",
+                "contract": "Vault",
+                "function": "setOwner",
+            }
+        ],
+        "aderyn_findings": [
+            {
+                "check": "missing-zero-check",
+                "impact": "Low",
+                "confidence": "High",
+                "description": "withdraw misses a zero check",
+                "contract": "Vault",
+                "function": "withdraw",
+            },
+            {
+                "check": "unsafe-erc20-functions",
+                "impact": "Medium",
+                "confidence": "High",
+                "description": "mint uses unsafe transfer",
+                "contract": "Vault",
+                "function": "mint",
+            },
+        ],
+        "escalation_paths": [
+            {"entry": "setOwner", "grants": "ownership", "unlocks": ["withdraw"]},
+            {"entry": "ghost", "grants": "ownership", "unlocks": ["mint", "withdraw"]},
+            {"entry": "lonely", "grants": "authority", "unlocks": []},
+        ],
+    }
+
+
+def test_a_path_whose_entry_has_a_finding_is_folded_into_that_submission():
+    """The path is evidence for that finding, so it must not become a second bug."""
+    result = _escalation_result()
+    result["escalation_paths"] = [result["escalation_paths"][0]]
+    subs = build_immunefi_submissions(result)
+    assert len(subs) == 4, subs
+    owner = [s for s in subs if "missing-auth in Vault.setOwner" in s]
+    assert len(owner) == 1, subs
+    assert "setOwner grants ownership, which unlocks withdraw" in owner[0]
+    assert "Privilege escalation via setOwner" not in "".join(subs)
+
+
+def test_a_path_no_finding_covers_becomes_its_own_submission():
+    """Dropping it was the defect; its tier is borrowed, never invented."""
+    subs = build_immunefi_submissions(_escalation_result())
+    ghost = [s for s in subs if "Privilege escalation via ghost" in s]
+    assert len(ghost) == 1, subs
+    # withdraw carries Critical and Low findings, mint a Medium one: the path
+    # takes the strongest of the three tiers, not the first or the weakest.
+    assert "**Severity:** Critical" in ghost[0]
+    assert "ghost grants ownership, which unlocks mint, withdraw" in ghost[0]
+
+
+def test_a_path_unlocking_nothing_known_is_named_rather_than_dropped():
+    """Insight is the floor, but the title still says which entry point it is."""
+    subs = build_immunefi_submissions(_escalation_result())
+    lonely = [s for s in subs if "Privilege escalation via lonely" in s]
+    assert len(lonely) == 1, subs
+    assert "**Severity:** Insight" in lonely[0]
+    assert "no guarded function found" in lonely[0]
+
+
+def test_merged_findings_are_not_exported_a_second_time():
+    """Measured: every merged check is already in a bucket, so reading it duplicates."""
+    result = _escalation_result()
+    result["merged_findings"] = [
+        {
+            "check": "reentrancy-eth",
+            "checks": ["reentrancy-eth"],
+            "swc": "SWC-107",
+            "immunefi_severity": "Critical",
+            "confidence": "cross-validated",
+            "sources": ["slither", "aderyn"],
+            "title": "Reentrancy",
+            "description": "ETH before state",
+        }
+    ]
+    del result["escalation_paths"]
+    assert len(build_immunefi_submissions(result)) == 4
