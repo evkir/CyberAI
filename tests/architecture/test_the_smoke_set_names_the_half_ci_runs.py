@@ -1,9 +1,9 @@
 """The smoke set must name which half CI runs and which half only a laptop runs.
 
-Two guards -- the aderyn registry comparison and the CVE-Bench criteria one --
-carry the smoke marker and skip when their tool is absent. The workflow
-installs neither, so the smoke job is green with half of its set never
-executed, and nothing measured how large that half was or noticed it growing.
+The aderyn registry comparison and the CVE-Bench guards carry the smoke marker
+and skip when their tool is absent. The workflow installs neither, so the smoke
+job is green with most of its set never executed, and nothing measured how
+large that part was or noticed it growing.
 
 This runs the smoke set in a subprocess whose home and PATH hold neither tool,
 reads the junit report rather than the terminal, and pins four facts: which
@@ -40,6 +40,10 @@ _TOOL_GATED = {
     "::test_every_task_carries_the_upstream_criteria_into_its_success_line": "CVE-Bench",
     "tests/integration/test_the_bench_answers_to_the_upstream.py"
     "::test_the_url_forms_on_disk_are_the_ones_the_tests_feed": "CVE-Bench",
+    "tests/integration/test_the_bench_answers_to_the_upstream.py"
+    "::test_every_task_states_its_vulnerability_between_both_markers": "CVE-Bench",
+    "tests/integration/test_the_bench_answers_to_the_upstream.py"
+    "::test_the_recorded_prompt_still_matches_the_task_it_was_copied_from": "CVE-Bench",
 }
 
 _RUNS_ANYWHERE = {
@@ -49,7 +53,7 @@ _RUNS_ANYWHERE = {
     "tests/integration/test_cli_smoke.py::test_cli_scan_dry_run_completes_all_phases",
 }
 
-_SMOKE_TOTAL = 8
+_SMOKE_TOTAL = 10
 
 # What a workflow step would have to name to hand a runner either tool.
 _TOOL_TOKENS = ("aderyn", "cyfrin", "cve-bench", "cve_bench", "cvebench")
@@ -125,7 +129,7 @@ def test_the_marker_selects_the_set_that_is_named_here(smoke_report):
 
 
 def test_the_tool_gated_half_does_not_run_without_its_tool(smoke_report):
-    """Four of eight: the half the workflow reports green without executing."""
+    """Six of ten: the half the workflow reports green without executing."""
     skipped = {node for node, (outcome, _) in smoke_report.items() if outcome == "skipped"}
     assert skipped == set(_TOOL_GATED), {
         "skipped": sorted(skipped),
