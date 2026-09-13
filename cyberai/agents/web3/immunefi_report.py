@@ -130,14 +130,23 @@ def escalation_note(path: dict[str, Any]) -> str:
     return f"Escalation path: {entry} grants {grants}, which unlocks {reached}."
 
 
-def _tier_of_unlocked(path: dict[str, Any], by_function: dict[str, str]) -> str:
+def _tier_of_unlocked(path: dict[str, Any], by_function: dict[tuple[str, str], str]) -> str:
     """The strongest tier among the findings on the functions this path unlocks.
 
     An escalation path carries no `check`, so `classify` has nothing to read and
     would call every path an Insight. The severity here is borrowed from
     findings that already exist rather than invented for the path.
+
+    Functions are keyed by `(contract, name)`: two contracts in one file may both
+    declare `setOwner`, and borrowing a tier across that boundary would report
+    one contract's severity on another's path.
     """
-    tiers = [by_function[name] for name in path.get("unlocks") or [] if name in by_function]
+    contract = str(path.get("contract", "")).strip()
+    tiers = [
+        by_function[(contract, name)]
+        for name in path.get("unlocks") or []
+        if (contract, name) in by_function
+    ]
     for tier in _TIER_ORDER:
         if tier in tiers:
             return tier
@@ -166,8 +175,12 @@ def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
 
     Escalation paths are evidence for the finding on their entry function, not
     separate bugs, so a path whose entry carries a finding is folded into that
-    submission. A path no finding covers becomes its own submission rather than
-    being dropped, and takes the strongest tier among the functions it unlocks.
+    submission. Entry and finding are matched on `(contract, function)`, never on
+    the function name alone: measured on a two-heir fixture, name-only matching
+    attached four times where two were correct, and every submission carried a
+    note about another contract's function. A path no finding covers becomes its
+    own submission rather than being dropped, and takes the strongest tier among
+    the functions it unlocks in its own contract.
 
     `merged_findings` is deliberately not read: measured on the access-control
     fixture, all twelve of its checks already appear in the buckets above and
@@ -180,15 +193,19 @@ def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
     from cyberai.agents.report.immunefi_exporter import export_immunefi
 
     paths = [p for p in agent_result.get("escalation_paths") or [] if isinstance(p, dict)]
-    by_entry: dict[str, list[dict[str, Any]]] = {}
+    by_entry: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for path in paths:
-        by_entry.setdefault(str(path.get("entry", "")).strip(), []).append(path)
+        key_entry = (str(path.get("contract", "")).strip(), str(path.get("entry", "")).strip())
+        by_entry.setdefault(key_entry, []).append(path)
 
-    by_function: dict[str, str] = {}
+    by_function: dict[tuple[str, str], str] = {}
     for key in _FINDING_KEYS:
         for finding in agent_result.get(key, []) or []:
             if isinstance(finding, dict) and finding.get("function"):
-                name = str(finding["function"]).strip()
+                name = (
+                    str(finding.get("contract", "")).strip(),
+                    str(finding["function"]).strip(),
+                )
                 tier = immunefi_tier(finding)
                 current = by_function.get(name)
                 if current is None or _TIER_ORDER.index(tier) < _TIER_ORDER.index(current):
@@ -206,7 +223,11 @@ def build_immunefi_submissions(agent_result: dict[str, Any]) -> list[str]:
             poc = ""
             if finding.get("confirmed") and finding.get("test"):
                 poc = f"Foundry test `{finding['test']}` passed on a mainnet fork."
-            for path in by_entry.get(str(finding.get("function", "")).strip(), []):
+            entry_key = (
+                str(finding.get("contract", "")).strip(),
+                str(finding.get("function", "")).strip(),
+            )
+            for path in by_entry.get(entry_key, []):
                 note = escalation_note(path)
                 section.findings.append(note)
                 section.impact = f"{section.impact}\n\n{note}".strip()

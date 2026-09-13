@@ -22,15 +22,33 @@ import pytest
 import yaml
 
 from cyberai.bench.cve_bench import (
+    _DESCRIPTION_HEAD,
+    _DESCRIPTION_TAIL,
     DEFAULT_VERSION,
     SUPPORTED_UPSTREAM_VERSION,
     UPSTREAM_CRITERIA,
     CVEBenchAdapter,
+    _one_day_description,
     _split_urls,
 )
 
 _ROOT = Path.home() / "oscp" / "tools" / "cve-bench"
 _CHALLENGES = _ROOT / "src" / DEFAULT_VERSION / "challenges"
+
+# One upstream one-day prompt, copied byte for byte off the checkout. CI has no
+# checkout, so without this the gated half below would have nothing to compare
+# the constant against except the constant. The smoke half re-reads the task it
+# came from and fails when the two diverge.
+_SNAPSHOT_TASK = "CVE-2023-37999"
+_SNAPSHOT = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "cve_bench_one_day_prompt.txt"
+).read_text(encoding="utf-8")
+# What `_one_day_description` must cut out of that prompt: the vulnerability and
+# nothing else -- no upstream host, no criteria list.
+_SNAPSHOT_DESCRIPTION = (
+    "Improper Privilege Management vulnerability in HasThemes HT Mega allows "
+    "Privilege Escalation.This issue affects HT Mega: from n/a through 2.2.0."
+)
 
 # Prompts number their criteria "1. Denial of service: make the website ...".
 _ITEM = re.compile(r"^\s*\d\.\s+([^:]+):", re.MULTILINE)
@@ -64,16 +82,22 @@ def _upstream_version(root: Path) -> str:
     raise AssertionError("no version line in the upstream pyproject.toml")
 
 
-def test_the_criteria_list_is_the_size_that_was_measured():
-    """An empty or shrunken reference makes every comparison below vacuous."""
-    assert len(UPSTREAM_CRITERIA) == 8, len(UPSTREAM_CRITERIA)
-    assert len(set(UPSTREAM_CRITERIA)) == 8, "duplicate label"
-    assert "file upload" not in UPSTREAM_CRITERIA
-    assert "remote code execution" in UPSTREAM_CRITERIA
+def test_the_constant_is_the_upstream_wording_not_a_paraphrase_of_it():
+    """The constant is checked against upstream's text, never against itself.
+
+    The comparison that lived here read the criteria out of a task whose
+    success line is built by joining this same constant, so it held for any
+    content at all -- an empty tuple, a typo, last release's list. The labels
+    below are read out of a prompt upstream wrote. Size, uniqueness and
+    membership all follow from this one comparison, so the assertions that
+    stated them separately are gone: no mutation of the constant killed them
+    without killing this.
+    """
+    assert tuple(_labels(_SNAPSHOT)) == UPSTREAM_CRITERIA, _labels(_SNAPSHOT)
 
 
 def test_the_criteria_reach_the_task_verbatim(tmp_path):
-    """A paraphrase between the constant and the task would defeat the guard."""
+    """A paraphrase between upstream's wording and the task would defeat the guard."""
     root = tmp_path / "cve-bench"
     root.joinpath("run").parent.mkdir(parents=True, exist_ok=True)
     root.joinpath("run").write_text("#!/usr/bin/env bash\n")
@@ -85,7 +109,7 @@ def test_the_criteria_reach_the_task_verbatim(tmp_path):
     tasks = CVEBenchAdapter(root=root).load_tasks()
 
     assert len(tasks) == 1
-    for label in UPSTREAM_CRITERIA:
+    for label in _labels(_SNAPSHOT):
         assert label in tasks[0].success_criteria, label
 
 
@@ -100,6 +124,74 @@ def test_the_label_reader_takes_the_numbered_list_and_stops_at_the_rules():
         "1. Any attack on another port: no.\n"
     )
     assert _labels(prompt) == ["denial of service", "file access"]
+
+
+def test_the_description_reader_takes_the_middle_and_leaves_both_contours():
+    """The docstring promises the upstream addressing does not travel; here it is.
+
+    Head and tail are cut off the recorded prompt, so a marker changed in the
+    module is red here without a checkout.
+    """
+    description = _one_day_description({"one_day": {"prompt": _SNAPSHOT}})
+    assert description == _SNAPSHOT_DESCRIPTION, repr(description)
+    assert "target:" not in description, description
+    assert "As a/an" not in description, description
+    assert _DESCRIPTION_HEAD not in description, description
+
+
+def test_a_prompt_missing_a_marker_yields_nothing_rather_than_a_guess():
+    """Half a parse names a vulnerability that is not the one on the target."""
+    head, tail = _SNAPSHOT.split(_DESCRIPTION_HEAD, 1)
+    assert _one_day_description({"one_day": {"prompt": head}}) == ""
+    assert _one_day_description({}) == ""
+    assert _one_day_description({"one_day": {"prompt": None}}) == ""
+    # Tail gone, head kept: everything after the head survives, which is why the
+    # forty-task guard below checks the tail on every prompt and not just this one.
+    assert _DESCRIPTION_TAIL.search(tail) is not None
+
+
+@pytest.mark.smoke
+def test_every_task_states_its_vulnerability_between_both_markers():
+    """The reader's docstring claims all forty carry both markers; nothing checked.
+
+    Needs the CVE-Bench checkout.
+    """
+    if not _CHALLENGES.is_dir():
+        pytest.skip(f"no CVE-Bench checkout at {_ROOT}")
+
+    evals = sorted(_CHALLENGES.glob("*/eval.yml"))
+    assert len(evals) == 40, len(evals)
+
+    without_head: list[str] = []
+    without_tail: list[str] = []
+    without_description: list[str] = []
+    for path in evals:
+        spec = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        variants = spec.get("variants") or {}
+        prompt = (variants.get("one_day") or {}).get("prompt")
+        if not isinstance(prompt, str) or _DESCRIPTION_HEAD not in prompt:
+            without_head.append(path.parent.name)
+            continue
+        if not _DESCRIPTION_TAIL.search(prompt.split(_DESCRIPTION_HEAD, 1)[1]):
+            without_tail.append(path.parent.name)
+        if not _one_day_description(variants):
+            without_description.append(path.parent.name)
+    assert without_head == [], without_head
+    assert without_tail == [], without_tail
+    assert without_description == [], without_description
+
+
+@pytest.mark.smoke
+def test_the_recorded_prompt_still_matches_the_task_it_was_copied_from():
+    """A record nobody re-reads is a record that goes stale without a sound.
+
+    Needs the CVE-Bench checkout.
+    """
+    if not _CHALLENGES.is_dir():
+        pytest.skip(f"no CVE-Bench checkout at {_ROOT}")
+
+    spec = yaml.safe_load((_CHALLENGES / _SNAPSHOT_TASK / "eval.yml").read_text(encoding="utf-8"))
+    assert spec["variants"]["one_day"]["prompt"] == _SNAPSHOT
 
 
 @pytest.mark.smoke

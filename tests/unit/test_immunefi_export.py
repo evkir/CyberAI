@@ -8,14 +8,20 @@ toolchain or network.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from cyberai.agents.report.immunefi_exporter import export_immunefi
+from cyberai.agents.web3.access_control import analyze_source, find_escalation_paths
 from cyberai.agents.web3.immunefi_report import (
     build_immunefi_submissions,
+    escalation_note,
     estimate_funds_at_risk,
     immunefi_tier,
     web3_finding_to_section,
 )
 from cyberai.core.types import ReportSection
+
+MULTI_FIXTURE = Path(__file__).parent.parent / "fixtures" / "escalation_multi.sol"
 
 # --- exporter --------------------------------------------------------------
 
@@ -263,9 +269,19 @@ def _escalation_result() -> dict:
             },
         ],
         "escalation_paths": [
-            {"entry": "setOwner", "grants": "ownership", "unlocks": ["withdraw"]},
-            {"entry": "ghost", "grants": "ownership", "unlocks": ["mint", "withdraw"]},
-            {"entry": "lonely", "grants": "authority", "unlocks": []},
+            {
+                "entry": "setOwner",
+                "grants": "ownership",
+                "unlocks": ["withdraw"],
+                "contract": "Vault",
+            },
+            {
+                "entry": "ghost",
+                "grants": "ownership",
+                "unlocks": ["mint", "withdraw"],
+                "contract": "Vault",
+            },
+            {"entry": "lonely", "grants": "authority", "unlocks": [], "contract": "Vault"},
         ],
     }
 
@@ -300,6 +316,60 @@ def test_a_path_unlocking_nothing_known_is_named_rather_than_dropped():
     assert len(lonely) == 1, subs
     assert "**Severity:** Insight" in lonely[0]
     assert "no guarded function found" in lonely[0]
+
+
+def test_a_path_is_not_attached_to_the_same_name_in_another_contract():
+    """Two heirs each declare setOwner; matching on the name alone crosses them.
+
+    Measured on this fixture before the fix: four attachments where two are
+    correct, and both submissions carried a note naming the other contract's
+    unlocked function.
+    """
+    source = MULTI_FIXTURE.read_text()
+    findings = [f.to_dict() for f in analyze_source(source)]
+    paths = [p.to_dict() for p in find_escalation_paths(source)]
+    assert [(p["contract"], p["entry"], p["unlocks"]) for p in paths] == [
+        ("VaultV1", "setOwner", ["mint"]),
+        ("VaultV2", "setOwner", ["sweep"]),
+    ]
+    subs = build_immunefi_submissions({"access_findings": findings, "escalation_paths": paths})
+    assert len(subs) == 2, subs
+    notes = [escalation_note(p) for p in paths]
+    assert [sum(n in s for n in notes) for s in subs] == [1, 1], subs
+    first = next(s for s in subs if "VaultV1.setOwner" in s)
+    assert "unlocks mint" in first
+    assert "unlocks sweep" not in first
+
+
+def test_an_orphan_path_does_not_borrow_a_tier_from_another_contract():
+    """An unlocked name alone is not a tier: the finding must sit in the same contract.
+
+    The path comes from the production finder; the Critical finding sits on a
+    same-named function of a contract the path never touches, so the path is an
+    Insight rather than a Critical.
+    """
+    source = MULTI_FIXTURE.read_text()
+    paths = [p.to_dict() for p in find_escalation_paths(source)]
+    path = next(p for p in paths if p["contract"] == "VaultV1")
+    assert path["unlocks"] == ["mint"]
+    result = {
+        "findings": [
+            {
+                "check": "arbitrary-send-eth",
+                "impact": "High",
+                "confidence": "High",
+                "description": "mint sends ETH anywhere",
+                "contract": "Unrelated",
+                "function": "mint",
+            }
+        ],
+        "escalation_paths": [path],
+    }
+    subs = build_immunefi_submissions(result)
+    orphan = [s for s in subs if "Privilege escalation via setOwner" in s]
+    assert len(orphan) == 1, subs
+    assert "**Severity:** Insight" in orphan[0]
+    assert "**Severity:** Critical" not in orphan[0]
 
 
 def test_merged_findings_are_not_exported_a_second_time():
