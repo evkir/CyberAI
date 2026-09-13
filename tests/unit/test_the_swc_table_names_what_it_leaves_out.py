@@ -2,12 +2,12 @@
 
 The tables here were guarded in one direction only: every name we map had to
 exist in `aderyn registry`. Nothing said how much of that registry we map, so
-the answer -- seventeen detectors of sixty-three -- was a number nobody held.
+the answer -- nineteen detectors of sixty-three -- was a number nobody held.
 Grouping is by SWC id, and a detector without one is kept per-detector and can
 never be cross-validated by slither, whatever its severity. On the audit of
 tests/fixtures/access_control.sol the highest finding of the run,
 `unprotected-initializer`, is Critical and carries no SWC: it is one of the
-fourteen below that hold an Immunefi tier and still group alone.
+twelve below that hold an Immunefi tier and still group alone.
 
 These sets are the record. A new mapping, a dropped one, or a registry that
 grows under a release bump is red here and has to be re-measured, rather than
@@ -26,7 +26,7 @@ from cyberai.agents.web3.merge import ADERYN_DETECTOR_SWC, SLITHER_DETECTOR_SWC
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "aderyn_registry_0.1.9.json"
 
-# Registry detectors with no SWC id: 22 rated High upstream, 24 rated Low.
+# Registry detectors with no SWC id, after the day-44 mapping pass.
 UNMAPPED_BY_THE_SWC_TABLE = frozenset(
     {
         "avoid-abi-encode-packed",
@@ -36,7 +36,6 @@ UNMAPPED_BY_THE_SWC_TABLE = frozenset(
         "constants-instead-of-literals",
         "contract-locks-ether",
         "contract-with-todos",
-        "dangerous-strict-equailty-on-contract-balance",
         "delete-nested-mapping",
         "deprecated-oz-functions",
         "division-before-multiplication",
@@ -67,7 +66,6 @@ UNMAPPED_BY_THE_SWC_TABLE = frozenset(
         "unindexed-events",
         "unprotected-initializer",
         "unsafe-casting-detector",
-        "unsafe-erc20-functions",
         "unsafe-oz-erc721-mint",
         "useless-error",
         "useless-internal-function",
@@ -79,20 +77,18 @@ UNMAPPED_BY_THE_SWC_TABLE = frozenset(
 )
 
 # Carry an Immunefi tier and still group per-detector, cross-validation out of
-# reach for all fourteen.
+# reach for all twelve.
 TIERED_WITHOUT_AN_SWC = frozenset(
     {
         "centralization-risk",
         "contract-locks-ether",
         "contract-with-todos",
-        "dangerous-strict-equailty-on-contract-balance",
         "empty-block",
         "msg-value-in-loop",
         "push-zero-opcode",
         "unindexed-events",
         "unprotected-initializer",
         "unsafe-casting-detector",
-        "unsafe-erc20-functions",
         "useless-modifier",
         "useless-public-function",
         "zero-address-check",
@@ -112,6 +108,7 @@ REACHED_BY_BOTH = [
     "SWC-116",
     "SWC-119",
     "SWC-120",
+    "SWC-132",
 ]
 
 # Reachable from aderyn alone: single-tool findings by construction.

@@ -52,6 +52,8 @@ SLITHER_DETECTOR_SWC: Dict[str, str] = {
     "uninitialized-state": "SWC-109",
     # shadowing state variables -> SWC-119
     "shadowing-state": "SWC-119",
+    # dangerous strict equality on balance -> SWC-132
+    "incorrect-equality": "SWC-132",
     # floating / outdated pragma -> SWC-103
     "solc-version": "SWC-103",
     "pragma": "SWC-103",
@@ -80,6 +82,7 @@ ADERYN_DETECTOR_SWC: Dict[str, str] = {
     "tx-origin-used-for-auth": "SWC-115",
     # unchecked call return value -> SWC-104
     "unchecked-return": "SWC-104",
+    "unsafe-erc20-functions": "SWC-104",
     "unchecked-send": "SWC-104",
     # deprecated SELFDESTRUCT -> SWC-106
     "selfdestruct-identifier": "SWC-106",
@@ -98,6 +101,8 @@ ADERYN_DETECTOR_SWC: Dict[str, str] = {
     "state-variable-shadowing": "SWC-119",
     # floating / outdated pragma -> SWC-103
     "unspecific-solidity-pragma": "SWC-103",
+    # dangerous strict equality on balance -> SWC-132
+    "dangerous-strict-equailty-on-contract-balance": "SWC-132",
     # right-to-left override -> SWC-130
     "rtlo": "SWC-130",
     # dangerous typographical unary (=+) -> SWC-129
