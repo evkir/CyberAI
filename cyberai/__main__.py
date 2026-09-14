@@ -13,6 +13,7 @@ from cyberai.version import __version__
 from .agents.exploit.nuclei_engine import find_nuclei
 from .agents.exploit.searchsploit import find_searchsploit
 from .agents.mcp_scan.mst_bridge import find_mst
+from .agents.recon.nmap_tool import find_nmap
 from .agents.web3.aderyn_tool import find_aderyn
 from .agents.web3.anvil_harness import find_anvil
 from .agents.web3.foundry_poc import find_forge
@@ -33,6 +34,7 @@ console = Console()
 # second lookup: status calls the same functions the tools call, so a name
 # reported here is the one that will be executed.
 _TOOLCHAIN = {
+    "nmap": find_nmap,
     "nuclei": find_nuclei,
     "searchsploit": find_searchsploit,
     "forge": find_forge,

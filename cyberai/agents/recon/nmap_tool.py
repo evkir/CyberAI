@@ -1,12 +1,44 @@
+import os
 import shlex
+import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from cyberai.core.cache import FileCache
 from cyberai.core.sandbox import run_sealed
 from cyberai.core.security.input_sanitizer import parse_target
+
+# Fallback locations checked when nmap is not on PATH. Unlike the Go and
+# Rust tools this project drives, nmap arrives from a system package, so
+# the package manager's bin directories are the ones worth checking.
+_FALLBACK_PATHS = [
+    "/usr/bin/nmap",
+    "/usr/local/bin/nmap",
+    "/opt/homebrew/bin/nmap",
+]
+
+
+def find_nmap() -> Optional[str]:
+    """Locate the nmap binary: env, PATH, then known fallback dirs.
+
+    status listed eight binaries and not this one, though recon depends on
+    it harder than on any of them: without nmap the phase degrades to web
+    surface alone. An operator reading "Tools found: none" learned nothing
+    about the tool whose absence costs the most.
+    """
+    env = os.getenv("NMAP_PATH")
+    if env and os.path.exists(env):
+        return env
+    found = shutil.which("nmap")
+    if found:
+        return found
+    for path in _FALLBACK_PATHS:
+        if os.path.exists(path):
+            return path
+    return None
+
 
 # Whitelist of nmap flags the toolkit is allowed to pass through.
 # Anything outside this set is rejected — prevents abuse like

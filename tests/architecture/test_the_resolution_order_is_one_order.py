@@ -27,6 +27,7 @@ from cyberai.__main__ import _TOOLCHAIN, cli
 
 # finder name -> (module, env variable the finder reads first)
 REGISTRY = {
+    "find_nmap": ("cyberai.agents.recon.nmap_tool", "NMAP_PATH"),
     "find_nuclei": ("cyberai.agents.exploit.nuclei_engine", "NUCLEI_PATH"),
     "find_searchsploit": ("cyberai.agents.exploit.searchsploit", "SEARCHSPLOIT_PATH"),
     "find_forge": ("cyberai.agents.web3.foundry_poc", "FORGE_PATH"),

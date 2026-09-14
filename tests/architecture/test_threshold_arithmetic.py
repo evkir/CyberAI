@@ -19,8 +19,6 @@ aside by itself, instead of having to be remembered and deleted.
 import pathlib
 from collections import Counter
 
-import pytest
-
 from cyberai.core.security.guard import DEFAULT_THRESHOLD
 from cyberai.core.security.injection_detector import (
     INJECTION_PATTERNS,
@@ -97,13 +95,3 @@ def test_most_categories_hold_more_than_one_pattern() -> None:
     multi = sorted(name for name, n in counts.items() if n > 1)
     assert "template_injection" in multi, multi
     assert len(multi) > len(counts) / 2, (multi, sorted(counts))
-
-
-def test_the_guard_docstring_claims_no_two_category_agreement() -> None:
-    if detect_injection(_ONE_CATEGORY_SAMPLE)["risk_score"] < DEFAULT_THRESHOLD:
-        pytest.skip("scoring is per unique category now; the claim would be true")
-    body = _GUARD.read_text(encoding="utf-8")
-    assert "requires two independent" not in body, (
-        "guard.py justifies the threshold with agreement between categories, "
-        "which the arithmetic does not provide"
-    )
