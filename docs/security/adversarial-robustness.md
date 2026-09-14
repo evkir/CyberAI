@@ -21,7 +21,12 @@ not stop the run: it becomes a MEDIUM finding and appears in the report.
 This layer marks untrusted content; it does not filter it.
 
 ### 2. Input sanitisation at the tool entry points
-`sanitize_target` normalises the nmap target before the command line is built.
+`parse_target` splits the scan target into a host and the port it named
+before the command line is built. A character filter used to do this job,
+and it could not: deleting characters a hostname may not contain left a URL
+looking like a host, which nmap failed to resolve while exiting zero, so the
+run reported a clean target. An authority with no host is refused rather
+than passed on as a string.
 The `sanitize_input` decorator inspects every string argument with
 `detect_injection` and refuses the call when it fires; it guards the TLS tool.
 Refusal, not repair: an argument it rewrote would send the tool at a target

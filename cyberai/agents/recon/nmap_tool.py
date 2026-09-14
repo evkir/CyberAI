@@ -1,11 +1,44 @@
+import os
 import shlex
+import shutil
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from cyberai.core.cache import FileCache
 from cyberai.core.sandbox import run_sealed
-from cyberai.core.security.input_sanitizer import sanitize_target
+from cyberai.core.security.input_sanitizer import parse_target
+
+# Fallback locations checked when nmap is not on PATH. Unlike the Go and
+# Rust tools this project drives, nmap arrives from a system package, so
+# the package manager's bin directories are the ones worth checking.
+_FALLBACK_PATHS = [
+    "/usr/bin/nmap",
+    "/usr/local/bin/nmap",
+    "/opt/homebrew/bin/nmap",
+]
+
+
+def find_nmap() -> Optional[str]:
+    """Locate the nmap binary: env, PATH, then known fallback dirs.
+
+    status listed eight binaries and not this one, though recon depends on
+    it harder than on any of them: without nmap the phase degrades to web
+    surface alone. An operator reading "Tools found: none" learned nothing
+    about the tool whose absence costs the most.
+    """
+    env = os.getenv("NMAP_PATH")
+    if env and os.path.exists(env):
+        return env
+    found = shutil.which("nmap")
+    if found:
+        return found
+    for path in _FALLBACK_PATHS:
+        if os.path.exists(path):
+            return path
+    return None
+
 
 # Whitelist of nmap flags the toolkit is allowed to pass through.
 # Anything outside this set is rejected — prevents abuse like
@@ -79,6 +112,29 @@ _TARGETED_SV_TIMEOUT = 90
 _MASS_OPEN_THRESHOLD = 100
 
 
+def _scanned_nothing(raw: str) -> bool:
+    """True when nmap reports that it scanned no address at all.
+
+    nmap exits zero on a target it could not resolve: it scans zero hosts,
+    writes a well-formed XML document with no host element, and calls that
+    success. Return code alone therefore cannot tell an empty result from a
+    clean one, and the caller cached the empty one for an hour.
+
+    The runstats total is read rather than the stderr text: the text is
+    prose that varies with version and locale, while the attribute is part
+    of the XML output contract. An empty document counts as nothing
+    scanned too -- a run that produced no parseable output did not look.
+    """
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return True
+    hosts = root.find("runstats/hosts")
+    if hosts is None:
+        return True
+    return hosts.get("total") == "0"
+
+
 def _exec_nmap(
     safe_target: str, safe_flags: List[str], timeout: int, target: str
 ) -> Dict[str, Any]:
@@ -92,7 +148,7 @@ def _exec_nmap(
         # No operator HOME: nmap reads its NSE data from the system datadir,
         # so the child gets the synthetic home and cannot reach ~/.
         result = run_sealed(cmd, timeout=timeout, stdin=subprocess.DEVNULL)
-        return {
+        parsed = {
             "target": target,
             "raw": result.stdout,
             "stderr": result.stderr,
@@ -100,6 +156,10 @@ def _exec_nmap(
             "ports": _parse_ports(result.stdout),
             "cached": False,
         }
+        if result.returncode == 0 and _scanned_nothing(result.stdout):
+            detail = (result.stderr or "").strip().splitlines()
+            parsed["error"] = "nmap scanned no hosts" + (f": {detail[0]}" if detail else "")
+        return parsed
     except subprocess.TimeoutExpired:
         return {
             "target": target,
@@ -152,6 +212,29 @@ def _mark_mass_open(parsed: Dict[str, Any]) -> bool:
     return False
 
 
+def _scope_to_port(flags: str, port: int) -> str:
+    """Rewrite a flag string so the scan covers the port the target named.
+
+    An operator who writes http://host:8804 has told us where the service
+    is. The default sweep is --top-ports 1000, and 8804 is not in it, so
+    honouring the host while dropping the port produces the same empty
+    result the unparsed target produced, one layer down. Port scope flags
+    are mutually exclusive in nmap, so the existing one is removed rather
+    than appended to. The rewrite happens before the cache key is built:
+    two ports on one host must not share an entry.
+    """
+    tokens = shlex.split(flags)
+    kept: List[str] = []
+    i = 0
+    while i < len(tokens):
+        if tokens[i] in ("-p", "--top-ports"):
+            i += 2
+            continue
+        kept.append(tokens[i])
+        i += 1
+    return " ".join(kept + ["-p", str(port)])
+
+
 def run_nmap(
     target: str,
     flags: str = "-sV -T4 --top-ports 1000",
@@ -167,7 +250,14 @@ def run_nmap(
     ``-sV`` re-probe recovers versions on the ports that are genuinely open.
     Explicit non-``-sV`` scans run unchanged as a single pass.
     """
-    safe_target = sanitize_target(target)
+    try:
+        safe_target, target_port = parse_target(target)
+    except ValueError as exc:
+        return {"target": target, "error": f"unscannable target: {exc}", "ports": []}
+
+    if target_port is not None:
+        flags = _scope_to_port(flags, target_port)
+
     try:
         safe_flags = validate_flags(flags)
     except ValueError as exc:
@@ -208,7 +298,9 @@ def run_nmap(
         parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
         _mark_mass_open(parsed)
 
-    if parsed.get("returncode") == 0:
+    # A zero return code is not a result: nmap exits zero on a target it
+    # never scanned. Caching that answer served it again for an hour.
+    if parsed.get("returncode") == 0 and not parsed.get("error"):
         _nmap_cache.set(cache_key, parsed)
     return parsed
 
