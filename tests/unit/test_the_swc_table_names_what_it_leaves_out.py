@@ -125,10 +125,30 @@ def test_the_swc_table_names_the_registry_it_leaves_out(registry):
 
 
 def test_a_tier_does_not_buy_a_detector_an_swc(registry):
-    """Severity travels; the grouping key does not. These fourteen group alone."""
+    """Severity travels; the grouping key does not. These twelve group alone."""
     assert frozenset(ADERYN_CHECK_TO_IMMUNEFI) - frozenset(ADERYN_DETECTOR_SWC) == (
         TIERED_WITHOUT_AN_SWC
     )
+
+
+def test_the_version_in_the_filename_is_the_version_in_the_file():
+    """One release, named three ways, checked in none of them.
+
+    The snapshot carries an aderyn_version field that nothing read. The
+    version is also in the filename every reader imports by, and in prose in
+    two production modules. A release bump that renames the file and leaves
+    the field, or the reverse, would leave every set below describing a
+    registry that is no longer installed, and no test would notice.
+    """
+    declared = json.loads(FIXTURE.read_text(encoding="utf-8"))["aderyn_version"]
+    assert FIXTURE.name == f"aderyn_registry_{declared}.json", (FIXTURE.name, declared)
+
+    root = Path(__file__).resolve().parents[2]
+    for module in ("merge.py", "immunefi_severity.py"):
+        prose = (root / "cyberai" / "agents" / "web3" / module).read_text(encoding="utf-8")
+        assert f"aderyn {declared}" in prose, (
+            f"{module} names a different aderyn release than the snapshot does"
+        )
 
 
 def test_cross_validation_reaches_only_the_taxonomy_both_tools_share():
