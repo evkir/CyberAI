@@ -1,5 +1,6 @@
 import shlex
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -79,6 +80,29 @@ _TARGETED_SV_TIMEOUT = 90
 _MASS_OPEN_THRESHOLD = 100
 
 
+def _scanned_nothing(raw: str) -> bool:
+    """True when nmap reports that it scanned no address at all.
+
+    nmap exits zero on a target it could not resolve: it scans zero hosts,
+    writes a well-formed XML document with no host element, and calls that
+    success. Return code alone therefore cannot tell an empty result from a
+    clean one, and the caller cached the empty one for an hour.
+
+    The runstats total is read rather than the stderr text: the text is
+    prose that varies with version and locale, while the attribute is part
+    of the XML output contract. An empty document counts as nothing
+    scanned too -- a run that produced no parseable output did not look.
+    """
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return True
+    hosts = root.find("runstats/hosts")
+    if hosts is None:
+        return True
+    return hosts.get("total") == "0"
+
+
 def _exec_nmap(
     safe_target: str, safe_flags: List[str], timeout: int, target: str
 ) -> Dict[str, Any]:
@@ -92,7 +116,7 @@ def _exec_nmap(
         # No operator HOME: nmap reads its NSE data from the system datadir,
         # so the child gets the synthetic home and cannot reach ~/.
         result = run_sealed(cmd, timeout=timeout, stdin=subprocess.DEVNULL)
-        return {
+        parsed = {
             "target": target,
             "raw": result.stdout,
             "stderr": result.stderr,
@@ -100,6 +124,10 @@ def _exec_nmap(
             "ports": _parse_ports(result.stdout),
             "cached": False,
         }
+        if result.returncode == 0 and _scanned_nothing(result.stdout):
+            detail = (result.stderr or "").strip().splitlines()
+            parsed["error"] = "nmap scanned no hosts" + (f": {detail[0]}" if detail else "")
+        return parsed
     except subprocess.TimeoutExpired:
         return {
             "target": target,
@@ -238,7 +266,9 @@ def run_nmap(
         parsed = _exec_nmap(safe_target, safe_flags, timeout, target)
         _mark_mass_open(parsed)
 
-    if parsed.get("returncode") == 0:
+    # A zero return code is not a result: nmap exits zero on a target it
+    # never scanned. Caching that answer served it again for an hour.
+    if parsed.get("returncode") == 0 and not parsed.get("error"):
         _nmap_cache.set(cache_key, parsed)
     return parsed
 

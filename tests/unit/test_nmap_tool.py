@@ -57,6 +57,19 @@ def _clean_cache():
     nmap_tool._nmap_cache.clear()
 
 
+# The shape real nmap emits. An empty <nmaprun></nmaprun> is not a scan
+# that found nothing -- nmap always closes with runstats, and a document
+# without it now means the run never looked. Fixtures that omitted it were
+# feeding the tool a shape production never sees.
+_RUNSTATS_ONE_HOST = '<runstats><finished/><hosts up="1" down="0" total="1"/></runstats>'
+_XML_ONE_HOST = (
+    '<nmaprun><runstats><finished/><hosts up="1" down="0" total="1"/></runstats></nmaprun>'
+)
+_XML_NO_HOST = (
+    '<nmaprun><runstats><finished/><hosts up="0" down="0" total="0"/></runstats></nmaprun>'
+)
+
+
 def _fake_proc(stdout: str = "", rc: int = 0) -> MagicMock:
     proc = MagicMock()
     proc.stdout = stdout
@@ -67,7 +80,7 @@ def _fake_proc(stdout: str = "", rc: int = 0) -> MagicMock:
 
 def test_cache_miss_then_hit():
     """First call runs nmap; second identical call comes from cache."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         first = run_nmap("scanme.test", flags="-sV")
         second = run_nmap("scanme.test", flags="-sV")
@@ -91,7 +104,7 @@ def test_failed_scan_not_cached():
 
 def test_different_flags_different_cache():
     """Different flags must not collide in the cache."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
         run_nmap("scanme.test", flags="-sV -Pn")
@@ -177,7 +190,7 @@ def test_sV_scoped_reprobe_fails_marks_degraded():
 def test_sV_no_open_ports_skips_scoped_scan():
     """When discovery finds no open ports, run_nmap does not attempt a scoped
     -sV and returns the version-less discovery result marked degraded."""
-    empty = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)  # no open ports
+    empty = _fake_proc(stdout=_XML_ONE_HOST, rc=0)  # no open ports
     with patch.object(
         nmap_tool,
         "run_sealed",
@@ -192,7 +205,7 @@ def test_sV_no_open_ports_skips_scoped_scan():
 def test_nmap_detaches_stdin_to_protect_terminal():
     """nmap must run with stdin detached so its runtime keypress interaction
     never leaves the analyst's terminal in no-echo/raw mode."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
     _, kwargs = m.call_args
@@ -201,7 +214,7 @@ def test_nmap_detaches_stdin_to_protect_terminal():
 
 def test_nmap_uses_sealed_exec():
     """nmap talks to the scan target; the child must not inherit our env."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
     kwargs = m.call_args.kwargs
@@ -212,7 +225,7 @@ def test_nmap_uses_sealed_exec():
 def test_nmap_runs_noninteractive():
     """nmap must be invoked with --noninteractive so its keypress reader never
     opens /dev/tty and corrupts the analyst's terminal echo."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
     argv = m.call_args[0][0]
@@ -234,7 +247,7 @@ def test_nmap_receives_a_bare_host_for_a_url_target(target, host):
     value: the defect was that a URL reached argv, and only argv proves it
     no longer does. nmap exits zero on a name it cannot resolve, so a
     green return value proved nothing."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap(target)
     assert m.call_args[0][0][-1] == host
@@ -244,7 +257,7 @@ def test_a_target_that_names_a_port_scopes_the_scan_to_it():
     """--top-ports 1000 does not contain 8804. Honouring the host while
     dropping the port the operator named returns the same empty result the
     unparsed target returned."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("http://127.0.0.1:8804")
     # The discovery pass carries the scope. Asserting on the last call would
@@ -257,7 +270,7 @@ def test_a_target_that_names_a_port_scopes_the_scan_to_it():
 
 
 def test_a_target_without_a_port_keeps_the_default_sweep():
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("target.htb")
     argv = m.call_args_list[0][0][0]
@@ -269,7 +282,7 @@ def test_two_ports_on_one_host_do_not_share_a_cache_entry():
     """The cache is keyed by sanitised target plus flags. Parsing collapses
     both URLs onto one host, so without the port reaching the flag string
     the second target would be served the first one's result for an hour."""
-    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("http://127.0.0.1:8804")
         run_nmap("http://127.0.0.1:9999")
@@ -283,6 +296,59 @@ def test_an_unscannable_target_never_reaches_subprocess():
     assert m.call_count == 0
     assert "unscannable target" in result["error"]
     assert result["ports"] == []
+
+
+def test_a_scan_that_reached_no_host_is_an_error_not_a_clean_result():
+    """nmap exits zero on a target it could not resolve: zero hosts scanned,
+    well-formed XML, no host element. Return code was the only criterion, so
+    the pipeline read that as a target with nothing open."""
+    fake = _fake_proc(stdout=_XML_NO_HOST, rc=0)
+    fake.stderr = 'Failed to resolve "nowhere.invalid".\nWARNING: No targets\n'
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
+        result = run_nmap("nowhere.invalid", flags="-T4 -p 22")
+    assert "scanned no hosts" in result["error"]
+    assert "Failed to resolve" in result["error"]
+    assert result["returncode"] == 0
+
+
+def test_a_scan_that_reached_no_host_is_not_cached():
+    """The empty answer used to be cached for an hour, so one run against a
+    URL kept handing the same clean report back."""
+    fake = _fake_proc(stdout=_XML_NO_HOST, rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap("nowhere.invalid", flags="-T4 -p 22")
+        run_nmap("nowhere.invalid", flags="-T4 -p 22")
+    assert m.call_count == 2
+
+
+def test_output_nmap_could_not_have_written_counts_as_nothing_scanned():
+    """A run that produced no parseable XML did not look. Treating unparseable
+    output as a clean scan is the same defect one layer down."""
+    fake = _fake_proc(stdout="", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
+        result = run_nmap("nowhere.invalid", flags="-T4 -p 22")
+    assert "scanned no hosts" in result["error"]
+
+
+def test_a_run_cut_short_before_runstats_did_not_look():
+    """nmap closes every completed run with runstats. A document that parses
+    but carries none came from a run that died mid-scan -- killed on a
+    wrapper timeout, or out of memory -- and reporting no open ports for it
+    is the same lie as reporting none for a name that never resolved.
+
+    Written because the mutant that made this branch return False survived
+    the first harness: nothing fed the tool this shape."""
+    fake = _fake_proc(stdout="<nmaprun><scaninfo/></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
+        result = run_nmap("target.htb", flags="-T4 -p 22")
+    assert "scanned no hosts" in result["error"]
+
+
+def test_a_scan_that_reached_a_host_carries_no_error():
+    fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake):
+        result = run_nmap("target.htb", flags="-T4 -p 22")
+    assert result.get("error") is None
 
 
 # ── product/version capture (version-aware CVE matching foundation) ────
@@ -357,7 +423,7 @@ def test_mass_open_flags_untrusted_scan():
         f'<service name="svc{i}"/></port>'
         for i in range(1, 151)
     )
-    fake = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
+    fake = _fake_proc(stdout=f"<nmaprun>{many}{_RUNSTATS_ONE_HOST}</nmaprun>", rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake):
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is True
@@ -365,7 +431,7 @@ def test_mass_open_flags_untrusted_scan():
 
 
 def test_normal_scan_not_flagged_mass_open():
-    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
+    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}{_RUNSTATS_ONE_HOST}</nmaprun>", rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake):
         res = run_nmap("scanme.test", flags="-sV")
     assert res.get("mass_open") is None
@@ -426,7 +492,7 @@ def test_mass_open_skips_sV_entirely():
         f'<service name="svc{i}"/></port>'
         for i in range(1, 151)
     )
-    disco = _fake_proc(stdout=f"<nmaprun>{many}</nmaprun>", rc=0)
+    disco = _fake_proc(stdout=f"<nmaprun>{many}{_RUNSTATS_ONE_HOST}</nmaprun>", rc=0)
     with patch.object(nmap_tool, "run_sealed", side_effect=[disco]) as m:
         res = run_nmap("scanme.test", flags="-sV -T4 --top-ports 1000")
     assert res["mass_open"] is True
@@ -448,7 +514,7 @@ def test_discovery_pass_is_version_less_and_keeps_scope():
 
 def test_non_sV_scan_single_pass_no_discovery():
     """A caller passing explicit non-sV flags gets one scan, no discovery-first."""
-    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}</nmaprun>", rc=0)
+    fake = _fake_proc(stdout=f"<nmaprun>{_XML_ONE_PORT}{_RUNSTATS_ONE_HOST}</nmaprun>", rc=0)
     with patch.object(nmap_tool, "run_sealed", side_effect=[fake]) as m:
         res = run_nmap("scanme.test", flags="-T4 --top-ports 100")
     assert m.call_count == 1
