@@ -36,12 +36,6 @@ def parse_target(target: str) -> Tuple[str, Optional[int]]:
     return cleaned, port
 
 
-def sanitize_target(target: str) -> str:
-    """Bare host of a pentest target, scheme, credentials, port and path
-    removed. See parse_target for why parsing replaced the old filter."""
-    return parse_target(target)[0]
-
-
 def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
     """
     Sanitize free-form text input.

@@ -219,6 +219,72 @@ def test_nmap_runs_noninteractive():
     assert "--noninteractive" in argv
 
 
+@pytest.mark.parametrize(
+    "target,host",
+    [
+        ("http://127.0.0.1:8804", "127.0.0.1"),
+        ("https://example.com/app?a=1", "example.com"),
+        ("https://sub.example.com:8443/x", "sub.example.com"),
+        ("example.com:8443", "example.com"),
+        ("target.htb", "target.htb"),
+    ],
+)
+def test_nmap_receives_a_bare_host_for_a_url_target(target, host):
+    """Asserted on the command line rather than on the sanitiser's return
+    value: the defect was that a URL reached argv, and only argv proves it
+    no longer does. nmap exits zero on a name it cannot resolve, so a
+    green return value proved nothing."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap(target)
+    assert m.call_args[0][0][-1] == host
+
+
+def test_a_target_that_names_a_port_scopes_the_scan_to_it():
+    """--top-ports 1000 does not contain 8804. Honouring the host while
+    dropping the port the operator named returns the same empty result the
+    unparsed target returned."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap("http://127.0.0.1:8804")
+    # The discovery pass carries the scope. Asserting on the last call would
+    # read the scoped -sV re-probe instead, whose port list comes from the
+    # fixture's XML rather than from the target, and would pass for the
+    # wrong reason on any fixture that reports an open port.
+    argv = m.call_args_list[0][0][0]
+    assert "--top-ports" not in argv
+    assert argv[argv.index("-p") + 1] == "8804"
+
+
+def test_a_target_without_a_port_keeps_the_default_sweep():
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap("target.htb")
+    argv = m.call_args_list[0][0][0]
+    assert "--top-ports" in argv
+    assert "-p" not in argv
+
+
+def test_two_ports_on_one_host_do_not_share_a_cache_entry():
+    """The cache is keyed by sanitised target plus flags. Parsing collapses
+    both URLs onto one host, so without the port reaching the flag string
+    the second target would be served the first one's result for an hour."""
+    fake = _fake_proc(stdout="<nmaprun></nmaprun>", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        run_nmap("http://127.0.0.1:8804")
+        run_nmap("http://127.0.0.1:9999")
+    assert m.call_count == 2
+
+
+def test_an_unscannable_target_never_reaches_subprocess():
+    fake = _fake_proc(stdout="", rc=0)
+    with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
+        result = run_nmap("http://[::1")
+    assert m.call_count == 0
+    assert "unscannable target" in result["error"]
+    assert result["ports"] == []
+
+
 # ── product/version capture (version-aware CVE matching foundation) ────
 
 _XML_SV_PORT = (

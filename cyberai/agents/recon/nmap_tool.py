@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from cyberai.core.cache import FileCache
 from cyberai.core.sandbox import run_sealed
-from cyberai.core.security.input_sanitizer import sanitize_target
+from cyberai.core.security.input_sanitizer import parse_target
 
 # Whitelist of nmap flags the toolkit is allowed to pass through.
 # Anything outside this set is rejected — prevents abuse like
@@ -152,6 +152,29 @@ def _mark_mass_open(parsed: Dict[str, Any]) -> bool:
     return False
 
 
+def _scope_to_port(flags: str, port: int) -> str:
+    """Rewrite a flag string so the scan covers the port the target named.
+
+    An operator who writes http://host:8804 has told us where the service
+    is. The default sweep is --top-ports 1000, and 8804 is not in it, so
+    honouring the host while dropping the port produces the same empty
+    result the unparsed target produced, one layer down. Port scope flags
+    are mutually exclusive in nmap, so the existing one is removed rather
+    than appended to. The rewrite happens before the cache key is built:
+    two ports on one host must not share an entry.
+    """
+    tokens = shlex.split(flags)
+    kept: List[str] = []
+    i = 0
+    while i < len(tokens):
+        if tokens[i] in ("-p", "--top-ports"):
+            i += 2
+            continue
+        kept.append(tokens[i])
+        i += 1
+    return " ".join(kept + ["-p", str(port)])
+
+
 def run_nmap(
     target: str,
     flags: str = "-sV -T4 --top-ports 1000",
@@ -167,7 +190,14 @@ def run_nmap(
     ``-sV`` re-probe recovers versions on the ports that are genuinely open.
     Explicit non-``-sV`` scans run unchanged as a single pass.
     """
-    safe_target = sanitize_target(target)
+    try:
+        safe_target, target_port = parse_target(target)
+    except ValueError as exc:
+        return {"target": target, "error": f"unscannable target: {exc}", "ports": []}
+
+    if target_port is not None:
+        flags = _scope_to_port(flags, target_port)
+
     try:
         safe_flags = validate_flags(flags)
     except ValueError as exc:

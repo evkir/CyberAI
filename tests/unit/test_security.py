@@ -5,7 +5,6 @@ from cyberai.core.security.input_sanitizer import (
     parse_target,
     redact_sensitive,
     sanitize_llm_input,
-    sanitize_target,
     sanitize_text,
     text_parts,
     validate_json_output,
@@ -102,19 +101,15 @@ def test_parse_target_refuses_what_it_cannot_turn_into_a_host(raw):
         parse_target(raw)
 
 
-def test_sanitize_target_drops_scheme_and_path():
-    assert sanitize_target("http://127.0.0.1:8804") == "127.0.0.1"
-
-
-def test_sanitize_target_clean():
-    assert sanitize_target("192.168.1.1") == "192.168.1.1"
-    assert sanitize_target("example.com") == "example.com"
-
-
-def test_sanitize_target_strips_bad_chars():
-    result = sanitize_target("evil.com; rm -rf /")
-    assert ";" not in result
-    assert " " not in result
+def test_parse_target_strips_shell_metacharacters():
+    """Carried over from the sanitiser this function replaced. Parsing alone
+    does not make the character filter redundant: urlsplit reads an authority
+    a shell would still find interesting, so the filter runs on the host it
+    returns."""
+    host, port = parse_target("evil.com; rm -rf /")
+    assert ";" not in host
+    assert " " not in host
+    assert port is None
 
 
 def test_sanitize_text_removes_control_chars():
