@@ -415,7 +415,7 @@ methodology and the current scorecard.
 | [docs/benchmarks/reproducibility.md](docs/benchmarks/reproducibility.md) | What a run pins, what it records, what it cannot promise |
 | [docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md) | A self-referential proof, how it was found, what the numbers did |
 | [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md) | The external suite, scored 0/3, with the cause |
-| [docs/architecture/known-issues.md](docs/architecture/known-issues.md) | Known defects and gaps, named rather than implied |
+| [docs/architecture/risk-register.md](docs/architecture/risk-register.md) | Twenty-two risks to the project, each with a status and the test that holds it |
 | [docs/architecture/typing-scope.md](docs/architecture/typing-scope.md) | What the type checker reads, what it does not, and why |
 | [docs/workflows/htb-with-cyberai.md](docs/workflows/htb-with-cyberai.md) | Walkthrough: a lab box end to end |
 | [docs/workflows/web3-discovery.md](docs/workflows/web3-discovery.md) | Walkthrough: contract discovery to Immunefi export |

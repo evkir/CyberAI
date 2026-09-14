@@ -6,7 +6,6 @@ even in dry-run mode where no real network calls are made.
 
 These tests pass end-to-end:
 the CLI, Orchestrator, and agents share a consistent API.
-See docs/architecture/known-issues.md for the issues that were resolved.
 """
 
 from __future__ import annotations
