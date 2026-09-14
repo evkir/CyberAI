@@ -1,5 +1,8 @@
+import pytest
+
 from cyberai.core.security.injection_detector import detect_injection, scan_messages
 from cyberai.core.security.input_sanitizer import (
+    parse_target,
     redact_sensitive,
     sanitize_llm_input,
     sanitize_target,
@@ -64,6 +67,43 @@ def test_scan_messages_injection():
 
 
 # --- Sanitizer ---
+
+
+@pytest.mark.parametrize(
+    "raw,host,port",
+    [
+        ("http://127.0.0.1:8804", "127.0.0.1", 8804),
+        ("https://example.com/app?a=1", "example.com", None),
+        ("https://sub.example.com:8443/x", "sub.example.com", 8443),
+        ("example.com:8443", "example.com", 8443),
+        ("target.htb", "target.htb", None),
+        ("192.168.1.1", "192.168.1.1", None),
+        ("http://user:pw@example.com/x", "example.com", None),
+        ("http://[::1]:80/", "::1", 80),
+    ],
+)
+def test_parse_target_splits_the_host_from_the_port(raw, host, port):
+    """The operator types a URL; nmap needs a name a resolver answers and a
+    port it can scope to. A character filter kept the scheme glued to the
+    host, which nmap failed to resolve while still exiting zero."""
+    assert parse_target(raw) == (host, port)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["///", "", "http://", "://x", "http://[::1", "http://host:99999/"],
+)
+def test_parse_target_refuses_what_it_cannot_turn_into_a_host(raw):
+    """An unresolvable target must be loud. The old character filter was
+    silent: it returned a string for every input, so a name no resolver
+    answers reached the nmap command line looking like a host, and nmap
+    exited zero on zero hosts scanned."""
+    with pytest.raises(ValueError):
+        parse_target(raw)
+
+
+def test_sanitize_target_drops_scheme_and_path():
+    assert sanitize_target("http://127.0.0.1:8804") == "127.0.0.1"
 
 
 def test_sanitize_target_clean():

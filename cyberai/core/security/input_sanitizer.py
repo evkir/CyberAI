@@ -1,6 +1,7 @@
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 # Max sizes to prevent context stuffing
 MAX_TARGET_LENGTH = 253
@@ -9,14 +10,36 @@ MAX_FIELD_LENGTH = 2_000
 MAX_BANNER_LENGTH = 500
 
 
+def parse_target(target: str) -> Tuple[str, Optional[int]]:
+    """Split a scan target into a bare host and the port it named, if any.
+
+    Production sends whatever the operator typed, which is routinely a URL.
+    A character filter alone cannot do this job: it only deletes characters a
+    hostname may not contain, so "http://127.0.0.1:8804" survived as
+    "http:127.0.0.1:8804" — a name no resolver answers. nmap then exits 0 on
+    zero hosts scanned and the run reports a clean target. The port is
+    returned rather than discarded because an operator who names a port means
+    it, and a scoped scan is the only way that port gets probed at all.
+
+    Raises ValueError when the authority cannot be parsed, holds no host,
+    or names a port outside 0-65535.
+    """
+    raw = target.strip()
+    if "//" not in raw:
+        raw = f"//{raw}"
+    parts = urlsplit(raw)
+    host = parts.hostname or ""
+    port = parts.port
+    cleaned = re.sub(r"[^\w\.\-:]", "", host)[:MAX_TARGET_LENGTH]
+    if not cleaned:
+        raise ValueError(f"target names no host: {target!r}")
+    return cleaned, port
+
+
 def sanitize_target(target: str) -> str:
-    """
-    Sanitize pentest target — must be valid hostname/IP.
-    Strips dangerous characters.
-    """
-    # Allow only valid hostname/IP chars
-    cleaned = re.sub(r"[^\w\.\-:]", "", target)
-    return cleaned[:MAX_TARGET_LENGTH]
+    """Bare host of a pentest target, scheme, credentials, port and path
+    removed. See parse_target for why parsing replaced the old filter."""
+    return parse_target(target)[0]
 
 
 def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
