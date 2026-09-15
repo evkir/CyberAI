@@ -1,7 +1,10 @@
 # Typing scope
 
-`mypy --strict` reads 98 of 171 modules in the package. The other 73 hold 285
-errors and are not checked.
+`mypy --strict` reads 98 of 172 modules in the package. The other 74 are not
+checked; 73 of them hold 285 errors and one is clean. The clean one is
+cyberai/bench/environment.py, annotated at birth and outside the scope only
+because nothing has widened the boundary to reach it -- so "outside the scope"
+and "holds errors" stopped being the same set on the day it landed.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
 the 98 modules in the scope, 21 import a module outside it at module level,
