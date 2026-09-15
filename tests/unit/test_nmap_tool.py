@@ -519,3 +519,49 @@ def test_non_sV_scan_single_pass_no_discovery():
         res = run_nmap("scanme.test", flags="-T4 --top-ports 100")
     assert m.call_count == 1
     assert res["ports"][0]["port"] == 80
+
+
+# ── the finder, exercised and not merely read ─────────────────────────
+
+
+def test_a_finder_told_a_path_that_does_not_exist_keeps_looking(tmp_path, monkeypatch):
+    """NMAP_PATH naming an absent file must not outrank a real binary.
+
+    The env branch was the only one any test ran: the architecture test
+    writes the override file, so a mutant dropping the existence check
+    survives in all nine finders. Coverage of the remaining branches came
+    from the machine -- green locally where nmap is installed, green in CI
+    where it is not, and never from an assertion.
+    """
+    monkeypatch.setenv("NMAP_PATH", str(tmp_path / "absent"))
+    with patch.object(nmap_tool.shutil, "which", return_value="/decoy/nmap"):
+        assert nmap_tool.find_nmap() == "/decoy/nmap"
+
+
+def test_the_finder_checks_package_directories_when_path_is_silent(monkeypatch):
+    """nmap arrives from a system package, so PATH is not the last word."""
+    monkeypatch.delenv("NMAP_PATH", raising=False)
+    target = nmap_tool._FALLBACK_PATHS[0]
+    with (
+        patch.object(nmap_tool.shutil, "which", return_value=None),
+        patch.object(nmap_tool.os.path, "exists", lambda p: p == target),
+    ):
+        assert nmap_tool.find_nmap() == target
+
+
+def test_the_finder_reports_absence_instead_of_guessing(monkeypatch):
+    monkeypatch.delenv("NMAP_PATH", raising=False)
+    with (
+        patch.object(nmap_tool.shutil, "which", return_value=None),
+        patch.object(nmap_tool.os.path, "exists", return_value=False),
+    ):
+        assert nmap_tool.find_nmap() is None
+
+
+def test_a_missing_binary_is_named_in_the_error_not_raised():
+    """The handler for an absent nmap ran on no machine that has one."""
+    with patch.object(nmap_tool, "run_sealed", side_effect=FileNotFoundError):
+        result = run_nmap("scanme.test")
+    assert "not found" in result["error"]
+    assert "apt install nmap" in result["error"], "the error must name the fix, not just the fault"
+    assert result["ports"] == []

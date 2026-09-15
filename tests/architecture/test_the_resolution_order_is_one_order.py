@@ -87,6 +87,24 @@ def test_every_finder_prefers_the_env_override_over_path(tmp_path, monkeypatch):
         assert resolved == str(override), f"{name} read PATH before {variable}"
 
 
+def test_no_finder_hands_back_a_path_that_is_not_there(tmp_path, monkeypatch):
+    """An override is a claim about a file, and the claim is checked.
+
+    The test above writes the override before reading it, so every finder
+    passes it whether or not it checks existence. Dropping the check left
+    all nine green: the variable would then outrank a working binary and
+    hand a caller a path that resolves to nothing.
+    """
+    for name, (module_path, variable) in REGISTRY.items():
+        module = importlib.import_module(module_path)
+        monkeypatch.setenv(variable, str(tmp_path / f"{name}-absent"))
+        with patch.object(module.shutil, "which", return_value=f"/decoy/{name}"):
+            resolved = getattr(module, name)()
+        assert resolved == f"/decoy/{name}", (
+            f"{name} returned {resolved} for a {variable} that names no file"
+        )
+
+
 # Each source a finder can read, and the word its docstring uses for it. PATH
 # is matched on a word boundary so that MAS_SENTRY_PATH does not read as the
 # search path.
