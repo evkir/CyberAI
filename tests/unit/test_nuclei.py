@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from cyberai.agents.exploit import nuclei_engine as ne
+from cyberai.agents.exploit import searchsploit as ss
 from cyberai.agents.exploit.nuclei_engine import (
     NucleiEngine,
     NucleiFinding,
@@ -16,6 +18,7 @@ from cyberai.agents.exploit.nuclei_engine import (
 from cyberai.agents.exploit.searchsploit import (
     ExploitRecord,
     SearchSploit,
+    find_searchsploit,
     parse_output,
 )
 
@@ -266,3 +269,42 @@ def test_run_nuclei_collects_findings(monkeypatch):
     res = agent._run_nuclei("victim.local", [{"cve_id": "CVE-2021-44228"}])
     assert len(res) == 1
     assert res[0]["cve_id"] == "CVE-2021-44228"
+
+
+# ── the finders below PATH ────────────────────────────────────────────
+
+
+def test_find_nuclei_checks_the_go_bin_directory_when_path_is_silent(monkeypatch):
+    """nuclei installs into ~/go/bin, which is not on every operator's PATH.
+
+    The branch was dark because the machine answered earlier: which finds
+    the binary here, so the loop never ran locally, and the runner has no
+    nuclei at all, so it ran and found nothing. Neither is an assertion.
+    """
+    monkeypatch.delenv("NUCLEI_PATH", raising=False)
+    target = ne._FALLBACK_PATHS[0]
+    with (
+        patch.object(ne.shutil, "which", return_value=None),
+        patch.object(ne.os.path, "exists", lambda p: p == target),
+    ):
+        assert find_nuclei() == target
+
+
+def test_find_nuclei_reports_absence_instead_of_guessing(monkeypatch):
+    monkeypatch.delenv("NUCLEI_PATH", raising=False)
+    with (
+        patch.object(ne.shutil, "which", return_value=None),
+        patch.object(ne.os.path, "exists", return_value=False),
+    ):
+        assert find_nuclei() is None
+
+
+def test_find_searchsploit_reads_the_exploitdb_directory_not_only_the_first(monkeypatch):
+    """The second entry, so a resolver returning _FALLBACK_PATHS[0] fails here."""
+    monkeypatch.delenv("SEARCHSPLOIT_PATH", raising=False)
+    target = ss._FALLBACK_PATHS[1]
+    with (
+        patch.object(ss.shutil, "which", return_value=None),
+        patch.object(ss.os.path, "exists", lambda p: p == target),
+    ):
+        assert find_searchsploit() == target
