@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from cyberai.agents.exploit import nuclei_engine as ne
-from cyberai.agents.exploit import searchsploit as ss
+from cyberai.agents.exploit import searchsploit as ss_module
 from cyberai.agents.exploit.nuclei_engine import (
     NucleiEngine,
     NucleiFinding,
@@ -302,9 +302,49 @@ def test_find_nuclei_reports_absence_instead_of_guessing(monkeypatch):
 def test_find_searchsploit_reads_the_exploitdb_directory_not_only_the_first(monkeypatch):
     """The second entry, so a resolver returning _FALLBACK_PATHS[0] fails here."""
     monkeypatch.delenv("SEARCHSPLOIT_PATH", raising=False)
-    target = ss._FALLBACK_PATHS[1]
+    target = ss_module._FALLBACK_PATHS[1]
     with (
-        patch.object(ss.shutil, "which", return_value=None),
-        patch.object(ss.os.path, "exists", lambda p: p == target),
+        patch.object(ss_module.shutil, "which", return_value=None),
+        patch.object(ss_module.os.path, "exists", lambda p: p == target),
     ):
         assert find_searchsploit() == target
+
+
+# ── a failing child does not fail the phase ───────────────────────────
+
+
+def test_nuclei_survives_a_child_that_will_not_run():
+    """A broken toolchain must cost findings, not the run.
+
+    .available reads os.path.exists, so a fake path returns [] at the
+    guard and never reaches the handler -- patching existence is what
+    makes these three assertions about the handler rather than the guard.
+    The timeout branch is already held by test_run_timeout_returns_empty;
+    only the branch below it was dark.
+    """
+    eng = NucleiEngine(nuclei_path="/fake/nuclei")
+    with (
+        patch.object(ne.os.path, "exists", return_value=True),
+        patch.object(ne, "run_sealed", side_effect=OSError("boom")),
+    ):
+        assert eng.run("victim.local", cve_id="CVE-X") == []
+
+
+def test_searchsploit_survives_a_child_that_times_out():
+    engine = SearchSploit(searchsploit_path="/fake/searchsploit")
+    with (
+        patch.object(ss_module.os.path, "exists", return_value=True),
+        patch.object(
+            ss_module, "run_sealed", side_effect=subprocess.TimeoutExpired("searchsploit", 1)
+        ),
+    ):
+        assert engine.search("CVE-2021-44228") == []
+
+
+def test_searchsploit_survives_a_child_that_will_not_run():
+    engine = SearchSploit(searchsploit_path="/fake/searchsploit")
+    with (
+        patch.object(ss_module.os.path, "exists", return_value=True),
+        patch.object(ss_module, "run_sealed", side_effect=OSError("boom")),
+    ):
+        assert engine.search("CVE-2021-44228") == []
