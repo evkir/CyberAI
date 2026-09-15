@@ -11,6 +11,11 @@ it* so the number is reproducible and tamper-evident:
     placeholder string: "unspecified" reads as a value the run chose, and a
     probe engine that never contacts a model would publish it as if a model
     had been involved,
+  - the toolchain that produced the number: the version of every external
+    binary the run could reach. Versions are fingerprinted, paths are not.
+    A path says where a machine keeps a binary, not what the binary is, so
+    hashing it would make one run's fingerprint unreachable from any other
+    machine — the same reasoning that keeps the timestamp out,
   - a manifest hash over all of the above — a single fingerprint to compare runs.
 
 `set_global_seed` pins Python's `random` (and PYTHONHASHSEED for child procs) so
@@ -27,10 +32,13 @@ import os
 import random
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cyberai.bench.runner import BenchTask, SuiteReport
 from cyberai.version import __version__
+
+if TYPE_CHECKING:
+    from cyberai.bench.environment import ToolVersion
 
 DEFAULT_SEED = 1337
 
@@ -86,6 +94,7 @@ class RunManifest:
     total: int
     timestamp: str
     manifest_hash: str = ""
+    environment: tuple[ToolVersion, ...] = ()
 
     @property
     def pass_at_1(self) -> float:
@@ -105,6 +114,7 @@ def build_manifest(
     report: SuiteReport,
     config: RunConfig | None = None,
     timestamp: str | None = None,
+    environment: tuple[ToolVersion, ...] = (),
 ) -> RunManifest:
     """Assemble a RunManifest and stamp it with a deterministic manifest hash.
 
@@ -120,6 +130,9 @@ def build_manifest(
         "suite_hash": suite_hash,
         "solved": report.solved,
         "total": report.total,
+        "toolchain": [
+            {"name": t.name, "version": t.version, "detail": t.detail} for t in environment
+        ],
     }
     blob = json.dumps(identity, sort_keys=True, separators=(",", ":"))
     manifest_hash = hashlib.sha256(blob.encode()).hexdigest()
@@ -132,4 +145,5 @@ def build_manifest(
         total=report.total,
         timestamp=timestamp or _utc_now_iso(),
         manifest_hash=manifest_hash,
+        environment=environment,
     )

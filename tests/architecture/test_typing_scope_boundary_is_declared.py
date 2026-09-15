@@ -27,8 +27,8 @@ _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _PACKAGE = _ROOT / "cyberai"
 
 # Measured on the day this file was written, with the method below.
-_EXPECTED_CROSSERS = 21
-_EXPECTED_REACHED = 28
+_EXPECTED_CROSSERS = 22
+_EXPECTED_REACHED = 29
 
 
 def _scope() -> set[pathlib.Path]:

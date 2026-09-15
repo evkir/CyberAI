@@ -7,8 +7,8 @@ because nothing has widened the boundary to reach it -- so "outside the scope"
 and "holds errors" stopped being the same set on the day it landed.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 98 modules in the scope, 21 import a module outside it at module level,
-and between them they reach 28 such modules. mypy follows those imports to
+the 98 modules in the scope, 22 import a module outside it at module level,
+and between them they reach 29 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured by appending
 an unannotated function to `cyberai/core/config.py`, which is outside the
 scope and imported from inside it, running with a cold cache, and getting
