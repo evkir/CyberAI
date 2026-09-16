@@ -15,7 +15,7 @@ intel, exploit, report, planner, mcp-scan, redteam, web3) run a typed, audited
 pipeline over a shared knowledge base.
 2902 tests collected under the gated selection run before every commit, with the
 slow and smoke tests deselected there and run separately, `mypy --strict`
-clean over 98 of 172 modules, Apache-2.0.
+clean over 99 of 172 modules, Apache-2.0.
 
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.
