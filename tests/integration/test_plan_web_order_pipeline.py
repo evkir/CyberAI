@@ -52,7 +52,12 @@ def _config(**flags) -> CyberAIConfig:
 
 
 def _run(config: CyberAIConfig) -> List[str]:
-    """Run recon->plan->exploit with a stand-in sender; return attack order."""
+    """Run recon->plan->exploit with a stand-in sender; return attack order.
+
+    The scope is passed because the run reaches the exploit phase and, since
+    1.7.0, an unscoped one refuses there -- the phase is marked failed, the
+    pipeline continues, and the order this test measures is never produced.
+    """
     hit: List[str] = []
 
     def send(url: str, method: str, params: Dict[str, str]) -> str:
@@ -74,7 +79,7 @@ def _run(config: CyberAIConfig) -> List[str]:
         patch("cyberai.agents.exploit.web_exploit._default_json_sender", return_value=send),
         patch("cyberai.core.orchestrator.Orchestrator._client_for", return_value=MagicMock()),
     ):
-        session = orch.run(TARGET)
+        session = orch.run(TARGET, authorized_scope=[TARGET])
 
     # The phantom check probes paths no surface declares. They are traffic, not
     # attack order, and this test is about the order the plan produced.

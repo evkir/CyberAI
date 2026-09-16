@@ -209,7 +209,11 @@ def test_exploit_phase_merges_red_team_result():
     from cyberai.core.orchestrator import Orchestrator
 
     orch = Orchestrator(CyberAIConfig(use_planned_redteam=True))
-    session = ScanSession(target="t.local")
+    # Scoped explicitly: since 1.7.0 an unscoped run refuses the exploit
+    # phase, and these two tests are about what the phase returns, not
+    # about authorisation. Turning strict_scope off here would exercise a
+    # product nobody ships.
+    session = ScanSession(target="t.local", authorized_scope=["t.local"])
     session.kb_set("plan", PLAN)
 
     exploit_agent = MagicMock()
@@ -234,7 +238,7 @@ def test_exploit_phase_omits_the_key_when_red_team_is_off():
     from cyberai.core.orchestrator import Orchestrator
 
     orch = Orchestrator(CyberAIConfig())
-    session = ScanSession(target="t.local")
+    session = ScanSession(target="t.local", authorized_scope=["t.local"])
 
     exploit_agent = MagicMock()
     exploit_agent.run.return_value = {"attack_paths": []}

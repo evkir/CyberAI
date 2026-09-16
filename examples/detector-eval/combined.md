@@ -6,8 +6,8 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-09-04T06:30:03Z |
-| engine version | CyberAI 1.6.0 |
+| timestamp | 2026-09-16T08:58:11Z |
+| engine version | CyberAI 1.7.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
 | layers | L1+L2 (fast-coder:latest) |

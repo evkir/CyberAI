@@ -227,10 +227,12 @@ class CyberAIConfig:
     routing: "RoutingConfig" = field(default_factory=lambda: RoutingConfig())
     # Flag-gated: force all LLM calls onto a local endpoint, assert no egress.
     air_gapped: bool = False
-    # Flag-gated: an empty authorized scope becomes a violation instead of a
-    # warning, so the exploit phase refuses to run against a target nobody
-    # named. Off by default -- see the validator for why.
-    strict_scope: bool = False
+    # An empty authorized scope is a violation, not a warning: the exploit
+    # phase refuses to run against a target nobody named. On by default since
+    # 1.7.0 -- absence of authorisation is not authorisation, and the burden
+    # of saying so belongs on the run that wants to proceed anyway, which
+    # says it with --no-strict-scope.
+    strict_scope: bool = True
     # Cap nmap scan rate (packets/sec) on external/legal targets; None = uncapped.
     max_rps: Optional[int] = None
     # Headers every web request carries. A target that refuses an anonymous
@@ -305,5 +307,5 @@ class CyberAIConfig:
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
             web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
             air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),
-            strict_scope=_env_bool("CYBERAI_STRICT_SCOPE", False),
+            strict_scope=_env_bool("CYBERAI_STRICT_SCOPE", True),
         )

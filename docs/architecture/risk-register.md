@@ -58,6 +58,6 @@ not fixed. `unguarded` — held by discipline, with no machine behind it.
 | # | Risk | Status | Measured by |
 |---|---|---|---|
 | 19 | Publishing numbers produced by a path that was broken | closed | `tests/architecture/test_nothing_publishes_without_the_checks.py::test_the_upload_cannot_run_before_the_guard` |
-| 20 | An offensive tool that does not require an authorisation scope | open | `tests/unit/test_strict_scope.py::test_config_field_defaults_off_and_reads_the_environment` pins the default as off. The guard records the risk; it does not remove it |
+| 20 | An offensive tool that does not require an authorisation scope | closed | `tests/unit/test_strict_scope.py::test_config_field_defaults_on_and_reads_the_environment` pins the default as on since 1.7.0. An unscoped run refuses the exploit phase; `--no-strict-scope` and `CYBERAI_STRICT_SCOPE=0` are the named ways to proceed anyway |
 | 21 | Private plans and journals reaching a public repository | unguarded | no test and no workflow step checks this. A tree-wide history search finds none of those filenames, which is a measurement of the past, not a guard on the next commit |
 | 22 | One developer, measuring by hand | open | structural. The mitigation is that every closed row above names a test rather than a memory |
