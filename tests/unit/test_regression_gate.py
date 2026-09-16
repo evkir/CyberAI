@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 from cyberai.bench.regression_gate import (
     check_regression,
@@ -266,3 +267,124 @@ def test_an_incomplete_toolchain_entry_does_not_escape_as_an_exception(tmp_path)
     assert loaded is not None
     assert len(loaded.environment) == 1
     assert loaded.environment[0] == ToolVersion("nmap", None, None, "")
+
+
+def _with_tools(m: RunManifest, *tools: ToolVersion) -> RunManifest:
+    return replace(m, environment=tools)
+
+
+def _nuclei(version: str) -> ToolVersion:
+    return ToolVersion("nuclei", "/usr/bin/nuclei", version, "")
+
+
+def test_a_toolchain_that_held_reports_no_drift():
+    same = _nuclei("3.8.1")
+    r = check_regression(_with_tools(_manifest(5), same), _with_tools(_manifest(5), same))
+    assert r.passed is True
+    assert r.toolchain_drift == ()
+    assert "toolchain" not in r.reason
+
+
+def test_a_moved_toolchain_is_named_without_failing_the_run():
+    """A version that moved is reported, not judged.
+
+    A suite hash changes when someone edits the tasks; a toolchain changes
+    when nuclei ships. Failing here would teach every run to pass an
+    override, and a gate switched off by habit guards nothing.
+    """
+    r = check_regression(
+        _with_tools(
+            _manifest(5), _nuclei("3.8.1"), ToolVersion("nmap", "/usr/bin/nmap", "7.95", "")
+        ),
+        _with_tools(
+            _manifest(5), _nuclei("3.7.0"), ToolVersion("nmap", "/usr/bin/nmap", "7.95", "")
+        ),
+    )
+    assert r.passed is True
+    assert r.toolchain_drift == ("nuclei",)
+    assert "nuclei" in r.reason
+
+
+def test_a_regression_under_a_moved_toolchain_names_both_causes():
+    """The reason a reader acts on must not blame the only cause it knows.
+
+    Reporting 'solve-rate regressed' alone, on a run where the scanner also
+    moved, sends someone to bisect their own commits over somebody else's
+    release.
+    """
+    r = check_regression(
+        _with_tools(_manifest(3), _nuclei("3.8.1")),
+        _with_tools(_manifest(5), _nuclei("3.7.0")),
+    )
+    assert r.passed is False
+    assert "regressed" in r.reason
+    assert "nuclei" in r.reason
+    assert r.toolchain_drift == ("nuclei",)
+
+
+def test_an_unmeasured_side_is_not_drift():
+    """Every baseline written before the probe existed records no toolchain.
+
+    Comparing against that would report drift on every file on disk, which
+    is noise, not a finding.
+    """
+    probed = _with_tools(_manifest(5), _nuclei("3.8.1"))
+    assert check_regression(probed, _manifest(5)).toolchain_drift == ()
+    assert check_regression(_manifest(5), probed).toolchain_drift == ()
+
+
+def test_a_tool_only_one_side_has_is_not_a_moved_version():
+    """Composition and version are different questions.
+
+    A tool that appears or disappears says the runs drove different
+    toolchains; this gate was asked which versions moved, and answering the
+    other question by implication would put a name in the verdict that no
+    comparison produced.
+    """
+    r = check_regression(
+        _with_tools(
+            _manifest(5), _nuclei("3.8.1"), ToolVersion("forge", "/usr/bin/forge", "1.0", "")
+        ),
+        _with_tools(_manifest(5), _nuclei("3.8.1")),
+    )
+    assert r.toolchain_drift == ()
+    assert r.passed is True
+
+
+def test_two_tools_that_moved_are_both_named_in_order():
+    """Recorded in registry order, reported in name order.
+
+    The probe walks its registry, so slither is recorded after nuclei and
+    nmap before both. A verdict that echoed that order would move a name
+    when someone reorders the registry, and two runs of the same pair would
+    compare unequal as text. The tools below are handed over deliberately
+    reversed, so passing by accident of insertion order is not available.
+    """
+    r = check_regression(
+        _with_tools(
+            _manifest(3),
+            ToolVersion("slither", "/s", "0.11", ""),
+            _nuclei("3.8.1"),
+            ToolVersion("forge", "/f", "1.4.0", ""),
+        ),
+        _with_tools(
+            _manifest(5),
+            ToolVersion("slither", "/s", "0.10", ""),
+            _nuclei("3.7.0"),
+            ToolVersion("forge", "/f", "1.3.0", ""),
+        ),
+    )
+    assert r.toolchain_drift == ("forge", "nuclei", "slither")
+    assert r.reason.endswith("toolchain moved: forge, nuclei, slither")
+
+
+def test_an_unversioned_tool_on_one_side_counts_as_moved():
+    """None is not a version that matches every version.
+
+    A tool whose version went unread on one run cannot be said to have held.
+    """
+    r = check_regression(
+        _with_tools(_manifest(5), ToolVersion("mst", None, None, "version flag not measured")),
+        _with_tools(_manifest(5), ToolVersion("mst", "/usr/bin/mst", "0.4.0", "")),
+    )
+    assert r.toolchain_drift == ("mst",)
