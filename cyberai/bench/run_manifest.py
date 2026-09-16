@@ -32,13 +32,10 @@ import os
 import random
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from cyberai.bench.runner import BenchTask, SuiteReport
 from cyberai.version import __version__
-
-if TYPE_CHECKING:
-    from cyberai.bench.environment import ToolVersion
 
 DEFAULT_SEED = 1337
 
@@ -80,6 +77,23 @@ class RunConfig:
     seed: int = DEFAULT_SEED
     max_iterations: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ToolVersion:
+    """One probe's result. ``version`` is None exactly when ``detail`` says why.
+
+    Declared beside the record that stores it, not inside the probe that
+    produces it. Reading a manifest back off disk has to build these, and
+    importing the probe to do so costs nine agent modules and a second of
+    version flags in a reader that runs no tool: measured at 1.147s and 60
+    modules against 5 for the manifest alone.
+    """
+
+    name: str
+    path: str | None
+    version: str | None
+    detail: str
 
 
 @dataclass(frozen=True)

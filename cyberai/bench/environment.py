@@ -48,6 +48,7 @@ from cyberai.agents.web3.anvil_harness import find_anvil
 from cyberai.agents.web3.foundry_poc import find_forge
 from cyberai.agents.web3.halmos_tool import find_halmos
 from cyberai.agents.web3.slither_tool import find_slither
+from cyberai.bench.run_manifest import ToolVersion
 from cyberai.core.sandbox import run_sealed
 
 VERSION_TIMEOUT = 20
@@ -70,16 +71,6 @@ class ToolProbe:
     name: str
     resolver: Callable[[], str | None]
     flag: str | None
-
-
-@dataclass(frozen=True)
-class ToolVersion:
-    """One probe's result. ``version`` is None exactly when ``detail`` says why."""
-
-    name: str
-    path: str | None
-    version: str | None
-    detail: str
 
 
 TOOL_PROBES: tuple[ToolProbe, ...] = (
