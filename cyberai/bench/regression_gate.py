@@ -17,8 +17,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Any
 
-from cyberai.bench.run_manifest import RunManifest
+from cyberai.bench.run_manifest import RunManifest, ToolVersion
 
 DEFAULT_TOLERANCE = 0.0  # by default, no drop allowed at all
 
@@ -32,6 +33,43 @@ class GateResult:
     baseline_rate: float
     current_rate: float
     suite_changed: bool
+
+
+def _read_toolchain(data: dict[str, Any]) -> tuple[ToolVersion, ...]:
+    """Rebuild the recorded toolchain from a manifest document.
+
+    An absent key is an empty tuple, and that is the same value a run that
+    never probed produces: absent means unmeasured, not "no tools". The gate
+    reads it that way, so the two cases must not be told apart here.
+
+    A key this release does not know is ignored rather than refused, because
+    the four fields are read by name: a baseline written by a newer CyberAI
+    still answers the questions this release asks, and refusing it would
+    return None, which the gate reads as "no baseline" -- an upgrade would
+    switch the gate off. An element missing a name is skipped entirely: a
+    version belongs to a tool, and a nameless one compares against nothing.
+    The remaining three fields default, because load_baseline promises None
+    on a document it cannot read, and a KeyError here would leave that
+    promise through the caller instead.
+
+    A tuple, not a list: it lands on a frozen RunManifest.
+    """
+    raw = data.get("environment", ())
+    if not isinstance(raw, list):
+        return ()
+    tools = []
+    for item in raw:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        tools.append(
+            ToolVersion(
+                name=item["name"],
+                path=item.get("path"),
+                version=item.get("version"),
+                detail=item.get("detail", ""),
+            )
+        )
+    return tuple(tools)
 
 
 def load_baseline(path: str | Path) -> RunManifest | None:
@@ -56,6 +94,7 @@ def load_baseline(path: str | Path) -> RunManifest | None:
     cfg = {k: v for k, v in data.get("config", {}).items() if k in known}
 
     return RunManifest(
+        environment=_read_toolchain(data),
         suite=data["suite"],
         engine_version=data["engine_version"],
         config=RunConfig(**cfg) if cfg else RunConfig(),

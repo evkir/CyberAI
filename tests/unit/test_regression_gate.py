@@ -8,7 +8,7 @@ from cyberai.bench.regression_gate import (
     check_regression,
     load_baseline,
 )
-from cyberai.bench.run_manifest import RunConfig, RunManifest
+from cyberai.bench.run_manifest import RunConfig, RunManifest, ToolVersion
 
 
 def _manifest(solved: int, total: int = 10, suite_hash: str = "AAA") -> RunManifest:
@@ -140,3 +140,129 @@ def test_a_baseline_from_a_newer_writer_still_gates(tmp_path):
     assert loaded.config.seed == 1337
     assert not hasattr(loaded.config, "future_knob")
     assert check_regression(_manifest(0), loaded).passed is False
+
+
+def test_the_toolchain_survives_the_round_trip(tmp_path):
+    """Versions written into a manifest have to come back out of it.
+
+    Day 48 recorded the toolchain and read nothing back: the field took its
+    default on load, so a run on one nuclei compared against a baseline on
+    another passed in silence. A producer without a consumer is the disease
+    this sprint treats.
+    """
+    m = RunManifest(
+        suite="local",
+        engine_version="1.1.0",
+        config=RunConfig(),
+        suite_hash="AAA",
+        solved=5,
+        total=10,
+        timestamp="2026-01-01T00:00:00Z",
+        manifest_hash="h",
+        environment=(
+            ToolVersion("nmap", "/usr/bin/nmap", "7.95", ""),
+            ToolVersion("mst", None, None, "version flag not measured"),
+        ),
+    )
+    p = tmp_path / "baseline.json"
+    p.write_text(m.to_json())
+
+    loaded = load_baseline(p)
+    assert loaded is not None
+    assert loaded.environment == m.environment
+    assert isinstance(loaded.environment, tuple)
+    assert loaded.environment[1].path is None
+
+
+def test_a_baseline_without_a_toolchain_is_unmeasured_not_empty(tmp_path):
+    """Every baseline on disk older than day 48 has no environment key.
+
+    It must load as the same empty tuple a run that never probed produces:
+    the gate treats that as "nothing to compare", and a file that failed to
+    load would report "no baseline", which passes.
+    """
+    legacy = {
+        "suite": "local",
+        "engine_version": "1.5.0",
+        "config": {"seed": 1337},
+        "suite_hash": "AAA",
+        "solved": 4,
+        "total": 4,
+        "timestamp": "2026-08-17T19:18:36Z",
+        "manifest_hash": "old",
+    }
+    p = tmp_path / "legacy.json"
+    p.write_text(json.dumps(legacy))
+
+    loaded = load_baseline(p)
+    assert loaded is not None
+    assert loaded.environment == ()
+    assert check_regression(_manifest(0), loaded).passed is False
+
+
+def test_a_toolchain_from_a_newer_writer_loads_without_its_extra_keys(tmp_path):
+    """A later release may record more about a tool than this one reads.
+
+    Refusing the document would answer None, and None reads as "no baseline",
+    which passes -- the same trap the config filter above avoids. An entry
+    with no name is dropped instead: a version with no tool compares against
+    nothing.
+    """
+    doc = {
+        "suite": "local",
+        "engine_version": "9.9.9",
+        "config": {"seed": 1337},
+        "suite_hash": "AAA",
+        "solved": 10,
+        "total": 10,
+        "timestamp": "2026-09-16T00:00:00Z",
+        "manifest_hash": "new",
+        "environment": [
+            {
+                "name": "nuclei",
+                "path": "/usr/bin/nuclei",
+                "version": "3.8.1",
+                "detail": "",
+                "sha256": "written by a newer cyberai",
+            },
+            {"path": "/usr/bin/ghost", "version": "1.0", "detail": ""},
+        ],
+    }
+    p = tmp_path / "newer.json"
+    p.write_text(json.dumps(doc))
+
+    loaded = load_baseline(p)
+    assert loaded is not None
+    assert len(loaded.environment) == 1
+    assert loaded.environment[0].name == "nuclei"
+    assert loaded.environment[0].version == "3.8.1"
+    assert not hasattr(loaded.environment[0], "sha256")
+
+
+def test_an_incomplete_toolchain_entry_does_not_escape_as_an_exception(tmp_path):
+    """load_baseline answers None on a document it cannot read.
+
+    It promises that by catching the parse, not by trusting the shape: the
+    try covers json.loads alone. An entry carrying only a name -- a
+    hand-written baseline, a third-party writer -- must fill the rest rather
+    than raise a KeyError through the caller, which would end the run instead
+    of ending the comparison.
+    """
+    doc = {
+        "suite": "local",
+        "engine_version": "1.1.0",
+        "config": {"seed": 1337},
+        "suite_hash": "AAA",
+        "solved": 5,
+        "total": 10,
+        "timestamp": "2026-09-16T00:00:00Z",
+        "manifest_hash": "h",
+        "environment": [{"name": "nmap"}, "not a mapping at all"],
+    }
+    p = tmp_path / "partial.json"
+    p.write_text(json.dumps(doc))
+
+    loaded = load_baseline(p)
+    assert loaded is not None
+    assert len(loaded.environment) == 1
+    assert loaded.environment[0] == ToolVersion("nmap", None, None, "")
