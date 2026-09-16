@@ -15,7 +15,7 @@ Used both in CI (block a PR that lowers the score) and at release time.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 from cyberai.bench.run_manifest import RunManifest
@@ -44,8 +44,16 @@ def load_baseline(path: str | Path) -> RunManifest | None:
         data = json.loads(p.read_text())
     except (OSError, json.JSONDecodeError):
         return None
-    cfg = data.get("config", {})
     from cyberai.bench.run_manifest import RunConfig
+
+    # A knob this release does not know is dropped rather than refused. The
+    # gate reads suite_hash and the two rates, none of which live in config,
+    # so a baseline written by a newer CyberAI still answers the only
+    # questions asked of it -- while RunConfig(**cfg) on an unknown keyword
+    # would raise TypeError, and returning None for it would report "no
+    # baseline", which passes. An upgrade would silently switch the gate off.
+    known = {f.name for f in fields(RunConfig)}
+    cfg = {k: v for k, v in data.get("config", {}).items() if k in known}
 
     return RunManifest(
         suite=data["suite"],

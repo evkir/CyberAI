@@ -108,6 +108,12 @@ def test_every_probe_resolves_through_the_module_that_owns_the_tool():
     assert got == expected
 
 
+def test_the_toolchain_is_handed_over_immutable():
+    """The manifest is frozen and fingerprints this; a list would be a
+    shared reference into a record that claims to be immutable."""
+    assert isinstance(env.probe_toolchain((env.ToolProbe("x", lambda: None, None),)), tuple)
+
+
 def test_the_toolchain_is_probed_in_registry_order():
     probes = (
         env.ToolProbe("first", lambda: None, None),

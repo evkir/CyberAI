@@ -133,6 +133,11 @@ def probe_tool(probe: ToolProbe) -> ToolVersion:
     return ToolVersion(probe.name, path, version, "")
 
 
-def probe_toolchain(probes: Sequence[ToolProbe] = TOOL_PROBES) -> list[ToolVersion]:
-    """Probe every binary the platform drives, in registry order."""
-    return [probe_tool(probe) for probe in probes]
+def probe_toolchain(probes: Sequence[ToolProbe] = TOOL_PROBES) -> tuple[ToolVersion, ...]:
+    """Probe every binary the platform drives, in registry order.
+
+    A tuple, not a list: the result is stored on a frozen RunManifest and
+    fingerprinted, and a mutable sequence there would be a shared reference
+    into a record that claims to be immutable.
+    """
+    return tuple(probe_tool(probe) for probe in probes)

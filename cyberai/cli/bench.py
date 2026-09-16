@@ -396,6 +396,11 @@ def run(
 
     manifest = None
     if manifest_path or baseline_path:
+        # Imported here, not at module scope: the probe pulls in nine agent
+        # modules and spends a second running each binary's version flag, and
+        # a run that asks for no manifest needs neither.
+        from cyberai.bench.environment import probe_toolchain
+
         # `selected`, not `all_tasks`: the suite hash has to describe what was
         # actually run, or a filtered run would fingerprint as the full suite
         # and the regression gate would compare two different things.
@@ -407,6 +412,7 @@ def run(
                 seed=seed,
                 extra={"engine": engine, "mode": mode, **_surface_profile(report)},
             ),
+            environment=probe_toolchain(),
         )
 
     if manifest_path and manifest is not None:
