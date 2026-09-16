@@ -2,6 +2,40 @@
 
 All notable changes to CyberAI are documented here.
 
+## [1.7.0] - 2026-09-16
+
+### Changed
+
+- **An unscoped run refuses the exploit phase.** BREAKING. `strict_scope`
+  defaults to on: a run that names no authorized scope now fails the exploit
+  phase instead of warning and proceeding. `--no-strict-scope`, or
+  `CYBERAI_STRICT_SCOPE=0`, is how a run says it means to go ahead anyway.
+  Absence of authorisation is not authorisation, and for a tool that attacks
+  things the surprising default is the one that proceeds against a target
+  nobody named. A run that already passes a scope is unaffected, and that is
+  asserted rather than promised. The flag itself is unchanged and the
+  library function is untouched: `validate_exploit_scope` still warns when
+  called without `strict`, because policy belongs on the config the
+  orchestrator carries, not in a signature a direct caller already answered.
+
+- **The regression gate reads the toolchain it records.** 1.6.0 taught the
+  manifest to record which nuclei, slither and forge produced a number, and
+  nothing read it back -- a run on one scanner compared against a baseline on
+  another passed in silence. The verdict now names every tool whose version
+  differs, and a run that regressed while the scanner moved says both causes
+  instead of blaming the only one it knew. A moved toolchain is reported,
+  never decisive: a suite hash changes when someone edits the tasks, while a
+  scanner changes on its own release schedule, and failing there would teach
+  every CI run to pass an override.
+
+- **The record a reader builds no longer costs the probe that fills it.**
+  `ToolVersion` moved to the manifest module. Reading a benchmark record off
+  disk pulled in nine agent modules and a second of version flags for four
+  strings; measured at 1.147s and 60 modules against 5 for the manifest
+  alone. A guard asserts it in a fresh interpreter, because inside the shared
+  test process the probe is already imported and an in-process assertion
+  would answer by collection order.
+
 ## [1.6.0] - 2026-09-04
 
 ### Changed
