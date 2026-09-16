@@ -534,3 +534,48 @@ def test_a_run_that_needs_no_manifest_does_not_probe_the_toolchain(monkeypatch, 
     assert calls == []
     CliRunner().invoke(bench, ["run", "--manifest", str(tmp_path / "m.json")])
     assert calls == [1]
+
+
+def test_the_printed_verdict_names_a_toolchain_that_moved(tmp_path, monkeypatch):
+    """The reader of a CLI run learns that the scanner moved under them.
+
+    The probe is replaced rather than trusted: on this machine nmap and
+    nuclei answer and on a CI runner they do not, so a test driven by the
+    live toolchain would compare identical versions here and two empty
+    records there -- green both times, and for the wrong reason in both.
+    The lazy import in the run command resolves through the module at call
+    time, which is why patching the module attribute reaches it.
+    """
+    from cyberai.bench.run_manifest import ToolVersion
+
+    def _fixed() -> tuple[ToolVersion, ...]:
+        return (ToolVersion("nuclei", "/usr/bin/nuclei", "3.8.1", ""),)
+
+    def _older() -> tuple[ToolVersion, ...]:
+        return (ToolVersion("nuclei", "/usr/bin/nuclei", "3.7.0", ""),)
+
+    base = tmp_path / "base.json"
+    monkeypatch.setattr(bench_env, "probe_toolchain", _older)
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    assert "3.7.0" in base.read_text()
+
+    monkeypatch.setattr(bench_env, "probe_toolchain", _fixed)
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert "toolchain moved: nuclei" in result.output
+
+
+def test_a_held_toolchain_is_not_announced(tmp_path, monkeypatch):
+    """Silence is the report when nothing moved: a line printed on every run
+    is a line nobody reads on the run that matters."""
+    from cyberai.bench.run_manifest import ToolVersion
+
+    def _same() -> tuple[ToolVersion, ...]:
+        return (ToolVersion("nuclei", "/usr/bin/nuclei", "3.8.1", ""),)
+
+    base = tmp_path / "base.json"
+    monkeypatch.setattr(bench_env, "probe_toolchain", _same)
+    CliRunner().invoke(bench, ["run", "--manifest", str(base)])
+    result = CliRunner().invoke(bench, ["run", "--baseline", str(base)])
+    assert result.exit_code == 0
+    assert "toolchain moved" not in result.output
