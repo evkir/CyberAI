@@ -74,6 +74,30 @@ Three cases are worth stating explicitly:
   and is not one.
 - **Rate held or improved** — passes. The default tolerance is zero: no drop
   is allowed.
+- **Toolchain moved** — reported, never decisive. The verdict names every
+  tool whose version differs between the two runs, and a run that regressed
+  while the scanner moved says both. It does not fail on that alone: a suite
+  hash changes when someone edits the tasks, while nuclei changes on its own
+  release schedule, and failing there would teach every CI run to pass an
+  override — a gate switched off by habit guards nothing.
+
+The verdict is a `GateResult`, and the dashboard route returns it field for
+field:
+
+| field | meaning |
+| --- | --- |
+| `passed` | whether the run is acceptable |
+| `reason` | the sentence a reader acts on; names every cause it knows |
+| `baseline_rate` / `current_rate` | the two solve-rates compared |
+| `suite_changed` | the two runs measured different task sets |
+| `toolchain_drift` | names of tools whose version differs, in name order |
+
+Only tools present in both records are compared. A tool that appears or
+disappears is a different toolchain composition — a question this gate has
+not been asked, and one it will not answer by implication. A record with no
+tools at all is unmeasured rather than empty: every baseline written before
+the probe existed carries none, and treating that as drift would flag every
+file on disk.
 
 `--baseline` stands alone. The manifest is built whenever either flag needs
 it, so a CI job can gate without publishing a new manifest. The gate runs

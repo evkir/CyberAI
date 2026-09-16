@@ -13,10 +13,17 @@ from cyberai.web.app import create_app
 
 
 def _manifest(
-    out: Path, kind: str, suite: str, *, solved: int, total: int, suite_hash: str = "h1"
+    out: Path,
+    kind: str,
+    suite: str,
+    *,
+    solved: int,
+    total: int,
+    suite_hash: str = "h1",
+    nuclei: str | None = None,
 ) -> None:
     # kind is "manifest" (current) or "baseline".
-    data = {
+    data: dict[str, object] = {
         "suite": suite,
         "engine_version": "1.3.0",
         "suite_hash": suite_hash,
@@ -24,6 +31,10 @@ def _manifest(
         "total": total,
         "timestamp": "2026-07-19T00:00:00Z",
     }
+    if nuclei is not None:
+        data["environment"] = [
+            {"name": "nuclei", "path": "/usr/bin/nuclei", "version": nuclei, "detail": ""}
+        ]
     (out / f"{kind}_{suite}.json").write_text(json.dumps(data))
 
 
@@ -78,3 +89,25 @@ def test_path_traversal_reduced_to_basename(client, tmp_path):
     # An encoded-slash suite never matches the route.
     r = client.get("/api/bench/regression/..%2f..%2fetc")
     assert r.status_code == 404
+
+
+def test_the_verdict_names_the_toolchain_that_moved(client, tmp_path):
+    """A field the verdict carries and the API drops is not reported.
+
+    The route hands back asdict(GateResult), so a reader of the dashboard
+    sees the drift only if it survives serialisation -- a tuple leaves
+    Python as a JSON list.
+    """
+    _manifest(tmp_path, "baseline", "local", solved=5, total=5, nuclei="3.7.0")
+    _manifest(tmp_path, "manifest", "local", solved=5, total=5, nuclei="3.8.1")
+    body = client.get("/api/bench/regression/local").json()
+    assert body["passed"] is True
+    assert body["toolchain_drift"] == ["nuclei"]
+    assert "nuclei" in body["reason"]
+
+
+def test_a_verdict_without_a_probe_reports_no_drift(client, tmp_path):
+    _manifest(tmp_path, "baseline", "local", solved=5, total=5)
+    _manifest(tmp_path, "manifest", "local", solved=5, total=5)
+    body = client.get("/api/bench/regression/local").json()
+    assert body["toolchain_drift"] == []

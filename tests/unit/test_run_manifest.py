@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import random
 
-from cyberai.bench.environment import ToolVersion
 from cyberai.bench.run_manifest import (
     DEFAULT_SEED,
     RunConfig,
+    ToolVersion,
     build_manifest,
     hash_tasks,
     set_global_seed,
