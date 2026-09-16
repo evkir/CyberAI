@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+from cyberai.bench.environment import ToolVersion
 from cyberai.bench.run_manifest import (
     DEFAULT_SEED,
     RunConfig,
@@ -73,3 +74,81 @@ def test_manifest_roundtrips_json():
     m = build_manifest("s", _tasks(), _report())
     assert '"manifest_hash"' in m.to_json()
     assert m.pass_at_1 == 0.5
+
+
+def _tool(name="nmap", path="/usr/bin/nmap", version="7.98", detail=""):
+    return ToolVersion(name=name, path=path, version=version, detail=detail)
+
+
+def test_a_run_that_probed_nothing_carries_an_empty_toolchain():
+    assert build_manifest("s", _tasks(), _report()).environment == ()
+
+
+def test_a_tool_that_moved_version_moves_the_fingerprint():
+    tasks, report = _tasks(), _report()
+    a = build_manifest("s", tasks, report, environment=(_tool(version="7.98"),))
+    b = build_manifest("s", tasks, report, environment=(_tool(version="7.99"),))
+    assert a.manifest_hash != b.manifest_hash
+
+
+def test_the_path_is_recorded_but_stays_out_of_the_fingerprint():
+    """A path says where a machine keeps a binary, not what the binary is.
+
+    Hashing it would make a run on this laptop incomparable with the same
+    run on the CI runner, which is the one comparison the fingerprint is for.
+    """
+    tasks, report = _tasks(), _report()
+    here = build_manifest("s", tasks, report, environment=(_tool(path="/usr/bin/nmap"),))
+    there = build_manifest("s", tasks, report, environment=(_tool(path="/opt/nmap/bin/nmap"),))
+    assert here.manifest_hash == there.manifest_hash
+    assert "/opt/nmap/bin/nmap" in there.to_json()
+
+
+def test_a_missing_tool_is_not_the_same_run_as_a_present_one():
+    tasks, report = _tasks(), _report()
+    present = build_manifest("s", tasks, report, environment=(_tool(),))
+    absent = build_manifest(
+        "s",
+        tasks,
+        report,
+        environment=(_tool(path=None, version=None, detail="not installed"),),
+    )
+    assert present.manifest_hash != absent.manifest_hash
+
+
+def test_two_unversioned_tools_differ_by_the_reason_they_are_unversioned():
+    """Both carry version None, so only the reason separates them.
+
+    A binary that is absent and a binary that is present but never asked are
+    different environments; collapsing them would let a toolchain change pass
+    under one fingerprint.
+    """
+    tasks, report = _tasks(), _report()
+    uninstalled = build_manifest(
+        "s",
+        tasks,
+        report,
+        environment=(_tool(path=None, version=None, detail="not installed"),),
+    )
+    unasked = build_manifest(
+        "s",
+        tasks,
+        report,
+        environment=(_tool(version=None, detail="version flag not measured"),),
+    )
+    assert uninstalled.manifest_hash != unasked.manifest_hash
+
+
+def test_which_tool_holds_a_version_is_part_of_the_run():
+    """Two tools at one version number are not one environment.
+
+    Mutation found this: dropping the name from the fingerprint survived the
+    whole suite. Nothing distinguished nuclei at 3.8.0 from a second tool that
+    happens to sit at 3.8.0 too, so a swap between them hashed identically.
+    """
+    tasks, report = _tasks(), _report()
+    one = build_manifest("s", tasks, report, environment=(_tool(name="nuclei", version="3.8.0"),))
+    other = build_manifest(
+        "s", tasks, report, environment=(_tool(name="slither", version="3.8.0"),)
+    )
+    assert one.manifest_hash != other.manifest_hash

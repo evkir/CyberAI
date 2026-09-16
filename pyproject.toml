@@ -136,6 +136,7 @@ files = [
     "cyberai/bench/cve_bench.py",
     "cyberai/bench/cve_bench_runner.py",
     "cyberai/bench/engine_runner.py",
+    "cyberai/bench/environment.py",
     "cyberai/bench/evaluator.py",
     "cyberai/bench/evmbench_loader.py",
     "cyberai/bench/regression_gate.py",

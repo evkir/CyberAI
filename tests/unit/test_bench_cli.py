@@ -7,6 +7,8 @@ import json
 import pytest
 from click.testing import CliRunner
 
+from cyberai.bench import environment as bench_env
+from cyberai.bench.environment import TOOL_PROBES
 from cyberai.bench.run_manifest import DEFAULT_SEED
 from cyberai.cli import bench as bench_cli
 from cyberai.cli.bench import bench
@@ -508,3 +510,27 @@ def test_a_suite_with_no_tasks_writes_a_card_and_claims_nothing(monkeypatch, tmp
     text = out.read_text()
     assert "| llm calls |" not in text
     assert "| llm zero reason |" not in text
+
+
+def test_the_manifest_names_the_toolchain_that_ran(tmp_path):
+    """Every binary in the registry reaches the file, present or not."""
+    out = tmp_path / "run.json"
+    result = CliRunner().invoke(bench, ["run", "--manifest", str(out)])
+    assert result.exit_code == 0
+    recorded = json.loads(out.read_text())["environment"]
+    assert [t["name"] for t in recorded] == [p.name for p in TOOL_PROBES]
+    assert all("detail" in t for t in recorded)
+
+
+def test_a_run_that_needs_no_manifest_does_not_probe_the_toolchain(monkeypatch, tmp_path):
+    """The probe costs nine module imports and a second of subprocesses.
+
+    The second half is the control: without it a patch that never took hold
+    would leave the first assertion green for the wrong reason.
+    """
+    calls: list[int] = []
+    monkeypatch.setattr(bench_env, "probe_toolchain", lambda *a, **k: calls.append(1) or ())
+    CliRunner().invoke(bench, ["run"])
+    assert calls == []
+    CliRunner().invoke(bench, ["run", "--manifest", str(tmp_path / "m.json")])
+    assert calls == [1]

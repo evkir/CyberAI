@@ -1,11 +1,20 @@
 # Typing scope
 
-`mypy --strict` reads 98 of 171 modules in the package. The other 73 hold 285
+`mypy --strict` reads 99 of 172 modules in the package. The other 73 hold 285
 errors and are not checked.
 
+The scope is a list of named modules, so a module that passes strictly stays
+outside it until someone says otherwise, and nothing about the module itself
+announces that. cyberai/bench/environment.py spent four commits in exactly
+that state: clean from its first line, never checked, invisible to the badge.
+scripts/typing_scope_drift.py is what found it -- it runs the checker over the
+whole package and subtracts the declared scope from what reports nothing, so a
+module that could be declared and is not becomes a failing CI step rather than
+a quiet omission.
+
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 98 modules in the scope, 21 import a module outside it at module level,
-and between them they reach 28 such modules. mypy follows those imports to
+the 99 modules in the scope, 22 import a module outside it at module level,
+and between them they reach 29 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured by appending
 an unannotated function to `cyberai/core/config.py`, which is outside the
 scope and imported from inside it, running with a cold cache, and getting

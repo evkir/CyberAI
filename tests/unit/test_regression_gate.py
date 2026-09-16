@@ -113,3 +113,30 @@ def test_a_baseline_written_by_an_older_release_still_loads(tmp_path):
     assert loaded.config.model == "unspecified"
     assert loaded.config.temperature == 0.0
     assert check_regression(_manifest(0), loaded).passed is False
+
+
+def test_a_baseline_from_a_newer_writer_still_gates(tmp_path):
+    """An unknown knob must not read as 'no baseline'.
+
+    RunConfig(**cfg) raises TypeError on a keyword this release does not
+    know, and answering None would report no baseline -- which passes. An
+    upgrade would switch the gate off without saying so.
+    """
+    doc = {
+        "suite": "local",
+        "engine_version": "9.9.9",
+        "config": {"seed": 1337, "future_knob": "written by a newer cyberai"},
+        "suite_hash": "AAA",
+        "solved": 10,
+        "total": 10,
+        "timestamp": "2026-09-15T00:00:00Z",
+        "manifest_hash": "new",
+    }
+    p = tmp_path / "newer.json"
+    p.write_text(json.dumps(doc))
+
+    loaded = load_baseline(p)
+    assert loaded is not None
+    assert loaded.config.seed == 1337
+    assert not hasattr(loaded.config, "future_knob")
+    assert check_regression(_manifest(0), loaded).passed is False
