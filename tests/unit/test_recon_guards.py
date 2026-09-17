@@ -59,7 +59,7 @@ def test_recon_agent_no_max_rate_when_unset():
 
 def test_recon_only_orchestrator_single_phase():
     orch = Orchestrator(config=CyberAIConfig(), phases=[ScanPhase.RECON], dry_run=True)
-    session = orch.run("example.com")
+    session = orch.run("example.com", authorized_scope=["example.com"])
     assert [p.phase for p in session.phases] == [ScanPhase.RECON]
 
 

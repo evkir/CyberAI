@@ -46,7 +46,7 @@ def test_orchestrator_llm_is_none_in_dry_run():
 
 def test_orchestrator_run_returns_completed_session():
     orch = Orchestrator(config=CyberAIConfig(), dry_run=True)
-    session = orch.run("127.0.0.1")
+    session = orch.run("127.0.0.1", authorized_scope=["127.0.0.1"])
     assert session.state == ScanState.COMPLETED
     assert len(session.phases) == 4
 
@@ -62,7 +62,7 @@ def test_orchestrator_run_accepts_scope():
 
 def test_cli_scan_dry_run_exits_zero():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run"])
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1"])
     assert result.exit_code == 0, result.output
 
 
@@ -74,7 +74,7 @@ def test_cli_scan_dry_run_with_scope():
 
 def test_cli_scan_reports_findings_count():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run"])
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1"])
     assert "Findings:" in result.output
 
 
@@ -85,7 +85,9 @@ def test_cli_allow_destructive_reaches_the_config():
     without it. Only the config object distinguishes the two.
     """
     with patch("cyberai.__main__.Orchestrator") as spy:
-        CliRunner().invoke(cli, ["scan", "t.local", "--allow-destructive", "--dry-run"])
+        CliRunner().invoke(
+            cli, ["scan", "t.local", "--allow-destructive", "--dry-run", "--scope", "t.local"]
+        )
     # The run cannot exit zero here: a patched Orchestrator returns a mock
     # session and the save step below rejects it. That step is covered by the
     # real dry run above; this test owns one seam -- the config reaching the
@@ -97,7 +99,7 @@ def test_cli_allow_destructive_reaches_the_config():
 def test_cli_without_the_flag_leaves_destructive_off():
     """Control: without this the assertion above passes on a hardcoded True."""
     with patch("cyberai.__main__.Orchestrator") as spy:
-        CliRunner().invoke(cli, ["scan", "t.local", "--dry-run"])
+        CliRunner().invoke(cli, ["scan", "t.local", "--dry-run", "--scope", "t.local"])
     assert spy.called
     assert spy.call_args.kwargs["config"].allow_destructive is False
 
@@ -264,7 +266,9 @@ def test_cli_provider_ollama_switches_model(monkeypatch):
     """--provider ollama must re-resolve model away from gpt-4o (bug #1)."""
     monkeypatch.delenv("CYBERAI_MODEL", raising=False)
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--provider", "ollama"])
+    result = runner.invoke(
+        cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1", "--provider", "ollama"]
+    )
     assert result.exit_code == 0, result.output
 
 
@@ -474,23 +478,29 @@ def test_apply_overrides_forces_false_over_enabled():
 
 def test_cli_scan_behavioral_flag_exits_zero():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--behavioral"])
+    result = runner.invoke(
+        cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1", "--behavioral"]
+    )
     assert result.exit_code == 0, result.output
 
 
 def test_cli_scan_no_behavioral_flag_exits_zero():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--no-behavioral"])
+    result = runner.invoke(
+        cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1", "--no-behavioral"]
+    )
     assert result.exit_code == 0, result.output
 
 
 def test_cli_scan_air_gapped_flag_exits_zero():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--air-gapped"])
+    result = runner.invoke(
+        cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1", "--air-gapped"]
+    )
     assert result.exit_code == 0, result.output
 
 
 def test_cli_scan_verbose_flag_exits_zero():
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "-v"])
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1", "-v"])
     assert result.exit_code == 0, result.output

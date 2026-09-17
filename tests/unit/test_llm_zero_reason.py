@@ -67,7 +67,7 @@ def test_a_recorded_call_clears_the_reason():
 
 def test_reason_lands_in_the_session_export():
     orch = Orchestrator(_config("openai"), dry_run=True)
-    session = orch.run("example.com")
+    session = orch.run("example.com", authorized_scope=["example.com"])
     assert session.kb.get("llm.usage")["zero_reason"] == "dry_run"
 
 

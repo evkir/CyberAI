@@ -32,7 +32,7 @@ def _run(phases):
         patch("cyberai.agents.recon.agent.detect_llm_endpoints", return_value={}),
         patch("cyberai.agents.intel.agent.search_cves") as mock_search,
     ):
-        session = orch.run("10.0.0.1")
+        session = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     return session, mock_search
 
 

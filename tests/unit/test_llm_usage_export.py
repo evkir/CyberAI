@@ -12,7 +12,7 @@ from cyberai.core.scan_session import ScanSession
 
 def test_dry_run_records_zero_usage_with_no_client():
     orch = Orchestrator(CyberAIConfig(), dry_run=True)
-    session = orch.run("example.com")
+    session = orch.run("example.com", authorized_scope=["example.com"])
 
     usage = session.kb.get("llm.usage")
     assert usage is not None
@@ -40,7 +40,7 @@ def test_recorded_calls_are_summed_per_agent():
 
 def test_usage_survives_session_json_roundtrip():
     orch = Orchestrator(CyberAIConfig(), dry_run=True)
-    session = orch.run("example.com")
+    session = orch.run("example.com", authorized_scope=["example.com"])
 
     restored = ScanSession.from_json(session.to_json())
 
