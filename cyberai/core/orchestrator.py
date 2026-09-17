@@ -157,6 +157,30 @@ class Orchestrator:
         out.insert(out.index(ScanPhase.EXPLOIT), ScanPhase.PLAN)
         return out
 
+    def _refusal_reason(self, session: ScanSession) -> Optional[str]:
+        """Why this run must not start, or None when it may proceed.
+
+        The exploit phase has always asked this question three phases too
+        late: a run against an unauthorised target had already finished a
+        full recon sweep by the time the validator spoke. The same validator
+        answers it here, before the first probe.
+
+        attack_paths is empty on purpose. Every entry it produces is a
+        warning and no violation depends on it, so the verdict on
+        authorisation is identical without intel having run.
+        """
+        from cyberai.agents.exploit.safety_validator import validate_exploit_scope
+
+        v = validate_exploit_scope(
+            session.target,
+            session.authorized_scope,
+            [],
+            strict=self.config.strict_scope,
+        )
+        if v.passed:
+            return None
+        return f"Refusing to run: {v.violations}"
+
     def run(
         self,
         target: str,
@@ -170,6 +194,12 @@ class Orchestrator:
             target=target,
             authorized_scope=authorized_scope or [],
         )
+
+        refusal = self._refusal_reason(session)
+        if refusal is not None:
+            session.refuse(refusal)
+            console.print(f"[bold red]\u2717 {refusal}[/bold red]")
+            return session
 
         console.print(
             Panel(
@@ -439,6 +469,12 @@ class AsyncOrchestrator(Orchestrator):
             target=target,
             authorized_scope=authorized_scope or [],
         )
+        refusal = self._refusal_reason(session)
+        if refusal is not None:
+            session.refuse(refusal)
+            console.print(f"[bold red]\u2717 {refusal}[/bold red]")
+            return session
+
         console.print(
             Panel(
                 f"[bold red]CyberAI AsyncOrchestrator[/bold red]\n"

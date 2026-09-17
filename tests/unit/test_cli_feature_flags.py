@@ -85,7 +85,7 @@ def test_flag_pair_is_exposed_in_help(kw, _attr, _env):
 def test_scan_accepts_every_new_flag(tmp_path, monkeypatch):
     """A flag the command signature forgot would fail here, not in the field."""
     monkeypatch.chdir(tmp_path)
-    args = ["example.com", "--dry-run"]
+    args = ["example.com", "--dry-run", "--scope", "example.com"]
     for kw, _attr, _env in FLAGS:
         args.append(f"--{kw.replace('_', '-')}")
     result = CliRunner().invoke(scan, args)

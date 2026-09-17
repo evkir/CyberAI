@@ -145,7 +145,7 @@ class TestAsyncOrchestrator:
         from cyberai.core.orchestrator import AsyncOrchestrator
 
         orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=True)
-        session = asyncio.run(orch.run("dryrun.local"))
+        session = asyncio.run(orch.run("dryrun.local", authorized_scope=["dryrun.local"]))
 
         assert session.state.value == "completed"
         phase_names = [p.phase.value for p in session.phases]
@@ -373,7 +373,7 @@ class TestAsyncOrchestrator:
             patch.object(orch, "_run_exploit", return_value={"paths": []}),
             patch.object(orch, "_run_report", return_value={"html_report": "x.html"}),
         ):
-            session = asyncio.run(orch.run("t.local"))
+            session = asyncio.run(orch.run("t.local", authorized_scope=["t.local"]))
 
         results = {p.phase.value: p.success for p in session.phases}
         assert results["recon"] is False

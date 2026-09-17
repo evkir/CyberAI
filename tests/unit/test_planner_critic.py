@@ -226,7 +226,7 @@ def test_replan_retry_success_collapses_to_completed():
     with patch.object(
         orch, "_dispatch", side_effect=[Exception("Connection timeout"), {"ok": True}]
     ):
-        s = orch.run("10.0.0.1")
+        s = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     assert s.state == ScanState.COMPLETED
     assert len(s.phases) == 1 and s.phases[-1].success
 
@@ -234,7 +234,7 @@ def test_replan_retry_success_collapses_to_completed():
 def test_replan_retry_fails_again_no_pop():
     orch = _orch(True)
     with patch.object(orch, "_dispatch", side_effect=[Exception("timeout"), Exception("timeout")]):
-        s = orch.run("10.0.0.1")
+        s = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     assert s.state == ScanState.FAILED
     assert len(s.phases) == 2
 
@@ -242,7 +242,7 @@ def test_replan_retry_fails_again_no_pop():
 def test_replan_skip_on_permanent():
     orch = _orch(True)
     with patch.object(orch, "_dispatch", side_effect=Exception("Scope check failed")):
-        s = orch.run("10.0.0.1")
+        s = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     assert s.state == ScanState.FAILED
     assert len(s.phases) == 1
 
@@ -250,7 +250,7 @@ def test_replan_skip_on_permanent():
 def test_replan_disabled_no_retry():
     orch = _orch(False)
     with patch.object(orch, "_dispatch", side_effect=Exception("timeout")) as md:
-        s = orch.run("10.0.0.1")
+        s = orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"])
     assert s.state == ScanState.FAILED
     assert md.call_count == 1  # no retry when flag off
 
@@ -297,6 +297,6 @@ def test_plan_phase_not_duplicated():
 
 def test_plan_phase_runs_in_pipeline():
     orch = Orchestrator(_cfg(True), phases=[ScanPhase.PLAN])
-    s = orch.run("acme.tld")
+    s = orch.run("acme.tld", authorized_scope=["acme.tld"])
     assert s.state == ScanState.COMPLETED
     assert s.kb.get("plan")["target"] == "acme.tld"

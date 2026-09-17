@@ -36,6 +36,10 @@ class ScanState(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    # A refused run never started: authorisation was missing or the target
+    # was out of scope, and the pipeline declined before the first probe.
+    # Distinct from FAILED, which means phases ran and one of them broke.
+    REFUSED = "refused"
 
 
 class ScanPhase(str, Enum):
@@ -143,6 +147,16 @@ class ScanSession:
     def cancel(self) -> None:
         self.state = ScanState.CANCELLED
         self.ended_at = _now()
+
+    def refuse(self, reason: str) -> None:
+        """Decline the run before any phase executes.
+
+        started_at stays unset on purpose: the duration of a run that never
+        touched the target is not zero, it is absent.
+        """
+        self.state = ScanState.REFUSED
+        self.ended_at = _now()
+        self.errors.append(reason)
 
     def set_phase(self, phase: ScanPhase) -> None:
         self.state = ScanState(phase.value)

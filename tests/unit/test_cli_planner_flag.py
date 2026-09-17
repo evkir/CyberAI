@@ -58,7 +58,9 @@ def test_planner_flag_exposed_in_help():
 
 def test_scan_dry_run_with_planner_flag(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = CliRunner().invoke(scan, ["example.com", "--dry-run", "--planner"])
+    result = CliRunner().invoke(
+        scan, ["example.com", "--dry-run", "--scope", "example.com", "--planner"]
+    )
     assert result.exit_code == 0
 
 
@@ -73,6 +75,8 @@ def test_scan_prints_plan_summary(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(Orchestrator, "run", fake_run)
-    result = CliRunner().invoke(scan, ["example.com", "--dry-run", "--planner"])
+    result = CliRunner().invoke(
+        scan, ["example.com", "--dry-run", "--scope", "example.com", "--planner"]
+    )
     assert result.exit_code == 0
     assert "Plan: 1 subtask(s)" in result.output

@@ -26,7 +26,7 @@ from .cli.web3_audit import web3
 from .core.config import _PROVIDER_KEY_ENV, CyberAIConfig, LLMConfig
 from .core.llm_client import LLMClient
 from .core.orchestrator import Orchestrator
-from .core.scan_session import ScanPhase
+from .core.scan_session import ScanPhase, ScanState
 
 console = Console()
 
@@ -371,6 +371,7 @@ def scan(
     # A checkmark over a failed run reads as "we looked and this is what is
     # there". The findings line is identical either way, so the mark is the
     # only thing telling the reader whether the pipeline actually ran.
+    refused = session.state is ScanState.REFUSED
     failed = [p.phase.value for p in session.phases if not p.success]
     # A phase that ran but could not look is not a failure -- the pipeline
     # deliberately carries on when nmap is missing or a host never answered --
@@ -382,7 +383,9 @@ def scan(
             for part in ((p.data or {}).get("degraded") or [])
         }
     )
-    if failed:
+    if refused:
+        console.print(f"\n[red]x[/red] Refused. {'; '.join(session.errors)}")
+    elif failed:
         console.print(
             f"\n[red]x[/red] Incomplete. Findings: {len(session.findings)} "
             f"(failed: {', '.join(failed)})"
@@ -414,7 +417,12 @@ def scan(
     # exit code replaces neither the report nor the saved session.
     # A partial run keeps 0 -- every phase ran and said what it could not
     # check, which is a result, not a failure.
-    if failed:
+    #
+    # A refused run reads the state, not the phase list: it has no phases at
+    # all, so `failed` is empty and this exited 0 for a run the platform
+    # declined to perform. CI cannot tell a refusal from a clean scan by the
+    # only signal it reads.
+    if refused or failed:
         raise SystemExit(1)
 
 

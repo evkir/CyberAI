@@ -29,7 +29,7 @@ def test_cli_scan_dry_run_exits_cleanly():
     (the method is named `run(target)`).
     """
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run"])
+    result = runner.invoke(cli, ["scan", "127.0.0.1", "--dry-run", "--scope", "127.0.0.1"])
 
     assert result.exit_code == 0, (
         f"CLI exited with code {result.exit_code}\n"
@@ -41,7 +41,7 @@ def test_cli_scan_dry_run_exits_cleanly():
 def test_cli_scan_dry_run_produces_output():
     """The scan should produce some textual output, even in dry-run mode."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "example.com", "--dry-run"])
+    result = runner.invoke(cli, ["scan", "example.com", "--dry-run", "--scope", "example.com"])
 
     assert result.output, "CLI produced no output at all"
 
@@ -61,7 +61,7 @@ def test_cli_help_works():
 def test_cli_scan_dry_run_completes_all_phases():
     """Dry-run must reach all 4 phases and finish in `completed` state."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["scan", "example.com", "--dry-run"])
+    result = runner.invoke(cli, ["scan", "example.com", "--dry-run", "--scope", "example.com"])
     assert result.exit_code == 0
     out = result.output.lower()
     assert "completed" in out
