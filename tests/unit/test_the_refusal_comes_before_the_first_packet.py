@@ -96,3 +96,38 @@ def test_an_authorised_run_still_exits_zero() -> None:
 
     assert result.exit_code == 0, result.output
     assert "Refused" not in result.output
+
+
+def test_the_async_pipeline_refuses_before_its_own_recon() -> None:
+    """AsyncOrchestrator overrides run() whole, so it can lose the check.
+
+    The preflight lives on the base class precisely because of this: the
+    async body builds its own session, prints its own panel and drives its
+    own recon agent, sharing nothing with the sync path but the method it
+    calls. A mutant that removes the call from one body leaves the other
+    green, which is why both are asserted here.
+    """
+    import asyncio
+
+    from cyberai.core.orchestrator import AsyncOrchestrator
+
+    orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=False)
+
+    with patch("cyberai.agents.recon.async_agent.AsyncReconAgent") as recon:
+        session = asyncio.run(orch.run("scanme.nmap.org"))
+
+    recon.assert_not_called()
+    assert session.state == ScanState.REFUSED
+    assert session.phases == []
+
+
+def test_the_async_pipeline_still_runs_what_it_was_authorised_to_run() -> None:
+    import asyncio
+
+    from cyberai.core.orchestrator import AsyncOrchestrator
+
+    orch = AsyncOrchestrator(config=CyberAIConfig(), dry_run=True)
+    session = asyncio.run(orch.run("10.0.0.1", authorized_scope=["10.0.0.0/24"]))
+
+    assert session.state == ScanState.COMPLETED
+    assert [p.phase for p in session.phases] == orch.phases
