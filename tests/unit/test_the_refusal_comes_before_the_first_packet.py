@@ -67,3 +67,32 @@ def test_a_refused_run_has_no_duration_rather_than_a_zero_one() -> None:
 
     assert session.started_at is None
     assert session.summary()["duration_s"] is None
+
+
+def test_a_refusal_reaches_the_exit_code() -> None:
+    """CI reads `$?` and nothing else.
+
+    A refused run has no phases at all, so the failed-phase list the CLI
+    built its exit code from was empty and the process exited 0 -- the same
+    signal a clean scan gives. The state is the only thing that tells them
+    apart.
+    """
+    from click.testing import CliRunner
+
+    from cyberai.__main__ import cli
+
+    result = CliRunner().invoke(cli, ["scan", "10.10.10.10", "--dry-run"])
+
+    assert result.exit_code == 1, result.output
+    assert "Refused" in result.output
+
+
+def test_an_authorised_run_still_exits_zero() -> None:
+    from click.testing import CliRunner
+
+    from cyberai.__main__ import cli
+
+    result = CliRunner().invoke(cli, ["scan", "10.0.0.1", "--dry-run", "--scope", "10.0.0.0/24"])
+
+    assert result.exit_code == 0, result.output
+    assert "Refused" not in result.output

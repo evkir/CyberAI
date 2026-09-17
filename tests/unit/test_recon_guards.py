@@ -65,7 +65,17 @@ def test_recon_only_orchestrator_single_phase():
 
 def test_cli_accepts_recon_only_and_max_rps():
     result = CliRunner().invoke(
-        cli, ["scan", "example.com", "--recon-only", "--max-rps", "5", "--dry-run"]
+        cli,
+        [
+            "scan",
+            "example.com",
+            "--recon-only",
+            "--max-rps",
+            "5",
+            "--dry-run",
+            "--scope",
+            "example.com",
+        ],
     )
     assert result.exit_code == 0
 
@@ -93,6 +103,14 @@ def test_a_pair_without_a_separator_is_refused():
 def test_cli_accepts_auth_header():
     result = CliRunner().invoke(
         cli,
-        ["scan", "t.local", "--auth", "Authorization: Bearer t0k", "--dry-run"],
+        [
+            "scan",
+            "t.local",
+            "--auth",
+            "Authorization: Bearer t0k",
+            "--dry-run",
+            "--scope",
+            "t.local",
+        ],
     )
     assert result.exit_code == 0

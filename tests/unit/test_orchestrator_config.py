@@ -277,7 +277,18 @@ def test_cli_model_flag_overrides(monkeypatch):
     monkeypatch.delenv("CYBERAI_MODEL", raising=False)
     runner = CliRunner()
     result = runner.invoke(
-        cli, ["scan", "127.0.0.1", "--dry-run", "--provider", "ollama", "--model", "mistral"]
+        cli,
+        [
+            "scan",
+            "127.0.0.1",
+            "--dry-run",
+            "--scope",
+            "127.0.0.1",
+            "--provider",
+            "ollama",
+            "--model",
+            "mistral",
+        ],
     )
     assert result.exit_code == 0, result.output
 
