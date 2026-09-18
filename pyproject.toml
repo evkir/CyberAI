@@ -78,6 +78,15 @@ target-version = "py311"
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
+[tool.cyberai.measurement]
+# The counts in README.md and docs/architecture/typing-scope.md were produced
+# by this checker. The dev extra bounds which checkers may be installed; this
+# names the one that was actually read. A release inside the bound moved the
+# partition by one module and turned the gate red on an untouched tree, so the
+# bound alone does not say what the numbers mean.
+mypy = "1.19.1"
+mcp = "2.0.0"
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

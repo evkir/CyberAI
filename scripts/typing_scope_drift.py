@@ -42,6 +42,7 @@ import pathlib
 import re
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version
 import tempfile
 import tomllib
 
@@ -72,6 +73,28 @@ def _stubs_are_installed() -> list[str]:
         if f"{imported}-stubs" not in roots:
             missing.append(f"{distribution} ships no {imported}-stubs, so {imported} is Any")
     return missing
+
+
+def _version_disagreements() -> list[str]:
+    """Packages whose installed version is not the one the published counts came from."""
+    config = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
+    tools = config.get("tool")
+    cyberai = tools.get("cyberai") if isinstance(tools, dict) else None
+    measurement = cyberai.get("measurement") if isinstance(cyberai, dict) else None
+    if not isinstance(measurement, dict):
+        return []
+    gaps: list[str] = []
+    for package, declared in sorted(measurement.items()):
+        if not isinstance(declared, str):
+            continue
+        try:
+            installed = version(str(package))
+        except PackageNotFoundError:
+            gaps.append(f"{package} is not installed; the counts came from {declared}")
+            continue
+        if installed != declared:
+            gaps.append(f"{package} {installed} is installed; the counts came from {declared}")
+    return gaps
 
 
 def _settings() -> dict[str, object]:
@@ -123,6 +146,8 @@ def main() -> int:
         for problem in missing:
             print(f"  {problem}", file=sys.stderr)
         return 2
+    for gap in _version_disagreements():
+        print(f"note: {gap}", file=sys.stderr)
     settings = _settings()
     with tempfile.TemporaryDirectory() as cache:
         completed = _wide_run(settings, pathlib.Path(cache))

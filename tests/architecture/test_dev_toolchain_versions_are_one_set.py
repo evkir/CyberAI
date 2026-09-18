@@ -57,6 +57,43 @@ def test_the_linter_is_installed_from_the_declared_specifier() -> None:
     )
 
 
+def _measured_versions() -> dict[str, str]:
+    config = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
+    measurement = config["tool"]["cyberai"]["measurement"]
+    assert isinstance(measurement, dict), "[tool.cyberai.measurement] is not a table"
+    return {str(tool): str(version) for tool, version in measurement.items()}
+
+
+def test_the_measured_version_satisfies_the_bound_that_admits_it() -> None:
+    """A declared measurement the extra would never install is a note, not a fact."""
+    config = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
+    runtime = {
+        re.split(r"[<>=!~]", entry, maxsplit=1)[0]: entry
+        for entry in config["project"]["dependencies"]
+    }
+    declared = {**runtime, **_dev_requirements()}
+    for tool, version in _measured_versions().items():
+        assert tool in declared, f"{tool} names a measured version and is declared nowhere"
+        floor = re.search(r">=\s*([0-9][^,\s]*)", declared[tool])
+        assert floor, f"{declared[tool]} states no lower bound to compare {version} against"
+        measured = tuple(int(part) for part in version.split("."))
+        lower = tuple(int(part) for part in floor.group(1).split("."))
+        assert measured >= lower, (
+            f"{tool} {version} produced the published counts and the dev extra "
+            f"declares {declared[tool]}, which would never install it"
+        )
+
+
+def test_the_page_names_the_version_that_measured_it() -> None:
+    """The counts on the page came from one checker; the page has to say which."""
+    page = (_ROOT / "docs" / "architecture" / "typing-scope.md").read_text(encoding="utf-8")
+    for tool, version in _measured_versions().items():
+        assert f"{tool} {version}" in page, (
+            f"the scope page never names {tool} {version}, which is what "
+            "[tool.cyberai.measurement] says produced its numbers"
+        )
+
+
 def test_the_type_checker_is_installed_from_the_extra_alone() -> None:
     assert not _literal_installs("mypy"), (
         "a workflow installs mypy from its own specifier; the dev extra is the "

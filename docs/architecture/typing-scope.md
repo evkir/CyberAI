@@ -88,6 +88,20 @@ holds 98 modules; a later release moved it by one module in the other
 direction. The dev extra therefore bounds the checker rather than naming a
 floor and admitting every future release.
 
+The checker is not the only version these counts depend on, and on 2026-09-18
+it turned out not to be the one that mattered. A workstation carrying mcp
+1.28.1 reports 284 errors where one carrying 2.0.0 reports 285: the signature
+of `Server` differs between the SDK branches, and `cyberai/mcp/server.py` has
+one more call-arg error against the older one. `mcp>=1.0,<3` admits both on
+purpose -- the `mcp-1x` job exists to keep the 1.x surface working -- so the
+manifest cannot narrow its way out of this. Both checker and SDK are therefore
+declared in `[tool.cyberai.measurement]`, named here, and compared against the
+installed set by the drift report, so a reader who gets a different total can
+tell which of the two moved. The counts on this page were produced by mypy
+1.19.1 and mcp 2.0.0. Measured the same day: mypy 1.19.1 and 1.20.2 produce
+identical counts once the stubs and the SDK are held fixed, so of the three
+versions the numbers ride on, the checker is the one that did not move them.
+
 It also moves with the stubs that happen to be installed, and it does not
 always move loudly. Two modules import yaml, and without `types-PyYAML` both
 report import-untyped. `ignore_missing_imports` does not cover that case: the

@@ -79,6 +79,56 @@ def test_a_missing_stub_is_refused_before_anything_is_counted(
     assert "types-networkx" in printed.err, "the missing distribution was not named"
 
 
+def test_a_version_the_counts_did_not_come_from_is_named(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The counts ride on more than the tree, so the report says what it ran against.
+
+    Measured on 2026-09-18: the same tree reports 284 errors against mcp 1.28.1
+    and 285 against 2.0.0, because the `Server` signature differs between the
+    SDK branches. Both are admitted on purpose, so the difference cannot be
+    removed; what it can stop doing is looking like a change in the source.
+    """
+    module = _module()
+    monkeypatch.setattr(module, "_stubs_are_installed", list)
+    monkeypatch.setattr(
+        module, "version", lambda package: "9.9.9" if package == "mcp" else "1.19.1"
+    )
+    measured = _completed("Found 285 errors in 73 files (checked 172 source files)\n", "", 1)
+    monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: measured)
+
+    module.main()
+    printed = capsys.readouterr()
+
+    assert "mcp 9.9.9" in printed.err, "an SDK the counts did not come from went unmentioned"
+    assert "mypy" not in printed.err, "a package that agrees was reported as a disagreement"
+
+
+def test_a_package_that_is_not_installed_is_named_once(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Absent is not the same complaint as different, and it is still one complaint."""
+    module = _module()
+    monkeypatch.setattr(module, "_stubs_are_installed", list)
+
+    def _absent(package: str) -> str:
+        if package == "mcp":
+            raise module.PackageNotFoundError(package)
+        return "1.19.1"
+
+    monkeypatch.setattr(module, "version", _absent)
+    measured = _completed("Found 285 errors in 73 files (checked 172 source files)\n", "", 1)
+    monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: measured)
+
+    module.main()
+    printed = capsys.readouterr()
+
+    said = [line for line in printed.err.splitlines() if "mcp" in line]
+    assert said, "a package the counts came from is not installed and nothing said so"
+    assert len(said) == 1, f"one absent package produced {len(said)} lines: {said}"
+    assert "not installed" in said[0], f"the absence was reported as something else: {said[0]}"
+
+
 def test_a_verdict_is_still_believed(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
