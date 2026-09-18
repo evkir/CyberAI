@@ -10,6 +10,13 @@ The script is loaded from its path rather than imported by name, for the reason
 the badge tests give: `scripts/` is importable only because of the editable
 install, and an assertion resting on the install mode is an assertion about the
 install mode.
+
+Every test here patches the environment checks the report runs before it counts.
+Two of them did not, and CI said so: the test job installs the test extra, which
+carries no stubs, so the report refused the run and those tests saw a complaint
+about `types-networkx` where they had staged a different one. They passed on a
+workstation that happened to have the stubs. A test whose mechanism only holds
+where its author sits is the defect this file was written about.
 """
 
 import importlib.util
@@ -39,6 +46,8 @@ def test_a_checker_that_never_ran_is_not_a_clean_package(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     module = _module()
+    monkeypatch.setattr(module, "_stubs_are_installed", list)
+    monkeypatch.setattr(module, "_version_disagreements", list)
     absent = _completed("", "/usr/bin/python3: No module named mypy\n", 1)
     monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: absent)
 
@@ -134,6 +143,8 @@ def test_a_verdict_is_still_believed(
 ) -> None:
     """Otherwise the guard above would pass by refusing every environment."""
     module = _module()
+    monkeypatch.setattr(module, "_stubs_are_installed", list)
+    monkeypatch.setattr(module, "_version_disagreements", list)
     measured = _completed("Success: no issues found in 172 source files\n", "", 0)
     monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: measured)
 
