@@ -94,7 +94,14 @@ def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     if schema_strings:
         parts.extend(schema_strings)
         fields.append("inputSchema")
-    for key in ("annotations", "meta", "outputSchema"):
+    # `icons` arrived with revision 2025-11-25 and is server-controlled text
+    # that reaches the client before any call: `src` is a URL the client is
+    # expected to fetch, and `mimeType`/`sizes` are free strings rendered next
+    # to the tool's name. The whitelist above named seven keys and this was not
+    # one of them, so a directive carried in an icon field reached no matcher
+    # at all -- not because no pattern described it, but because the text was
+    # never collected. A channel nothing reads cannot be scored.
+    for key in ("annotations", "meta", "outputSchema", "icons"):
         val = tool.get(key)
         if val:
             parts.append(json.dumps(val, default=str))
