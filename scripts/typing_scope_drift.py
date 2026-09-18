@@ -25,10 +25,19 @@ modules failing, and a report of a fully clean package with no drift -- printed
 with a zero exit, on a tree that had not been read at all. The verdict line the
 checker ends with is now required before any count is believed, and its absence
 exits non-zero with whatever the process wrote to standard error.
+
+A run without the declared stubs is the same failure wearing better clothes.
+`ignore_missing_imports` turns an unstubbed import into `Any`, so a module that
+reports ten errors on a machine carrying `types-networkx` reports none without
+it, crosses into the clean set, and is named here as undeclared drift. The
+report then accuses a module of being undeclared when what happened is that
+nothing typed it. The stub check the workflow already runs is asked first,
+through the module that declares the mapping rather than a copy of it.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import re
 import subprocess
@@ -40,8 +49,29 @@ _ROOT = pathlib.Path(__file__).resolve().parents[1]
 _PYPROJECT = _ROOT / "pyproject.toml"
 _PACKAGE = _ROOT / "cyberai"
 
+_STUB_SCRIPT = _ROOT / "scripts" / "stub_distributions.py"
+
 _ERROR = re.compile(r"^(?P<module>[^:]+\.py):\d+: error")
 _VERDICT = re.compile(r"^(Found \d+ error|Success: no issues found)", re.MULTILINE)
+
+
+def _stubs_are_installed() -> list[str]:
+    """Missing stub distributions, read from the one place that declares them."""
+    spec = importlib.util.spec_from_file_location("stub_distributions", _STUB_SCRIPT)
+    if spec is None or spec.loader is None:
+        return [f"no module at {_STUB_SCRIPT}"]
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    missing: list[str] = []
+    for imported, distribution in sorted(module.STUB_DISTRIBUTION_FOR.items()):
+        try:
+            roots = module.stub_roots(distribution)
+        except module.PackageNotFoundError:
+            missing.append(f"{distribution} is not installed, so {imported} resolves to Any")
+            continue
+        if f"{imported}-stubs" not in roots:
+            missing.append(f"{distribution} ships no {imported}-stubs, so {imported} is Any")
+    return missing
 
 
 def _settings() -> dict[str, object]:
@@ -84,6 +114,15 @@ def _modules_with_errors(output: str) -> set[pathlib.Path]:
 
 
 def main() -> int:
+    missing = _stubs_are_installed()
+    if missing:
+        print(
+            "the declared stubs are not installed: this environment was not measured",
+            file=sys.stderr,
+        )
+        for problem in missing:
+            print(f"  {problem}", file=sys.stderr)
+        return 2
     settings = _settings()
     with tempfile.TemporaryDirectory() as cache:
         completed = _wide_run(settings, pathlib.Path(cache))

@@ -50,6 +50,35 @@ def test_a_checker_that_never_ran_is_not_a_clean_package(
     assert "No module named mypy" in printed.err, "the reason the run failed was swallowed"
 
 
+def test_a_missing_stub_is_refused_before_anything_is_counted(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An unstubbed import is `Any`, and `Any` is silent, not clean.
+
+    Without `types-networkx` the ten errors in `cyberai/core/kb_graph.py`
+    disappear, the module crosses into the clean set, and the report names it
+    as undeclared drift -- an accusation about the tree produced by the
+    environment. The workflow ran this check, but after the report rather than
+    before it.
+    """
+    module = _module()
+    monkeypatch.setattr(module, "_stubs_are_installed", lambda: ["types-networkx is not installed"])
+    ran = False
+
+    def _never(*args: object, **kwargs: object) -> None:
+        nonlocal ran
+        ran = True
+
+    monkeypatch.setattr(module.subprocess, "run", _never)
+
+    code = module.main()
+    printed = capsys.readouterr()
+
+    assert code != 0, "counts were reported from an environment that types nothing"
+    assert not ran, "the checker was run before the environment was vouched for"
+    assert "types-networkx" in printed.err, "the missing distribution was not named"
+
+
 def test_a_verdict_is_still_believed(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
