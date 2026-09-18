@@ -2,6 +2,27 @@
 
 All notable changes to CyberAI are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **The typing measurement refuses an environment it cannot vouch for.** The
+  drift report read mypy through standard output alone, so a machine without
+  the checker produced no error lines and the report called the whole package
+  clean with a zero exit, on a tree it had never read. It now requires the
+  verdict line the checker ends with, asks whether the declared stubs are
+  installed before it counts anything -- an unstubbed import is `Any`, and
+  `Any` is silent rather than clean -- and names any package whose installed
+  version is not the one the published counts came from. Measured on an
+  untouched checkout: 285 errors with the declared set, 275 without the
+  stubs, 284 on the older MCP SDK.
+
+- **The published counts name the versions that produced them.** `99/172` and
+  `285` are facts about a tree read by particular packages, not about the tree
+  alone. The checker and the SDK that measured them are declared in
+  `[tool.cyberai.measurement]`, named on the typing scope page, and checked
+  against the bounds that admit them.
+
 ## [1.7.0] - 2026-09-16
 
 ### Changed

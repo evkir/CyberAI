@@ -18,14 +18,31 @@ run and the scoped run differ in scope and in nothing else. The cache is
 deliberately separate: a run that reuses a cache left by a run of another shape
 re-emits errors for modules it did not check, and the job runs `mypy`
 immediately before this one.
+
+An empty run is not a clean package. The checker was read through its standard
+output alone, so an environment without `mypy` produced no error lines, no
+modules failing, and a report of a fully clean package with no drift -- printed
+with a zero exit, on a tree that had not been read at all. The verdict line the
+checker ends with is now required before any count is believed, and its absence
+exits non-zero with whatever the process wrote to standard error.
+
+A run without the declared stubs is the same failure wearing better clothes.
+`ignore_missing_imports` turns an unstubbed import into `Any`, so a module that
+reports ten errors on a machine carrying `types-networkx` reports none without
+it, crosses into the clean set, and is named here as undeclared drift. The
+report then accuses a module of being undeclared when what happened is that
+nothing typed it. The stub check the workflow already runs is asked first,
+through the module that declares the mapping rather than a copy of it.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import re
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version
 import tempfile
 import tomllib
 
@@ -33,22 +50,72 @@ _ROOT = pathlib.Path(__file__).resolve().parents[1]
 _PYPROJECT = _ROOT / "pyproject.toml"
 _PACKAGE = _ROOT / "cyberai"
 
+_STUB_SCRIPT = _ROOT / "scripts" / "stub_distributions.py"
+
 _ERROR = re.compile(r"^(?P<module>[^:]+\.py):\d+: error")
+_VERDICT = re.compile(r"^(Found \d+ error|Success: no issues found)", re.MULTILINE)
+
+
+def _stubs_are_installed() -> list[str]:
+    """Missing stub distributions, read from the one place that declares them."""
+    spec = importlib.util.spec_from_file_location("stub_distributions", _STUB_SCRIPT)
+    if spec is None or spec.loader is None:
+        return [f"no module at {_STUB_SCRIPT}"]
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    missing: list[str] = []
+    for imported, distribution in sorted(module.STUB_DISTRIBUTION_FOR.items()):
+        try:
+            roots = module.stub_roots(distribution)
+        except module.PackageNotFoundError:
+            missing.append(f"{distribution} is not installed, so {imported} resolves to Any")
+            continue
+        if f"{imported}-stubs" not in roots:
+            missing.append(f"{distribution} ships no {imported}-stubs, so {imported} is Any")
+    return missing
+
+
+def _version_disagreements() -> list[str]:
+    """Packages whose installed version is not the one the published counts came from."""
+    config = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
+    tools = config.get("tool")
+    cyberai = tools.get("cyberai") if isinstance(tools, dict) else None
+    measurement = cyberai.get("measurement") if isinstance(cyberai, dict) else None
+    if not isinstance(measurement, dict):
+        return []
+    gaps: list[str] = []
+    for package, declared in sorted(measurement.items()):
+        if not isinstance(declared, str):
+            continue
+        try:
+            installed = version(str(package))
+        except PackageNotFoundError:
+            gaps.append(f"{package} is not installed; the counts came from {declared}")
+            continue
+        if installed != declared:
+            gaps.append(f"{package} {installed} is installed; the counts came from {declared}")
+    return gaps
 
 
 def _settings() -> dict[str, object]:
-    return tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))["tool"]["mypy"]
+    settings: dict[str, object] = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))["tool"][
+        "mypy"
+    ]
+    return settings
 
 
 def _declared_scope(settings: dict[str, object]) -> set[pathlib.Path]:
     resolved: set[pathlib.Path] = set()
-    for entry in settings["files"]:
+    declared = settings["files"]
+    if not isinstance(declared, list):
+        raise TypeError("[tool.mypy] files is not a list; the scope cannot be resolved")
+    for entry in declared:
         path = _ROOT / str(entry)
         resolved.update(path.rglob("*.py")) if path.is_dir() else resolved.add(path)
     return resolved
 
 
-def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> str:
+def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, "-m", "mypy", "--cache-dir", str(cache)]
     if settings.get("strict"):
         command.append("--strict")
@@ -57,7 +124,7 @@ def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> str:
     if "python_version" in settings:
         command += ["--python-version", str(settings["python_version"])]
     command.append(_PACKAGE.relative_to(_ROOT).as_posix())
-    return subprocess.run(command, cwd=_ROOT, capture_output=True, text=True, check=False).stdout
+    return subprocess.run(command, cwd=_ROOT, capture_output=True, text=True, check=False)
 
 
 def _modules_with_errors(output: str) -> set[pathlib.Path]:
@@ -70,9 +137,27 @@ def _modules_with_errors(output: str) -> set[pathlib.Path]:
 
 
 def main() -> int:
+    missing = _stubs_are_installed()
+    if missing:
+        print(
+            "the declared stubs are not installed: this environment was not measured",
+            file=sys.stderr,
+        )
+        for problem in missing:
+            print(f"  {problem}", file=sys.stderr)
+        return 2
+    for gap in _version_disagreements():
+        print(f"note: {gap}", file=sys.stderr)
     settings = _settings()
     with tempfile.TemporaryDirectory() as cache:
-        output = _wide_run(settings, pathlib.Path(cache))
+        completed = _wide_run(settings, pathlib.Path(cache))
+    if not _VERDICT.search(completed.stdout):
+        print("the checker returned no verdict: this environment was not measured", file=sys.stderr)
+        print(f"exit code {completed.returncode}", file=sys.stderr)
+        for line in completed.stderr.splitlines()[:5]:
+            print(f"  {line}", file=sys.stderr)
+        return 2
+    output = completed.stdout
     package = set(_PACKAGE.rglob("*.py"))
     failing = _modules_with_errors(output) & package
     scope = _declared_scope(settings)
