@@ -18,6 +18,13 @@ run and the scoped run differ in scope and in nothing else. The cache is
 deliberately separate: a run that reuses a cache left by a run of another shape
 re-emits errors for modules it did not check, and the job runs `mypy`
 immediately before this one.
+
+An empty run is not a clean package. The checker was read through its standard
+output alone, so an environment without `mypy` produced no error lines, no
+modules failing, and a report of a fully clean package with no drift -- printed
+with a zero exit, on a tree that had not been read at all. The verdict line the
+checker ends with is now required before any count is believed, and its absence
+exits non-zero with whatever the process wrote to standard error.
 """
 
 from __future__ import annotations
@@ -34,21 +41,28 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 _PACKAGE = _ROOT / "cyberai"
 
 _ERROR = re.compile(r"^(?P<module>[^:]+\.py):\d+: error")
+_VERDICT = re.compile(r"^(Found \d+ error|Success: no issues found)", re.MULTILINE)
 
 
 def _settings() -> dict[str, object]:
-    return tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))["tool"]["mypy"]
+    settings: dict[str, object] = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))["tool"][
+        "mypy"
+    ]
+    return settings
 
 
 def _declared_scope(settings: dict[str, object]) -> set[pathlib.Path]:
     resolved: set[pathlib.Path] = set()
-    for entry in settings["files"]:
+    declared = settings["files"]
+    if not isinstance(declared, list):
+        raise TypeError("[tool.mypy] files is not a list; the scope cannot be resolved")
+    for entry in declared:
         path = _ROOT / str(entry)
         resolved.update(path.rglob("*.py")) if path.is_dir() else resolved.add(path)
     return resolved
 
 
-def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> str:
+def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, "-m", "mypy", "--cache-dir", str(cache)]
     if settings.get("strict"):
         command.append("--strict")
@@ -57,7 +71,7 @@ def _wide_run(settings: dict[str, object], cache: pathlib.Path) -> str:
     if "python_version" in settings:
         command += ["--python-version", str(settings["python_version"])]
     command.append(_PACKAGE.relative_to(_ROOT).as_posix())
-    return subprocess.run(command, cwd=_ROOT, capture_output=True, text=True, check=False).stdout
+    return subprocess.run(command, cwd=_ROOT, capture_output=True, text=True, check=False)
 
 
 def _modules_with_errors(output: str) -> set[pathlib.Path]:
@@ -72,7 +86,14 @@ def _modules_with_errors(output: str) -> set[pathlib.Path]:
 def main() -> int:
     settings = _settings()
     with tempfile.TemporaryDirectory() as cache:
-        output = _wide_run(settings, pathlib.Path(cache))
+        completed = _wide_run(settings, pathlib.Path(cache))
+    if not _VERDICT.search(completed.stdout):
+        print("the checker returned no verdict: this environment was not measured", file=sys.stderr)
+        print(f"exit code {completed.returncode}", file=sys.stderr)
+        for line in completed.stderr.splitlines()[:5]:
+            print(f"  {line}", file=sys.stderr)
+        return 2
+    output = completed.stdout
     package = set(_PACKAGE.rglob("*.py"))
     failing = _modules_with_errors(output) & package
     scope = _declared_scope(settings)
