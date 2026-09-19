@@ -31,16 +31,41 @@ landscape.
 
 | Stage | What it looks for | OWASP MCP Top 10 | MITRE ATLAS |
 | --- | --- | --- | --- |
-| tool-poisoning | Hidden instructions, unicode tricks, base64, hidden HTML in tool metadata | MCP03:2025 Tool Poisoning | AML.T0110 AI Agent Tool Poisoning |
+| tool-poisoning | Hidden instructions, unicode tricks, base64, hidden HTML, executable icon carriers in tool metadata | MCP03:2025 Tool Poisoning | AML.T0110 AI Agent Tool Poisoning |
 | over-privilege | Tools that touch fs/net/exec beyond their declared purpose | MCP02:2025 Privilege Escalation via Scope Creep | AML.T0086 Exfiltration via AI Agent Tool Invocation |
 | trust-propagation | Steering / shadowing of sibling tools, cross-server name collisions | MCP06:2025 Intent Flow Subversion | AML.T0051 LLM Prompt Injection |
-| attestation | Anonymous acceptance, self-asserted identity, no message auth | MCP07:2025 Insufficient Authentication & Authorization | - |
+| attestation | Anonymous acceptance, self-asserted identity, no message auth, the capability set the server declares | MCP07:2025 Insufficient Authentication & Authorization | - |
 | exposure | Remote reachability, DNS-rebinding surface, dangerous capabilities | MCP07:2025 Insufficient Authentication & Authorization | AML.T0040 AI Model Inference API Access |
 | mst-fuzzing | Low-level malformed / protocol fuzzing (optional, see below) | MCP05:2025 Command Injection & Execution | AML.T0110 AI Agent Tool Poisoning |
 
 MCP06 is titled *Intent Flow Subversion* in the OWASP index and *Prompt
 Injection via Contextual Payloads* in the project README; the taxonomy is in
 beta and both names refer to the same category.
+
+### Icons, and the two directions of URL-mode elicitation
+
+Revision 2025-11-25 added `icons` to tools, prompts, resources and the server's
+own identity. It is text a client shows beside a tool's name before any call,
+which makes it the same channel as `description` and it is scanned as one.
+
+Two categories score it, and both are about the carrier rather than the
+reference. An icon served from a CDN is how the field is meant to be used, and
+the scanner reads flattened metadata, so it cannot tell the server's own origin
+from anyone else's: a rule on "the source is remote" would flag the ordinary
+case. What is scored is content a client executes or renders as markup --
+`javascript:`, `vbscript:`, `data:text/html`, `data:image/svg`, a declared
+`image/svg+xml`, or an `.svg` name. A PNG data URI is inline and is not
+flagged; inline is not the property, executable is.
+
+URL-mode elicitation is not a property of the scanned server at all, and the
+scanner has no category for it. `ServerCapabilities` has no elicitation field:
+the client declares willingness to open a URL, and a server asks for one with
+error `-32042` in reply to a tool call. A probe that inventories a surface
+calls nothing, so there is nothing to observe. The exposure runs the other
+way -- a scanner that advertises the capability has agreed to follow the links
+of the endpoint it is scanning -- and the probe therefore advertises no
+elicitation at all. The SDK builds form and URL mode from a single callback
+with no separate switch, so that is held by a test rather than by care.
 
 ## Usage
 
