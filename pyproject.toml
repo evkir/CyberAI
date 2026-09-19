@@ -107,6 +107,7 @@ files = [
     "cyberai/agents/intel/__init__.py",
     "cyberai/agents/intel/epss_client.py",
     "cyberai/agents/mcp_scan/__init__.py",
+    "cyberai/agents/mcp_scan/agent.py",
     "cyberai/agents/mcp_scan/attestation.py",
     "cyberai/agents/mcp_scan/exposure.py",
     "cyberai/agents/mcp_scan/mst_bridge.py",

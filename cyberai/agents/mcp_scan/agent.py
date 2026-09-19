@@ -26,7 +26,7 @@ from cyberai.agents.mcp_scan.trust import analyze_trust_propagation
 from cyberai.core.base_agent import BaseAgent, Tool
 from cyberai.core.scan_session import Severity
 from cyberai.mcp.auth_metadata import probe_auth_metadata
-from cyberai.mcp.client_probe import probe
+from cyberai.mcp.client_probe import MCPProbeResult, probe
 
 
 def _run_coro(coro: Any) -> Any:
@@ -70,7 +70,9 @@ class MCPScanAgent(BaseAgent):
 
     def _probe(self, endpoint: str, transport: Optional[str] = None) -> dict[str, Any]:
         """Run the async probe to completion and return a plain dict."""
-        result = _run_coro(probe(endpoint, transport))  # type: ignore[arg-type]
+        # _run_coro is deliberately untyped -- it takes any coroutine -- so the
+        # probe's own result type is what says this is a dict, not the runner.
+        result: MCPProbeResult = _run_coro(probe(endpoint, transport))  # type: ignore[arg-type]
         return result.to_dict()
 
     def run(self, target: str, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
@@ -98,7 +100,11 @@ class MCPScanAgent(BaseAgent):
         overprivilege = self._analyze_overprivilege(target, probe_result["tools"])
         exposure = self._assess_exposure(target, probe_result["transport"], probe_result["tools"])
         attestation = self._assess_attestation(
-            target, probe_result["transport"], probe_result["connected"], probe_result["error"]
+            target,
+            probe_result["transport"],
+            probe_result["connected"],
+            probe_result["error"],
+            probe_result["capabilities"],
         )
         trust = self._analyze_trust(target, probe_result["tools"])
         auth_metadata = probe_auth_metadata(target, probe_result["transport"]).to_dict()
@@ -246,7 +252,12 @@ class MCPScanAgent(BaseAgent):
         return {"exposed": scan.is_exposed, "scan": scan.to_dict()}
 
     def _assess_attestation(
-        self, target: str, transport: str, connected: bool, error: str | None
+        self,
+        target: str,
+        transport: str,
+        connected: bool,
+        error: str | None,
+        capabilities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Assess the transport-authentication posture of the target endpoint.
 
@@ -254,7 +265,7 @@ class MCPScanAgent(BaseAgent):
         recorded, and only when the endpoint accepted an unauthenticated
         session. stdio and undetermined remote endpoints produce no Finding.
         """
-        scan = assess_attestation(target, transport, connected, error)
+        scan = assess_attestation(target, transport, connected, error, capabilities)
         if scan.is_finding:
             self.session.add_finding(
                 severity=Severity(scan.severity),
