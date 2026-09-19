@@ -552,6 +552,39 @@ def _toolchain_lines(*, versions: bool = False) -> tuple[str, str]:
     )
 
 
+def _budget_line(config: CyberAIConfig) -> str:
+    """The LLM spend ceiling. Zero disables the check rather than forbidding
+    spend, so it is spelled out: a panel that printed "0.0" would read as a
+    budget of nothing."""
+    if config.max_cost_usd <= 0:
+        return "disabled"
+    return f"{config.max_cost_usd} USD"
+
+
+def _strict_scope_line(config: CyberAIConfig) -> str:
+    """Whether the run refuses an unauthorised target, and who decided.
+
+    The only line on this panel that names its source. strict_scope is the
+    one control here that defaults to on, and the one whose value ends a run
+    before the first phase, so "off" has to answer who turned it off. The
+    other controls default to off, and "(default)" against six of them would
+    be noise rather than an answer.
+
+    The source is read from the environment rather than inferred from the
+    value: every reader in config.py returns the default for an unset
+    variable and for an unparseable one alike, so the value cannot say which
+    happened. What is stated here is what can be checked -- the variable is
+    set, or it is not.
+    """
+    state = "on" if config.strict_scope else "off"
+    # `is None`, not truthiness: an empty variable is set, and reporting it as
+    # the default would be the panel answering about a value when the question
+    # is about the environment.
+    set_here = os.getenv("CYBERAI_STRICT_SCOPE") is not None
+    source = "CYBERAI_STRICT_SCOPE" if set_here else "default"
+    return f"{state} ({source})"
+
+
 def _api_key_line(llm: LLMConfig) -> str:
     """Whether the credential this provider needs is present.
 
@@ -594,7 +627,14 @@ def status(versions: bool) -> None:
             f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
             f"API key: {_api_key_line(config.llm)}\n"
             f"Tools found: {tools_found}\n"
-            f"Tools missing: {tools_missing}",
+            f"Tools missing: {tools_missing}\n"
+            f"Strict scope: {_strict_scope_line(config)}\n"
+            f"Cost budget: {_budget_line(config)}\n"
+            f"Planner: {'on' if config.enable_planner else 'off'}\n"
+            f"Replan: {'on' if config.enable_replan else 'off'}\n"
+            f"Model routing: {'on' if config.routing.enable_model_routing else 'off'}\n"
+            f"Web recon: {'on' if config.use_web_recon else 'off'}\n"
+            f"Planned redteam: {'on' if config.use_planned_redteam else 'off'}",
             title="CyberAI Status",
         )
     )

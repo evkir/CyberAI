@@ -9,6 +9,9 @@ that no process starts, not that the output looks the same.
 
 from __future__ import annotations
 
+import ast
+import pathlib
+
 from click.testing import CliRunner
 
 from cyberai import __main__ as main
@@ -57,6 +60,85 @@ def test_a_located_tool_with_no_flag_says_so_rather_than_guessing(tmp_path, monk
     monkeypatch.setenv("SEARCHSPLOIT_PATH", str(stub))
     result = CliRunner().invoke(main.cli, ["status", "--versions"])
     assert f"searchsploit ({env.FLAG_NOT_MEASURED})" in result.output
+
+
+def test_the_screen_names_the_source_of_the_one_control_that_defaults_on() -> None:
+    """strict_scope is the only control here whose default is on.
+
+    Every other line on the panel defaults to off, where "off (default)"
+    answers nothing. This one ends a run before the first phase, so "off"
+    has to say who turned it off.
+    """
+    runner = CliRunner()
+    assert "Strict scope: on (default)" in runner.invoke(main.cli, ["status"]).output
+
+
+def test_a_variable_that_is_set_is_named_even_when_it_is_empty(monkeypatch) -> None:
+    """Set-ness is a fact about the environment; the value is a separate one.
+
+    Truthiness here would report an empty variable as the default, which is
+    the panel answering a question about a value when the question was about
+    the environment. Measured while adding this line: an empty
+    CYBERAI_STRICT_SCOPE turns the refusal off, because _env_bool treats an
+    empty string as a chosen no while _env_int and _env_float treat it as
+    nobody choosing. The panel has to name the variable in that case or the
+    operator has no way to see it.
+    """
+    monkeypatch.setenv("CYBERAI_STRICT_SCOPE", "")
+    output = CliRunner().invoke(main.cli, ["status"]).output
+    assert "(CYBERAI_STRICT_SCOPE)" in output
+
+
+def test_a_zero_budget_reads_as_disabled_rather_than_as_no_money(monkeypatch) -> None:
+    monkeypatch.delenv("CYBERAI_MAX_COST_USD", raising=False)
+    assert "Cost budget: disabled" in CliRunner().invoke(main.cli, ["status"]).output
+    monkeypatch.setenv("CYBERAI_MAX_COST_USD", "5")
+    assert "Cost budget: 5.0 USD" in CliRunner().invoke(main.cli, ["status"]).output
+
+
+def test_every_field_the_orchestrator_reads_reaches_the_screen() -> None:
+    """The screen shows what governs the run, checked against the run.
+
+    Not a hand-written list: the fields are scanned out of orchestrator.py,
+    so a control added there without a line here fails. Four fields on
+    CyberAIConfig are read by nobody at all -- intel, timeout, verbose,
+    use_lab_dogfood -- and a rule written as "every field" would have
+    demanded a line for a lever that moves nothing.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    tree = ast.parse((root / "cyberai" / "core" / "orchestrator.py").read_text())
+    read: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Attribute)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "self"
+            and node.value.attr == "config"
+        ):
+            read.add(node.attr)
+
+    # field on CyberAIConfig -> the label that stands for it on the panel
+    shown = {
+        "air_gapped": "Air-gapped",
+        "enable_planner": "Planner",
+        "enable_replan": "Replan",
+        "llm": "Provider",
+        "max_cost_usd": "Cost budget",
+        "output_dir": "Output",
+        "routing": "Model routing",
+        "strict_scope": "Strict scope",
+        "use_planned_redteam": "Planned redteam",
+        "use_web_recon": "Web recon",
+    }
+    assert read == set(shown), (
+        f"orchestrator reads but the map does not name: {read - set(shown)}; "
+        f"the map names what the orchestrator no longer reads: {set(shown) - read}"
+    )
+
+    output = CliRunner().invoke(main.cli, ["status"]).output
+    for field, label in shown.items():
+        assert f"{label}:" in output, f"{field} governs the run and has no line"
 
 
 def test_the_probe_budget_is_shorter_than_the_manifest_budget() -> None:
