@@ -82,7 +82,7 @@ TOOL_PROBES: tuple[ToolProbe, ...] = (
     ToolProbe("forge", find_forge, "--version"),
     ToolProbe("anvil", find_anvil, "--version"),
     ToolProbe("halmos", find_halmos, "--version"),
-    ToolProbe("mst", find_mst, None),
+    ToolProbe("mas-sentry", find_mst, None),
 )
 
 

@@ -10,15 +10,7 @@ from rich.panel import Panel
 
 from cyberai.version import __version__
 
-from .agents.exploit.nuclei_engine import find_nuclei
-from .agents.exploit.searchsploit import find_searchsploit
-from .agents.mcp_scan.mst_bridge import find_mst
-from .agents.recon.nmap_tool import find_nmap
-from .agents.web3.aderyn_tool import find_aderyn
-from .agents.web3.anvil_harness import find_anvil
-from .agents.web3.foundry_poc import find_forge
-from .agents.web3.halmos_tool import find_halmos
-from .agents.web3.slither_tool import find_slither
+from .bench.environment import TOOL_PROBES
 from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
@@ -33,17 +25,15 @@ console = Console()
 # binary name -> the resolver that already locates it for the agents. Not a
 # second lookup: status calls the same functions the tools call, so a name
 # reported here is the one that will be executed.
-_TOOLCHAIN = {
-    "nmap": find_nmap,
-    "nuclei": find_nuclei,
-    "searchsploit": find_searchsploit,
-    "forge": find_forge,
-    "aderyn": find_aderyn,
-    "slither": find_slither,
-    "anvil": find_anvil,
-    "halmos": find_halmos,
-    "mas-sentry": find_mst,
-}
+#
+# Derived from the probe registry rather than written out a second time. The
+# two copies had drifted: this one said "mas-sentry", which is the string the
+# finder hands to shutil.which, while the probe registry said "mst" and wrote
+# that name into every run manifest. A toolchain drift was reported against a
+# binary no resolver would ever find. With one registry the two guards over
+# this display -- that it names every finder in the package, and that each
+# label is the binary its finder looks for -- reach the manifest as well.
+_TOOLCHAIN = {probe.name: probe.resolver for probe in TOOL_PROBES}
 
 
 def _detach_stdin_from_tty() -> None:

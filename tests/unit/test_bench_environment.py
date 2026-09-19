@@ -102,7 +102,7 @@ def test_every_probe_resolves_through_the_module_that_owns_the_tool():
         "forge": ("cyberai.agents.web3.foundry_poc", "find_forge"),
         "anvil": ("cyberai.agents.web3.anvil_harness", "find_anvil"),
         "halmos": ("cyberai.agents.web3.halmos_tool", "find_halmos"),
-        "mst": ("cyberai.agents.mcp_scan.mst_bridge", "find_mst"),
+        "mas-sentry": ("cyberai.agents.mcp_scan.mst_bridge", "find_mst"),
     }
     got = {p.name: (p.resolver.__module__, p.resolver.__name__) for p in env.TOOL_PROBES}
     assert got == expected
