@@ -89,7 +89,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 99
+    assert len(_scope()) == 100
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

@@ -4,7 +4,33 @@ All notable changes to CyberAI are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **The MCP scanner reads the icon field, and scores what a client would
+  execute.** `icons` arrived with protocol revision 2025-11-25 and is text
+  shown beside a tool's name before any call. The metadata collector named
+  seven keys and this was not one of them, so a directive carried in an icon
+  reached no matcher at all -- not for want of a pattern, but because the
+  text was never collected. Two categories score the carrier rather than the
+  reference: an active URL scheme, and SVG by declared type or by name. An
+  icon on a CDN is ordinary and is not flagged; a PNG data URI is inline and
+  is not flagged either.
+
+- **The capability set a server declares reaches a stage.** The probe had
+  recorded it since it was written and every analysis took tools, transport
+  or a connection flag, so a target's declared surface was collected and
+  dropped. It is now part of the attestation posture, whose own reason says
+  MCP has no in-protocol capability attestation.
+
 ### Fixed
+
+- **The probe does not offer to open a target's URLs.** URL-mode elicitation
+  is a client capability, not a server one: `ServerCapabilities` has no field
+  for it, and a scanner that advertises it has agreed to follow the links of
+  the endpoint it is scanning. The probe advertises none, which until now was
+  true by structure alone -- the SDK builds form and URL mode from a single
+  callback with no separate switch, so adding a form prompt would turn on URL
+  mode in the same line. A test holds it.
 
 - **The typing measurement refuses an environment it cannot vouch for.** The
   drift report read mypy through standard output alone, so a machine without
@@ -19,7 +45,9 @@ All notable changes to CyberAI are documented here.
 
 - **The published counts name the versions that produced them.** `99/172` and
   `285` are facts about a tree read by particular packages, not about the tree
-  alone. The checker and the SDK that measured them are declared in
+  alone. Both moved to `100/172` and `284` when `cyberai/agents/mcp_scan/agent.py`
+  lost its last strict error and the drift step reported it as an undeclared
+  clean module. The checker and the SDK that measured them are declared in
   `[tool.cyberai.measurement]`, named on the typing scope page, and checked
   against the bounds that admit them.
 

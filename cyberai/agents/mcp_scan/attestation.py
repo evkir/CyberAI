@@ -47,6 +47,7 @@ class AttestationScan:
     connected: bool = False
     unauthenticated: bool = False
     transport_encrypted: bool = True
+    declared_capabilities: list[str] = field(default_factory=list)
     severity: str = Severity.INFO.value
     reasons: list[str] = field(default_factory=list)
 
@@ -75,6 +76,7 @@ def assess_attestation(
     transport: str,
     connected: bool,
     error: str | None = None,
+    capabilities: dict[str, Any] | None = None,
 ) -> AttestationScan:
     """Assess the transport-authentication posture of an MCP endpoint.
 
@@ -83,6 +85,13 @@ def assess_attestation(
     accepted an anonymous session.
     """
     scan = AttestationScan(endpoint=endpoint, transport=transport)
+    # What the server said it can do, which is the thing the reason below
+    # calls unattested. The probe has collected this since it was written and
+    # no stage read it, so the set a server advertises -- experimental blocks,
+    # protocol extensions, task support -- reached no inventory and no report.
+    # Names only: the values are free-form per the spec and belong in the raw
+    # probe dump, not in a posture summary.
+    scan.declared_capabilities = sorted(capabilities or {})
 
     if transport == "stdio":
         scan.reasons.append(

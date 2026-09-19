@@ -1,6 +1,6 @@
 # Risk Register — what could make this project fail
 
-**Last verified against the tree:** 2026-09-17.
+**Last verified against the tree:** 2026-09-19.
 
 This page replaces a document that tracked eight build-out defects and had
 said "ALL RESOLVED" since day 7 while the README went on describing it as the
@@ -38,7 +38,7 @@ not fixed. `unguarded` — held by discipline, with no machine behind it.
 |---|---|---|---|
 | 8 | The CVE-Bench adapter was written against criteria older than v2.1.0 | partly | `tests/integration/test_the_bench_answers_to_the_upstream.py::test_the_adapter_answers_to_the_checkout_on_disk` — carries the smoke marker, so CI skips it and only a workstation with the checkout runs it |
 | 9 | The MCP client did not report which protocol revision it negotiated | closed | `tests/integration/test_mcp_revision_in_output.py::test_the_terminal_names_the_revision_the_probe_negotiated` |
-| 10 | The detector does not cover tool icons or URL-mode elicitation, both added to the protocol in revision 2025-11-25 | open | no test mentions either; a tree-wide search for both terms returns nothing |
+| 10 | The detector does not cover tool icons or URL-mode elicitation, both added to the protocol in revision 2025-11-25 | partly | Icons: `tests/unit/test_mcp_poisoning.py::test_a_directive_in_an_icon_field_reaches_the_matcher` and `tests/unit/test_mcp_poisoning.py::test_an_executable_icon_carrier_is_a_signal`. The field was outside the collected whitelist, so no pattern could have reached it. Elicitation: the risk was written on a premise the SDK does not support -- `ServerCapabilities` has no elicitation field, so a scanned server cannot advertise URL mode and a probe that calls nothing never receives error -32042. The exposure runs the other way and is held by `tests/unit/test_the_probe_does_not_offer_to_open_a_url.py::test_the_probe_advertises_no_elicitation`. Partly: what a target does with elicitation is reachable only by calling its tools, which this scanner does not do |
 | 11 | Detection and false-positive figures come from a corpus this project wrote | open | `tests/architecture/test_corpus_integrity.py::test_both_classes_meet_the_floor` guards the corpus, not its provenance. No external corpus has ever been run |
 | 12 | CVE-Bench and phantom-grid both claim port 9090 | closed | `tests/unit/test_cve_bench_driver.py::test_a_taken_port_is_named_not_blamed_on_the_stack` |
 | 13 | Two finding counts in one result, neither reconciled with the other | closed | `tests/unit/test_web3_agent_merge.py::test_aderyn_only_critical_raises_the_headline` |
