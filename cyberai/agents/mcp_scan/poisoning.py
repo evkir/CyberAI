@@ -38,6 +38,21 @@ MCP_POISONING_PATTERNS: list[tuple[str, str]] = [
     ),
     (r"include .{0,30}(api[_ ]?key|token|secret|password|credential)", "credential_harvest"),
     (r"read .{0,30}(\.env|id_rsa|/etc/passwd|ssh key|config file)", "sensitive_read"),
+    # Icons, revision 2025-11-25. What is scored is the carrier, not the fact
+    # of an external reference: a tool icon served from a CDN is ordinary, and
+    # this matcher sees flattened text, so it cannot tell the server's own
+    # origin from anyone else's. A pattern on "src is remote" would therefore
+    # flag the normal case and measure nothing. These two describe content the
+    # client executes or renders as markup while showing the tool's name --
+    # before the user has agreed to call anything.
+    (
+        r'"src"\s*:\s*"\s*(?:javascript:|vbscript:|data:text/html|data:image/svg)',
+        "icon_active_scheme",
+    ),
+    (
+        r'"mimeType"\s*:\s*"image/svg\+xml"|"src"\s*:\s*"[^"]+\.svg(?:[?#][^"]*)?"',
+        "icon_executable_carrier",
+    ),
 ]
 _MCP_COMPILED = [
     (re.compile(pat, re.IGNORECASE | re.DOTALL), label) for pat, label in MCP_POISONING_PATTERNS
