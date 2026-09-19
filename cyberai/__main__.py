@@ -10,7 +10,7 @@ from rich.panel import Panel
 
 from cyberai.version import __version__
 
-from .bench.environment import TOOL_PROBES
+from .bench.environment import STATUS_VERSION_TIMEOUT, TOOL_PROBES, probe_toolchain
 from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
@@ -512,15 +512,40 @@ def _seed_line(llm: LLMConfig) -> str:
     return str(llm.seed)
 
 
-def _toolchain_lines() -> tuple[str, str]:
+def _toolchain_lines(*, versions: bool = False) -> tuple[str, str]:
     """Which external binaries resolve right now, both sides named.
 
     Both halves are sets of names rather than counts: "7 of 8 found" would
     say nothing about which one is missing, and a run that needs the missing
     one fails later with no hint that status already knew.
+
+    ``versions`` runs each located binary's version flag. Off by default
+    because this resolves paths and starts no process, while a probe spends
+    up to STATUS_VERSION_TIMEOUT on every tool that answers slowly -- and
+    status is the command an operator reaches for when something is already
+    wrong. The same split the bench CLI makes, which imports the probe only
+    when a manifest is asked for.
+
+    Under ``versions`` both halves come out of one probe pass rather than a
+    second walk over the resolvers: two walks can disagree, which is the
+    shape of defect that had the display and the manifest naming the same
+    binary differently.
     """
-    found = [name for name, finder in _TOOLCHAIN.items() if finder() is not None]
-    missing = [name for name in _TOOLCHAIN if name not in found]
+    if not versions:
+        found = [name for name, finder in _TOOLCHAIN.items() if finder() is not None]
+        missing = [name for name in _TOOLCHAIN if name not in found]
+        return (
+            ", ".join(found) if found else "none",
+            ", ".join(missing) if missing else "none",
+        )
+
+    probed = probe_toolchain(timeout=STATUS_VERSION_TIMEOUT)
+    found = [
+        f"{t.name} {t.version}" if t.version else f"{t.name} ({t.detail})"
+        for t in probed
+        if t.path is not None
+    ]
+    missing = [t.name for t in probed if t.path is None]
     return (
         ", ".join(found) if found else "none",
         ", ".join(missing) if missing else "none",
@@ -542,7 +567,12 @@ def _api_key_line(llm: LLMConfig) -> str:
 
 
 @cli.command()
-def status() -> None:
+@click.option(
+    "--versions",
+    is_flag=True,
+    help="Run each located tool's version flag (starts processes)",
+)
+def status(versions: bool) -> None:
     """Show CyberAI status and config."""
     config = CyberAIConfig.from_env()
     # The guard a real client would build from this config, not a second
@@ -550,7 +580,7 @@ def status() -> None:
     # value; printing the raw setting would name a policy that never acts.
     guard = LLMClient(config.llm).guard
     classifier = guard.classifier
-    tools_found, tools_missing = _toolchain_lines()
+    tools_found, tools_missing = _toolchain_lines(versions=versions)
     console.print(
         Panel(
             f"Provider: {config.llm.provider}\n"

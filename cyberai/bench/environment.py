@@ -53,6 +53,14 @@ from cyberai.core.sandbox import run_sealed
 
 VERSION_TIMEOUT = 20
 
+# Shorter than VERSION_TIMEOUT, and the difference is the caller, not the tool.
+# A benchmark manifest is written once and has to record a version even from a
+# tool that starts slowly. `status` is the command an operator runs when
+# something is already wrong, and nine hung binaries at VERSION_TIMEOUT would
+# hold that answer for three minutes. Measured: a binary that never answers
+# costs exactly the timeout, 20.02 s at the default.
+STATUS_VERSION_TIMEOUT = 3
+
 NOT_INSTALLED = "not installed"
 FLAG_NOT_MEASURED = "version flag not measured"
 NOT_PARSED = "version not parsed"
@@ -107,15 +115,19 @@ def parse_version(stdout: str, stderr: str) -> str | None:
     return None
 
 
-def probe_tool(probe: ToolProbe) -> ToolVersion:
-    """Resolve one binary and read its version. Never raises."""
+def probe_tool(probe: ToolProbe, *, timeout: float = VERSION_TIMEOUT) -> ToolVersion:
+    """Resolve one binary and read its version. Never raises.
+
+    ``timeout`` is keyword-only and defaults to the manifest's budget, so the
+    callers that were here before this parameter existed read the same way.
+    """
     path = probe.resolver()
     if path is None:
         return ToolVersion(probe.name, None, None, NOT_INSTALLED)
     if probe.flag is None:
         return ToolVersion(probe.name, path, None, FLAG_NOT_MEASURED)
     try:
-        proc = run_sealed([path, probe.flag], timeout=VERSION_TIMEOUT)
+        proc = run_sealed([path, probe.flag], timeout=timeout)
     except (subprocess.SubprocessError, OSError) as exc:
         return ToolVersion(probe.name, path, None, f"probe failed: {type(exc).__name__}")
     version = parse_version(proc.stdout, proc.stderr)
@@ -124,11 +136,13 @@ def probe_tool(probe: ToolProbe) -> ToolVersion:
     return ToolVersion(probe.name, path, version, "")
 
 
-def probe_toolchain(probes: Sequence[ToolProbe] = TOOL_PROBES) -> tuple[ToolVersion, ...]:
+def probe_toolchain(
+    probes: Sequence[ToolProbe] = TOOL_PROBES, *, timeout: float = VERSION_TIMEOUT
+) -> tuple[ToolVersion, ...]:
     """Probe every binary the platform drives, in registry order.
 
     A tuple, not a list: the result is stored on a frozen RunManifest and
     fingerprinted, and a mutable sequence there would be a shared reference
     into a record that claims to be immutable.
     """
-    return tuple(probe_tool(probe) for probe in probes)
+    return tuple(probe_tool(probe, timeout=timeout) for probe in probes)
