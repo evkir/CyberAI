@@ -1,6 +1,6 @@
 # Typing scope
 
-`mypy --strict` reads 100 of 172 modules in the package. The other 72 hold 284
+`mypy --strict` reads 101 of 172 modules in the package. The other 71 hold 280
 errors and are not checked.
 
 The scope is a list of named modules, so a module that passes strictly stays
@@ -13,12 +13,14 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 100 modules in the scope, 22 import a module outside it at module level,
-and between them they reach 29 such modules. mypy follows those imports to
-resolve names and does not report what it finds there: measured by appending
-an unannotated function to `cyberai/core/config.py`, which is outside the
-scope and imported from inside it, running with a cold cache, and getting
-`Success: no issues found in 97 source files` all the same. So a name
+the 101 modules in the scope, 20 import a module outside it at module level,
+and between them they reach 28 such modules. mypy follows those imports to
+resolve names and does not report what it finds there: measured on 2026-09-17
+by appending an unannotated function to `cyberai/core/config.py`, which was
+outside the scope then and imported from inside it, running with a cold cache,
+and getting `Success: no issues found in 97 source files` all the same. That
+module is in the scope as of 2026-09-20, so the demonstration is dated rather
+than repeatable as written; the mechanism it showed is unchanged. So a name
 crossing the boundary is typed by a module nothing checks, and adding a
 module to the scope costs its import closure rather than its own error count
 -- `mypy` on three single-error modules alone reports 90 errors across 26
@@ -44,6 +46,15 @@ total outside the scope is unchanged at 285, and the drift is none. The
 crossing counts moved with them, from 19 modules reaching 26 to 21 reaching
 28, which is the price rule the paragraph above states, paid and measured
 rather than assumed.
+
+The boundary can also move inward. On 2026-09-20 `cyberai/core/config.py`
+was declared, to put the provider name under the checker at the point the
+environment is read. Nothing was imported or deleted, yet both crossing
+counts fell -- 22 modules reaching 29 became 20 reaching 28 -- because the
+modules whose only crossing was that import stopped crossing, and the file
+left the reached set itself. A count that falls on an unchanged import graph
+is the edge moving, not the graph; the distinction is worth stating because
+the numbers alone read like imports went away.
 
 ## How the set was drawn
 
@@ -121,13 +132,19 @@ the tests installs no stubs at all.
 
 ## The unchecked side
 
-Six modules carry roughly a third of the 284 errors:
+Six modules carry roughly a third of the 280 errors, measured 2026-09-20
+with mypy 1.19.1 over the whole package. The per-module numbers move with
+the checker and with the tree, so they are dated here rather than gated by
+a test: a test pinning them would red on every release and teach the next
+reader to delete it. `cyberai/agents/recon/async_agent.py` read 17 until
+this remeasurement and reads 12 now; the drift went unnoticed because
+nothing compares the table with a run.
 
 | Module | Errors |
 |---|---|
 | `cyberai/core/llm_client.py` | 39 |
 | `cyberai/core/orchestrator.py` | 20 |
-| `cyberai/agents/recon/async_agent.py` | 17 |
+| `cyberai/agents/recon/async_agent.py` | 12 |
 | `cyberai/core/session.py` | 10 |
 | `cyberai/core/kb_graph.py` | 10 |
 | `cyberai/agents/report/html_renderer.py` | 9 |

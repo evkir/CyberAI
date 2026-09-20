@@ -27,8 +27,12 @@ _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _PACKAGE = _ROOT / "cyberai"
 
 # Measured on the day this file was written, with the method below.
-_EXPECTED_CROSSERS = 22
-_EXPECTED_REACHED = 29
+# 2026-09-20: cyberai/core/config.py entered the scope, so the modules
+# whose only crossing was that import stopped crossing, and config.py
+# left the reached set as well: 22 reaching 29 became 20 reaching 28.
+# The counts fell because the edge moved, not because an import did.
+_EXPECTED_CROSSERS = 20
+_EXPECTED_REACHED = 28
 
 
 def _scope() -> set[pathlib.Path]:
@@ -89,7 +93,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 100
+    assert len(_scope()) == 101
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

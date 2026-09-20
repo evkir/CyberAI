@@ -161,6 +161,7 @@ files = [
     "cyberai/cli/mcp_scan.py",
     "cyberai/cli/web3_audit.py",
     "cyberai/core/__init__.py",
+    "cyberai/core/config.py",
     "cyberai/core/cost_tracker.py",
     "cyberai/core/egress_guard.py",
     "cyberai/core/llm_usage.py",

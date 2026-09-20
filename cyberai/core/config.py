@@ -16,7 +16,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, cast, get_args
 
 from dotenv import load_dotenv
 
@@ -116,7 +116,7 @@ class RoutingConfig:
     enable_model_routing: bool = False
     fast_model: str = "claude-haiku-4-5"
     strong_model: str = "claude-opus-4-8"
-    phase_models: dict = field(default_factory=dict)
+    phase_models: dict[str, str] = field(default_factory=dict)
     # Air-gapped: local endpoint the router forces every phase onto.
     air_gapped_provider: str = "ollama"
     air_gapped_base_url: str = "http://localhost:11434"
@@ -148,9 +148,39 @@ def api_key_for(provider: str) -> Optional[str]:
     return os.getenv(variable) if variable else None
 
 
+# The provider names the config is allowed to hold. Declared once, as a
+# type, so the checker and the runtime reader answer from the same list:
+# a hand-written second copy is a rule that can disagree with itself.
+Provider = Literal["openai", "anthropic", "ollama"]
+_PROVIDERS = frozenset(get_args(Provider))
+
+
+def _env_provider(name: str, default: Provider) -> Provider:
+    """Read the LLM provider from the environment, narrowed to the declared set.
+
+    An unrecognised name is nobody having chosen a provider, so the default
+    stands -- the same answer _env_bool gives for a value outside its two
+    word sets. It does not raise: from_env has no raise in it by design,
+    and nine call sites reach it, one of them inside an MCP tool where an
+    exception is not a message anybody reads.
+
+    What the narrowing buys is the credential. api_key_for resolves the
+    key from the provider name, so an unknown name used to travel into
+    LLMConfig untyped and only be answered at call time. The screen, not
+    this reader, is where an unrecognised name gets said out loud.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in _PROVIDERS:
+        return cast(Provider, value)
+    return default
+
+
 @dataclass
 class LLMConfig:
-    provider: Literal["openai", "anthropic", "ollama"] = "openai"
+    provider: Provider = "openai"
     model: str = "gpt-4o"
     # None means 'not supplied here', and __post_init__ then resolves the
     # variable belonging to this provider. The old default_factory read
@@ -287,14 +317,14 @@ class CyberAIConfig:
             data = json.load(f)
         return cls(**data)
 
-    def save(self, path: str):
+    def save(self, path: str) -> None:
         with open(path, "w") as f:
             json.dump(self.__dict__, f, indent=2, default=str)
 
     @classmethod
     def from_env(cls) -> "CyberAIConfig":
         """Build config from environment variables."""
-        provider = os.getenv("CYBERAI_LLM_PROVIDER", "openai")
+        provider = _env_provider("CYBERAI_LLM_PROVIDER", "openai")
         model = os.getenv("CYBERAI_MODEL") or LLMConfig.default_model_for(provider)
         routing = RoutingConfig(
             enable_model_routing=_env_bool("CYBERAI_ENABLE_MODEL_ROUTING", False),
