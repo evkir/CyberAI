@@ -98,6 +98,15 @@ def test_only_a_named_word_turns_the_refusal_off(
         monkeypatch.setenv("CYBERAI_STRICT_SCOPE", noise)
         assert CyberAIConfig.from_env().strict_scope is True, noise
 
+    # Saying yes out loud is a third answer, not the absence of the other two.
+    # Coverage caught this branch unexecuted: every assertion above lands on
+    # off or on the default, so a reader that never recognised a word for yes
+    # would have passed them all. An operator who writes the variable to turn
+    # the guard back on has to be answered.
+    for word in ("1", "true", "yes", "on", "ON", " 1 "):
+        monkeypatch.setenv("CYBERAI_STRICT_SCOPE", word)
+        assert CyberAIConfig.from_env().strict_scope is True, word
+
 
 def test_the_ordinary_flag_reader_is_left_as_it_was(
     monkeypatch: pytest.MonkeyPatch,
@@ -112,6 +121,18 @@ def test_the_ordinary_flag_reader_is_left_as_it_was(
     monkeypatch.setenv("CYBERAI_TEST_FLAG", "nope")
     assert _env_bool("CYBERAI_TEST_FLAG", True) is False
     assert _env_guard_bool("CYBERAI_TEST_FLAG", True) is True
+
+    # Asserted against a default of False, which is the only way this says
+    # anything. strict_scope defaults to True, so a reader that recognised no
+    # word for yes would answer True for "1" by falling through to the
+    # default and every assertion about that flag would still pass -- the
+    # branch was covered and unproven at once. Here the two answers differ.
+    for word in ("1", "true", "yes", "on"):
+        monkeypatch.setenv("CYBERAI_TEST_FLAG", word)
+        assert _env_guard_bool("CYBERAI_TEST_FLAG", False) is True, word
+    for word in ("0", "false", "no", "off"):
+        monkeypatch.setenv("CYBERAI_TEST_FLAG", word)
+        assert _env_guard_bool("CYBERAI_TEST_FLAG", True) is False, word
 
 
 def test_the_orchestrator_hands_the_flag_to_the_validator() -> None:
