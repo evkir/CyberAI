@@ -32,7 +32,44 @@ def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
         return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+    return raw.strip().lower() in _TRUTHY
+
+
+# The words that turn a flag on and the words that turn it off. _env_bool
+# reads anything outside the first set as off, which is harmless for a flag
+# defaulting to off -- an unrecognised value lands on the default anyway.
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_FALSY = frozenset({"0", "false", "no", "off"})
+
+
+def _env_guard_bool(name: str, default: bool) -> bool:
+    """Read a flag whose default protects the run, where a typo must not disarm it.
+
+    _env_bool answers the question "is this value one of the words for yes",
+    so every other value, including an empty string and a misspelling, reads
+    as no. For the twenty-two flags that default to off that is the same
+    answer as the default and costs nothing. For a flag that defaults to on
+    it is the difference between a guard and no guard: measured on
+    2026-09-19, CYBERAI_STRICT_SCOPE= (empty, the shape a shell leaves behind
+    for an unset variable in a .env file or a VAR=$MISSING expansion) turned
+    the scope refusal off, and so did CYBERAI_STRICT_SCOPE=nope.
+
+    The documented ways to proceed without a scope are named ones -- `0` and
+    --no-strict-scope, per the README table and risk 20 in the register --
+    and this reader holds to exactly that list. A value outside both sets is
+    nobody having chosen, not a choice of off, so the default stands. It
+    still does not raise: from_env has no raise in it by design, because
+    garbage in a variable must not abort a scan at startup.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in _TRUTHY:
+        return True
+    if value in _FALSY:
+        return False
+    return default
 
 
 def _env_float(name: str, default: float) -> float:
@@ -307,5 +344,5 @@ class CyberAIConfig:
             use_lab_dogfood=_env_bool("CYBERAI_USE_LAB_DOGFOOD", False),
             web_enable_bench_trigger=_env_bool("CYBERAI_WEB_ENABLE_BENCH_TRIGGER", False),
             air_gapped=_env_bool("CYBERAI_AIR_GAPPED", False),
-            strict_scope=_env_bool("CYBERAI_STRICT_SCOPE", True),
+            strict_scope=_env_guard_bool("CYBERAI_STRICT_SCOPE", True),
         )

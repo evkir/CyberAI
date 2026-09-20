@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.7.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-2955%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-2957%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%20100%2F172%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -295,7 +295,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 | `CYBERAI_ENABLE_REPLAN` | Critic-driven phase replan |
 | `CYBERAI_USE_EXPLOIT_MEMORY` | Recall similar past exploit chains |
 | `CYBERAI_AIR_GAPPED` | Force local-only (no-egress) LLM path |
-| `CYBERAI_STRICT_SCOPE` | Refuse the exploit phase when no scope was given (default on; `0` or `--no-strict-scope` to opt out) |
+| `CYBERAI_STRICT_SCOPE` | Refuse an unauthorised run before the first phase (default on; `0`, `false`, `no`, `off` or `--no-strict-scope` to opt out -- any other value leaves the refusal on) |
 | `CYBERAI_ENABLE_MODEL_ROUTING` | Per-phase model selection |
 | `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
 | `CYBERAI_OUTPUT_DIR` | Report output directory |
