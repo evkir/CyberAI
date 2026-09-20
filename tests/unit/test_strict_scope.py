@@ -25,7 +25,7 @@ failed phase.
 import pytest
 
 from cyberai.agents.exploit.safety_validator import validate_exploit_scope
-from cyberai.core.config import CyberAIConfig
+from cyberai.core.config import CyberAIConfig, _env_bool, _env_guard_bool
 
 
 def test_empty_scope_warns_by_default() -> None:
@@ -71,6 +71,47 @@ def test_config_field_defaults_on_and_reads_the_environment(
     assert CyberAIConfig.from_env().strict_scope is True
     monkeypatch.setenv("CYBERAI_STRICT_SCOPE", "0")
     assert CyberAIConfig.from_env().strict_scope is False
+
+
+def test_only_a_named_word_turns_the_refusal_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A typo is not consent.
+
+    _env_bool reads every value outside its truthy set as false, which is the
+    right answer for a flag that defaults to off -- an unrecognised value
+    lands where the default already was. This flag defaults to on, so the
+    same rule handed the refusal to anything at all: measured on 2026-09-19,
+    CYBERAI_STRICT_SCOPE= turned it off, and so did CYBERAI_STRICT_SCOPE=nope.
+    An empty variable is what a shell leaves behind for VAR= in a .env file
+    or VAR=$MISSING in a script, so this was reachable without anyone
+    deciding anything.
+
+    The README table and risk 20 both name the ways to proceed without a
+    scope: `0` and --no-strict-scope. This asserts that list and no more.
+    """
+    for word in ("0", "false", "no", "off", "OFF", " 0 "):
+        monkeypatch.setenv("CYBERAI_STRICT_SCOPE", word)
+        assert CyberAIConfig.from_env().strict_scope is False, word
+
+    for noise in ("", " ", "nope", "flase", "2", "null", "none"):
+        monkeypatch.setenv("CYBERAI_STRICT_SCOPE", noise)
+        assert CyberAIConfig.from_env().strict_scope is True, noise
+
+
+def test_the_ordinary_flag_reader_is_left_as_it_was(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard reader is for guards; the other twenty-two keep their reader.
+
+    Changing _env_bool itself would have rewritten the meaning of every flag
+    in the file to fix one of them. For a flag defaulting to off the two
+    readers cannot disagree, but the distinction is the point, so it is
+    stated here rather than left to be rediscovered.
+    """
+    monkeypatch.setenv("CYBERAI_TEST_FLAG", "nope")
+    assert _env_bool("CYBERAI_TEST_FLAG", True) is False
+    assert _env_guard_bool("CYBERAI_TEST_FLAG", True) is True
 
 
 def test_the_orchestrator_hands_the_flag_to_the_validator() -> None:

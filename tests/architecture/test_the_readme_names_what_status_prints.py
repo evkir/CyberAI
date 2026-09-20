@@ -26,6 +26,15 @@ _STATUS_GROUPS = {
     "air-gap": ["Air-gapped"],
     "credentials": ["API key"],
     "toolchain": ["Tools found", "Tools missing"],
+    "run controls": [
+        "Strict scope",
+        "Cost budget",
+        "Planner",
+        "Replan",
+        "Model routing",
+        "Web recon",
+        "Planned redteam",
+    ],
 }
 
 # Both files are located from this file rather than from the imported

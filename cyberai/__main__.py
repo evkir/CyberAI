@@ -10,15 +10,7 @@ from rich.panel import Panel
 
 from cyberai.version import __version__
 
-from .agents.exploit.nuclei_engine import find_nuclei
-from .agents.exploit.searchsploit import find_searchsploit
-from .agents.mcp_scan.mst_bridge import find_mst
-from .agents.recon.nmap_tool import find_nmap
-from .agents.web3.aderyn_tool import find_aderyn
-from .agents.web3.anvil_harness import find_anvil
-from .agents.web3.foundry_poc import find_forge
-from .agents.web3.halmos_tool import find_halmos
-from .agents.web3.slither_tool import find_slither
+from .bench.environment import STATUS_VERSION_TIMEOUT, TOOL_PROBES, probe_toolchain
 from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
@@ -33,17 +25,15 @@ console = Console()
 # binary name -> the resolver that already locates it for the agents. Not a
 # second lookup: status calls the same functions the tools call, so a name
 # reported here is the one that will be executed.
-_TOOLCHAIN = {
-    "nmap": find_nmap,
-    "nuclei": find_nuclei,
-    "searchsploit": find_searchsploit,
-    "forge": find_forge,
-    "aderyn": find_aderyn,
-    "slither": find_slither,
-    "anvil": find_anvil,
-    "halmos": find_halmos,
-    "mas-sentry": find_mst,
-}
+#
+# Derived from the probe registry rather than written out a second time. The
+# two copies had drifted: this one said "mas-sentry", which is the string the
+# finder hands to shutil.which, while the probe registry said "mst" and wrote
+# that name into every run manifest. A toolchain drift was reported against a
+# binary no resolver would ever find. With one registry the two guards over
+# this display -- that it names every finder in the package, and that each
+# label is the binary its finder looks for -- reach the manifest as well.
+_TOOLCHAIN = {probe.name: probe.resolver for probe in TOOL_PROBES}
 
 
 def _detach_stdin_from_tty() -> None:
@@ -522,19 +512,77 @@ def _seed_line(llm: LLMConfig) -> str:
     return str(llm.seed)
 
 
-def _toolchain_lines() -> tuple[str, str]:
+def _toolchain_lines(*, versions: bool = False) -> tuple[str, str]:
     """Which external binaries resolve right now, both sides named.
 
     Both halves are sets of names rather than counts: "7 of 8 found" would
     say nothing about which one is missing, and a run that needs the missing
     one fails later with no hint that status already knew.
+
+    ``versions`` runs each located binary's version flag. Off by default
+    because this resolves paths and starts no process, while a probe spends
+    up to STATUS_VERSION_TIMEOUT on every tool that answers slowly -- and
+    status is the command an operator reaches for when something is already
+    wrong. The same split the bench CLI makes, which imports the probe only
+    when a manifest is asked for.
+
+    Under ``versions`` both halves come out of one probe pass rather than a
+    second walk over the resolvers: two walks can disagree, which is the
+    shape of defect that had the display and the manifest naming the same
+    binary differently.
     """
-    found = [name for name, finder in _TOOLCHAIN.items() if finder() is not None]
-    missing = [name for name in _TOOLCHAIN if name not in found]
+    if not versions:
+        found = [name for name, finder in _TOOLCHAIN.items() if finder() is not None]
+        missing = [name for name in _TOOLCHAIN if name not in found]
+        return (
+            ", ".join(found) if found else "none",
+            ", ".join(missing) if missing else "none",
+        )
+
+    probed = probe_toolchain(timeout=STATUS_VERSION_TIMEOUT)
+    found = [
+        f"{t.name} {t.version}" if t.version else f"{t.name} ({t.detail})"
+        for t in probed
+        if t.path is not None
+    ]
+    missing = [t.name for t in probed if t.path is None]
     return (
         ", ".join(found) if found else "none",
         ", ".join(missing) if missing else "none",
     )
+
+
+def _budget_line(config: CyberAIConfig) -> str:
+    """The LLM spend ceiling. Zero disables the check rather than forbidding
+    spend, so it is spelled out: a panel that printed "0.0" would read as a
+    budget of nothing."""
+    if config.max_cost_usd <= 0:
+        return "disabled"
+    return f"{config.max_cost_usd} USD"
+
+
+def _strict_scope_line(config: CyberAIConfig) -> str:
+    """Whether the run refuses an unauthorised target, and who decided.
+
+    The only line on this panel that names its source. strict_scope is the
+    one control here that defaults to on, and the one whose value ends a run
+    before the first phase, so "off" has to answer who turned it off. The
+    other controls default to off, and "(default)" against six of them would
+    be noise rather than an answer.
+
+    The source is read from the environment rather than inferred from the
+    value: every reader in config.py returns the default for an unset
+    variable and for an unparseable one alike, so the value cannot say which
+    happened. What is stated here is what can be checked -- the variable is
+    set, or it is not.
+    """
+    state = "on" if config.strict_scope else "off"
+    # `is None`, not truthiness: an empty variable is set, and reporting it as
+    # the default would be the panel answering about a value when the question
+    # is about the environment.
+    set_here = os.getenv("CYBERAI_STRICT_SCOPE") is not None
+    source = "CYBERAI_STRICT_SCOPE" if set_here else "default"
+    return f"{state} ({source})"
 
 
 def _api_key_line(llm: LLMConfig) -> str:
@@ -552,7 +600,12 @@ def _api_key_line(llm: LLMConfig) -> str:
 
 
 @cli.command()
-def status() -> None:
+@click.option(
+    "--versions",
+    is_flag=True,
+    help="Run each located tool's version flag (starts processes)",
+)
+def status(versions: bool) -> None:
     """Show CyberAI status and config."""
     config = CyberAIConfig.from_env()
     # The guard a real client would build from this config, not a second
@@ -560,7 +613,7 @@ def status() -> None:
     # value; printing the raw setting would name a policy that never acts.
     guard = LLMClient(config.llm).guard
     classifier = guard.classifier
-    tools_found, tools_missing = _toolchain_lines()
+    tools_found, tools_missing = _toolchain_lines(versions=versions)
     console.print(
         Panel(
             f"Provider: {config.llm.provider}\n"
@@ -574,7 +627,14 @@ def status() -> None:
             f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
             f"API key: {_api_key_line(config.llm)}\n"
             f"Tools found: {tools_found}\n"
-            f"Tools missing: {tools_missing}",
+            f"Tools missing: {tools_missing}\n"
+            f"Strict scope: {_strict_scope_line(config)}\n"
+            f"Cost budget: {_budget_line(config)}\n"
+            f"Planner: {'on' if config.enable_planner else 'off'}\n"
+            f"Replan: {'on' if config.enable_replan else 'off'}\n"
+            f"Model routing: {'on' if config.routing.enable_model_routing else 'off'}\n"
+            f"Web recon: {'on' if config.use_web_recon else 'off'}\n"
+            f"Planned redteam: {'on' if config.use_planned_redteam else 'off'}",
             title="CyberAI Status",
         )
     )
