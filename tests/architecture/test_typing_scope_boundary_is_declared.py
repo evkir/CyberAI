@@ -37,8 +37,12 @@ _PACKAGE = _ROOT / "cyberai"
 # counts and the direction depends on which side of the import it sits.
 # __main__.py reaches three modules nothing else in the scope reaches:
 # cli/audit_verify.py, cli/detector_eval.py, cli/scope.py.
+# Third move the same day: agents/exploit/safety_validator.py was declared,
+# and only reached fell, 31 to 30. It imports nothing outside the scope, so
+# it never became a crosser; it stopped being reached. A leaf costs one
+# counter, an entry point costs both.
 _EXPECTED_CROSSERS = 22
-_EXPECTED_REACHED = 31
+_EXPECTED_REACHED = 30
 
 
 def _scope() -> set[pathlib.Path]:
@@ -99,7 +103,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 103
+    assert len(_scope()) == 104
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

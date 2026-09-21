@@ -1,6 +1,6 @@
 # Typing scope
 
-`mypy --strict` reads 103 of 172 modules in the package. The other 69 hold 277
+`mypy --strict` reads 104 of 172 modules in the package. The other 68 hold 275
 errors and are not checked.
 
 The scope is a list of named modules, so a module that passes strictly stays
@@ -13,8 +13,8 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 103 modules in the scope, 22 import a module outside it at module level,
-and between them they reach 31 such modules. mypy follows those imports to
+the 104 modules in the scope, 22 import a module outside it at module level,
+and between them they reach 30 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured on 2026-09-17
 by appending an unannotated function to `cyberai/core/config.py`, which was
 outside the scope then and imported from inside it, running with a cold cache,
@@ -64,6 +64,12 @@ reaches `cli/audit_verify.py`, `cli/detector_eval.py` and `cli/scope.py`, which
 nothing else in the scope touches. So the price of a module is not its error
 count and not a fixed direction on these counters; it is measured per module,
 before the fact, which is what the numbers here are for.
+
+A third module went in the same day, `agents/exploit/safety_validator.py`,
+whose public signature declared two implicit Optionals. Only one counter
+moved: it imports nothing outside the scope, so it never was a crosser, and
+reached fell from 31 to 30. A leaf pays one counter and an entry point pays
+both, which is the shape of the rule rather than a number to memorise.
 
 ## How the set was drawn
 

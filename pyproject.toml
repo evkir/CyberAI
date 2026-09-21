@@ -104,6 +104,7 @@ files = [
     "cyberai/agents/exploit/attack_path.py",
     "cyberai/agents/exploit/nuclei_engine.py",
     "cyberai/agents/exploit/poc_mapper.py",
+    "cyberai/agents/exploit/safety_validator.py",
     "cyberai/agents/exploit/searchsploit.py",
     "cyberai/agents/intel/__init__.py",
     "cyberai/agents/intel/epss_client.py",
