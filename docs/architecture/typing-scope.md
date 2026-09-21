@@ -1,6 +1,6 @@
 # Typing scope
 
-`mypy --strict` reads 101 of 172 modules in the package. The other 71 hold 280
+`mypy --strict` reads 103 of 172 modules in the package. The other 69 hold 277
 errors and are not checked.
 
 The scope is a list of named modules, so a module that passes strictly stays
@@ -13,8 +13,8 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 101 modules in the scope, 20 import a module outside it at module level,
-and between them they reach 28 such modules. mypy follows those imports to
+the 103 modules in the scope, 22 import a module outside it at module level,
+and between them they reach 31 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured on 2026-09-17
 by appending an unannotated function to `cyberai/core/config.py`, which was
 outside the scope then and imported from inside it, running with a cold cache,
@@ -55,6 +55,15 @@ modules whose only crossing was that import stopped crossing, and the file
 left the reached set itself. A count that falls on an unchanged import graph
 is the edge moving, not the graph; the distinction is worth stating because
 the numbers alone read like imports went away.
+
+It moves the other way just as easily. Later the same day `cyberai/__main__.py`
+and `cyberai/core/model_router.py` were declared, for the two remaining places
+a provider name reached the config untyped, and the counts rose to 22 reaching
+31. An entry point brings its own imports to the edge with it: `__main__.py`
+reaches `cli/audit_verify.py`, `cli/detector_eval.py` and `cli/scope.py`, which
+nothing else in the scope touches. So the price of a module is not its error
+count and not a fixed direction on these counters; it is measured per module,
+before the fact, which is what the numbers here are for.
 
 ## How the set was drawn
 

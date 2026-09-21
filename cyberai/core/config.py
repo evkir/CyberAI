@@ -109,6 +109,13 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+# The provider names the config is allowed to hold. Declared once, as a
+# type, so the checker and the runtime reader answer from the same list:
+# a hand-written second copy is a rule that can disagree with itself.
+Provider = Literal["openai", "anthropic", "ollama"]
+_PROVIDERS = frozenset(get_args(Provider))
+
+
 @dataclass
 class RoutingConfig:
     """Per-phase model routing. Off by default (no-regression)."""
@@ -118,7 +125,7 @@ class RoutingConfig:
     strong_model: str = "claude-opus-4-8"
     phase_models: dict[str, str] = field(default_factory=dict)
     # Air-gapped: local endpoint the router forces every phase onto.
-    air_gapped_provider: str = "ollama"
+    air_gapped_provider: Provider = "ollama"
     air_gapped_base_url: str = "http://localhost:11434"
 
 
@@ -146,13 +153,6 @@ def api_key_for(provider: str) -> Optional[str]:
     """
     variable = _PROVIDER_KEY_ENV.get(provider)
     return os.getenv(variable) if variable else None
-
-
-# The provider names the config is allowed to hold. Declared once, as a
-# type, so the checker and the runtime reader answer from the same list:
-# a hand-written second copy is a rule that can disagree with itself.
-Provider = Literal["openai", "anthropic", "ollama"]
-_PROVIDERS = frozenset(get_args(Provider))
 
 
 def _env_provider(name: str, default: Provider) -> Provider:
