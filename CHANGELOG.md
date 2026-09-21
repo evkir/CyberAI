@@ -24,6 +24,32 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **Nothing can name a provider that does not exist.** `CYBERAI_LLM_PROVIDER`
+  and `--provider` both assigned a plain string onto a field declared
+  `Literal["openai", "anthropic", "ollama"]`, and the router put a `str`
+  field into a `replace()` on the same one. An unrecognised name was answered
+  at call time, with a credential resolved by that name, so a run asked for
+  one vendor could reach another under a key nobody chose. The environment
+  reader narrows to the declared set and keeps the default -- a stale variable
+  in a `.env` file must not abort a scan -- while the flag is refused by the
+  parser, which names the providers that exist. One Literal stands behind
+  both, and a test fails if a second list appears.
+
+- **The scope validator declares the `None` it accepts.** `validate_exploit_scope`
+  is public API and declared two list arguments with a `None` default, which
+  PEP 484 prohibits and every importer inherited as two errors. The body has
+  always accepted `None`; only the declaration disagreed. Behaviour is
+  unchanged.
+
+- **The typing scope covers the four files that path runs through.**
+  `core/config.py`, `__main__.py`, `core/model_router.py` and
+  `agents/exploit/safety_validator.py` were outside `[tool.mypy] files`, so
+  none of the assignments above were visible to CI. The scope reads 104 of
+  172 modules, 275 errors outside, drift none. The price of each module was
+  measured before it was paid, and the crossing counts moved in both
+  directions on the same day: a leaf pays one counter, an entry point pays
+  both.
+
 - **The probe does not offer to open a target's URLs.** URL-mode elicitation
   is a client capability, not a server one: `ServerCapabilities` has no field
   for it, and a scanner that advertises it has agreed to follow the links of

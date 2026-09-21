@@ -267,7 +267,7 @@ MITRE-ATLAS red-team report. See
 ```yaml
 # config.yml
 llm:
-  provider: openai        # openai | anthropic
+  provider: openai        # openai | anthropic | ollama
   model: gpt-4o
   max_tokens: 4096
   temperature: 0.2
@@ -287,7 +287,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 
 | Variable | Effect |
 |---|---|
-| `CYBERAI_LLM_PROVIDER` / `CYBERAI_MODEL` | LLM provider and model |
+| `CYBERAI_LLM_PROVIDER` / `CYBERAI_MODEL` | LLM provider and model. The provider is one of `openai`, `anthropic`, `ollama`; any other value is nobody having chosen one, so the default stands and the run is not aborted -- `cyberai status` prints the provider actually in force. `--provider` is stricter: the parser refuses an unknown name and lists the ones that exist |
 | `CYBERAI_USE_BEHAVIORAL` | Honeypot/WAF/tarpit fingerprinting in recon |
 | `CYBERAI_USE_PORT_FINGERPRINT` | Banner grab on ports nmap could not name |
 | `CYBERAI_USE_NUCLEI` | Nuclei template exploit engine |
