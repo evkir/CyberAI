@@ -15,7 +15,7 @@ from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
-from .core.config import _PROVIDER_KEY_ENV, CyberAIConfig, LLMConfig
+from .core.config import _PROVIDER_KEY_ENV, _PROVIDERS, CyberAIConfig, LLMConfig, Provider
 from .core.llm_client import LLMClient
 from .core.orchestrator import Orchestrator
 from .core.scan_session import ScanPhase, ScanState
@@ -177,7 +177,15 @@ def cli() -> None:
 @cli.command()
 @click.argument("target")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-@click.option("--provider", default=None, help="LLM provider (openai/anthropic/ollama)")
+# click.Choice over the declared set: an unknown --provider is answered by
+# the parser with the list of names, not by the run with a credential
+# resolved for a provider that does not exist.
+@click.option(
+    "--provider",
+    type=click.Choice(sorted(_PROVIDERS)),
+    default=None,
+    help="LLM provider (openai/anthropic/ollama)",
+)
 @click.option("--model", default=None, help="LLM model (overrides provider default)")
 @click.option("--dry-run", is_flag=True, help="Run pipeline without real network calls")
 @click.option("--scope", multiple=True, help="Authorized scope entry (repeatable)")
@@ -278,7 +286,7 @@ def cli() -> None:
 def scan(
     target: str,
     verbose: bool,
-    provider: str | None,
+    provider: Provider | None,
     model: str | None,
     dry_run: bool,
     scope: tuple[str, ...],

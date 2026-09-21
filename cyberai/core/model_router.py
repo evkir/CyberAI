@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, Optional
 
-from cyberai.core.config import LLMConfig, RoutingConfig, api_key_for
+from cyberai.core.config import LLMConfig, Provider, RoutingConfig, api_key_for
 from cyberai.core.scan_session import ScanPhase
 
 if TYPE_CHECKING:
@@ -70,6 +70,9 @@ class ModelRouter:
             return cached
         from cyberai.core.llm_client import LLMClient
 
+        provider: Provider
+        base_url: str | None
+        api_key: str | None
         if self._air_gapped:
             provider = self._routing.air_gapped_provider
             base_url = self._routing.air_gapped_base_url
