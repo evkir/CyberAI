@@ -185,6 +185,34 @@ def rows(text: str) -> list[tuple[int, str, str]]:
     return out
 
 
+def table_lines(text: str) -> tuple[list[str], list[str], list[str]]:
+    """(heads, rules, body) for every line of the page that opens with a pipe.
+
+    A row the pattern cannot parse leaves both sides of the comparison at
+    once: it carries no declared level and contributes no measured one, so
+    disagreement is impossible and the row goes unreported. Splitting the
+    pipe lines three ways is what makes a silent loss visible.
+    """
+    heads, rules, body = [], [], []
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            continue
+        stripped = line.strip()
+        if stripped.startswith("| # |"):
+            heads.append(line)
+        elif set(stripped) <= set("|-"):
+            rules.append(line)
+        else:
+            body.append(line)
+    return heads, rules, body
+
+
+def unparsed_rows(text: str) -> list[str]:
+    """Body lines the row pattern does not match."""
+    _, _, body = table_lines(text)
+    return [line for line in body if not _ROW.match(line)]
+
+
 def declared_level(text: str, number: int) -> str:
     """What the page says holds one row, or the empty string if it says nothing."""
     for found, _, level in rows(text):

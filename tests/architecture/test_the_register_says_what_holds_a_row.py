@@ -186,6 +186,30 @@ def test_a_row_that_is_not_closed_declares_no_level() -> None:
     assert not wrong, f"rows claiming a level with nothing behind them: {wrong}"
 
 
+def test_no_row_of_the_table_goes_unread() -> None:
+    """The gap the previous commit recorded instead of closing.
+
+    A row the pattern misses is absent from the page side and the tree side
+    together, so the comparison above cannot see it. Counting parsed rows
+    against a fixed number would be a claim about today; this asks instead
+    that nothing between the heads and the rules is left over.
+    """
+    text = (_ROOT / "docs" / "architecture" / "risk-register.md").read_text(encoding="utf-8")
+    heads, rules, body = register_levels.table_lines(text)
+    assert heads, "no table head -- the page shape changed"
+    assert len(heads) == len(rules), f"{len(heads)} heads against {len(rules)} rules"
+    unparsed = register_levels.unparsed_rows(text)
+    assert not unparsed, f"rows the pattern cannot read: {[line[:60] for line in unparsed]}"
+    assert len(register_levels.rows(text)) == len(body)
+
+
+def test_a_row_the_pattern_cannot_read_is_reported() -> None:
+    """The check has to be able to say no, or it says nothing."""
+    good = "| # | Risk | Status | Held by | Measured by |\n|---|---|---|---|---|\n"
+    assert register_levels.unparsed_rows(good + "| 1 | r | closed | value | `x` |\n") == []
+    assert register_levels.unparsed_rows(good + "| 1 | r | closed | `x` |\n")
+
+
 def test_the_measurement_covers_every_closed_reference() -> None:
     """A classifier that silently skips rows would report a clean page."""
     text = (_ROOT / "docs" / "architecture" / "risk-register.md").read_text(encoding="utf-8")
