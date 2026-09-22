@@ -26,17 +26,23 @@ _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _REGISTER = _ROOT / "docs" / "architecture" / "risk-register.md"
 
 _REFERENCE = re.compile(r"tests/[A-Za-z0-9_/]+\.py::[A-Za-z0-9_]+")
-_ROW = re.compile(r"^\|\s*(\d+)\s*\|(.+?)\|\s*(\w+)\s*\|(.+?)\|\s*$")
+_ROW = re.compile(r"^\|\s*(\d+)\s*\|(.+?)\|\s*(\w+)\s*\|\s*([\w/-]+)\s*\|(.+?)\|\s*$")
 _DECLARED = {"closed", "partly", "open", "unguarded"}
 
 
 def rows(text: str) -> list[tuple[int, str, str]]:
-    """(number, status, evidence cell) for each numbered row in the register."""
+    """(number, status, evidence cell) for each numbered row in the register.
+
+    The table grew a fourth column on 2026-09-22 saying what kind of
+    assertion holds each closed row. Both readers of this page matched it
+    into the evidence cell and kept working, which is the wrong reason for
+    a check to be green: the pattern has to know the shape it reads.
+    """
     out = []
     for line in text.splitlines():
         match = _ROW.match(line)
         if match:
-            out.append((int(match.group(1)), match.group(3), match.group(4)))
+            out.append((int(match.group(1)), match.group(3), match.group(5)))
     return out
 
 
