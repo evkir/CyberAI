@@ -16,6 +16,19 @@ All notable changes to CyberAI are documented here.
   icon on a CDN is ordinary and is not flagged; a PNG data URI is inline and
   is not flagged either.
 
+- **Every closed row of the risk register says what kind of test holds it.**
+  Risk 20 stood closed for fifteen days on a test that read a config field
+  while an unscoped run spent fifty-one seconds on a protected range. The
+  reference resolved the whole time, so the guard over that page was green
+  and right to be: it asks whether the named test exists. A `Held by` column
+  now says whether the test asserts about calls, drives a command end to
+  end, reads a value back, or reads the tree instead of the product --
+  written by `scripts/register_levels.py`, compared against the tree by a
+  test, and reported in CI. No level is forbidden. Two probes established
+  that the distinction cannot be made from syntax, so `value` marks a row
+  whose guard could be stronger rather than a defect. Measured on the page
+  today: structural 2, boundary 2, entrypoint 6, value 6.
+
 - **The capability set a server declares reaches a stage.** The probe had
   recorded it since it was written and every analysis took tools, transport
   or a connection flag, so a target's declared surface was collected and
