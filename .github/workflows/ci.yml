@@ -164,6 +164,8 @@ jobs:
         run: python scripts/typing_scope_drift.py
       - name: Check the declared stubs are the stubs that ship
         run: python scripts/stub_distributions.py
+      - name: Report what holds each closed row of the risk register
+        run: python scripts/register_levels.py
 
   mcp-1x:
     name: MCP surface on mcp 1.x
