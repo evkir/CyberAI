@@ -149,6 +149,43 @@ def test_a_name_the_register_does_not_carry_is_not_invented() -> None:
     assert register_levels.level_of(_CLI_RUN, "test_absent") == "structural"
 
 
+def test_the_page_says_what_the_tree_says() -> None:
+    """The column is a claim, and it decays the way the last table did.
+
+    docs/architecture/typing-scope.md carried a module at 17 errors while
+    the tree said 12 for weeks: nobody was wrong at the time it was
+    written. A number in prose is only as fresh as its last reader, so
+    this reads the page and the tree together and fails when they part.
+    """
+    text = (_ROOT / "docs" / "architecture" / "risk-register.md").read_text(encoding="utf-8")
+    measured: dict[int, set[str]] = {}
+    for number, _, level in register_levels.measure(_ROOT, text):
+        measured.setdefault(number, set()).add(level)
+
+    disagreements = []
+    for number, status, _ in register_levels.rows(text):
+        if status != "closed":
+            continue
+        declared = register_levels.declared_level(text, number)
+        found = "/".join(sorted(measured.get(number, set())))
+        if declared != found:
+            disagreements.append(f"row {number}: page says {declared!r}, tree says {found!r}")
+    assert not disagreements, (
+        f"{disagreements}. Run scripts/register_levels.py and write what it returns."
+    )
+
+
+def test_a_row_that_is_not_closed_declares_no_level() -> None:
+    """Open and partly rows have nothing measured, so a level would be prose."""
+    text = (_ROOT / "docs" / "architecture" / "risk-register.md").read_text(encoding="utf-8")
+    wrong = [
+        number
+        for number, status, _ in register_levels.rows(text)
+        if status != "closed" and register_levels.declared_level(text, number) != "-"
+    ]
+    assert not wrong, f"rows claiming a level with nothing behind them: {wrong}"
+
+
 def test_the_measurement_covers_every_closed_reference() -> None:
     """A classifier that silently skips rows would report a clean page."""
     text = (_ROOT / "docs" / "architecture" / "risk-register.md").read_text(encoding="utf-8")

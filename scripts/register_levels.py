@@ -48,7 +48,7 @@ import sys
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
 _REGISTER = _ROOT / "docs" / "architecture" / "risk-register.md"
 
-_ROW = re.compile(r"^\|\s*(\d+)\s*\|(.+?)\|\s*(\w+)\s*\|(.+)\|\s*$")
+_ROW = re.compile(r"^\|\s*(\d+)\s*\|(.+?)\|\s*(\w+)\s*\|\s*([\w/-]+)\s*\|(.+)\|\s*$")
 _REFERENCE = re.compile(r"tests/[A-Za-z0-9_/]+\.py::[A-Za-z0-9_]+")
 
 _CALL_ASSERTION = re.compile(r"assert_(?:not_)?(?:called|awaited)\w*|call_count|call_args")
@@ -170,9 +170,27 @@ def closed_references(text: str) -> list[tuple[int, str]]:
     for line in text.splitlines():
         match = _ROW.match(line)
         if match and match.group(3) == "closed":
-            for reference in _REFERENCE.findall(match.group(4)):
+            for reference in _REFERENCE.findall(match.group(5)):
                 out.append((int(match.group(1)), reference))
     return out
+
+
+def rows(text: str) -> list[tuple[int, str, str]]:
+    """(number, status, declared level) for each numbered row."""
+    out: list[tuple[int, str, str]] = []
+    for line in text.splitlines():
+        match = _ROW.match(line)
+        if match:
+            out.append((int(match.group(1)), match.group(3), match.group(4)))
+    return out
+
+
+def declared_level(text: str, number: int) -> str:
+    """What the page says holds one row, or the empty string if it says nothing."""
+    for found, _, level in rows(text):
+        if found == number:
+            return level
+    return ""
 
 
 def measure(root: pathlib.Path, text: str) -> list[tuple[int, str, str]]:
