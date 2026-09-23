@@ -60,25 +60,3 @@ def exponential_backoff(
 
     logger.error(f"[backoff] {fn.__name__} failed after {max_retries} attempts")
     raise last_exc
-
-
-class RateLimitError(Exception):
-    """Raised when API returns 429 Too Many Requests."""
-
-    pass
-
-
-def nvd_backoff(fn: Callable, *args, **kwargs) -> Any:
-    """
-    NVD-specific backoff: longer delays, respects 6s/request NVD limit.
-    NVD API 2.0 rate limit: 5 requests per 30s without API key.
-    """
-    return exponential_backoff(
-        fn,
-        *args,
-        max_retries=5,
-        base_delay=6.0,  # NVD recommends 6s between requests
-        max_delay=120.0,
-        exceptions=(Exception,),
-        **kwargs,
-    )

@@ -45,12 +45,14 @@ is the subject of the second half of this page.
 | `CorpusError` | `core/security/eval_corpus.py` | the evaluation corpus could not be read; surfaces as one CLI line |
 | `RecordMismatch` | `core/security/llm_classifier.py` | a replay recording does not match the corpus it is replayed against; surfaces as one CLI line |
 | `AgentTimeoutError` | `core/timeout.py` | nothing, when a fallback was supplied; otherwise it travels |
-| `RateLimitError` | `utils/backoff.py` | nothing: the class is declared and no code raises it |
 
-The last row is the reason this table is generated from the tree rather than
-written once. A refusal nobody raises is indistinguishable, from the outside,
-from a refusal that never fires -- and the difference matters to anyone
-reading the backoff helper expecting it to signal.
+This table is generated from the tree rather than written once, and the
+first thing it found was a refusal that did not exist. `RateLimitError` sat
+in `utils/backoff.py` declaring that it was raised on 429, with no code
+raising it, no code catching it and no code importing it. A refusal nobody
+raises is indistinguishable, from the outside, from one that never fires.
+It was removed on 2026-09-23; the 429 the class described is real and is
+already answered, by `httpx.HTTPStatusError` in both NVD request paths.
 
 `InjectionBlocked` is caught once on its way out, in `core/llm_client.py`,
 and re-raised. The catch exists to write the verdict to the audit trail
