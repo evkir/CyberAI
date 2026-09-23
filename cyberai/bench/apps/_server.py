@@ -21,7 +21,7 @@ def _query(path: str) -> Dict[str, str]:
 class BenchHandler(BaseHTTPRequestHandler):
     """Routes are supplied by each app as {(method, path): handler}."""
 
-    routes: Dict[tuple, Callable[["BenchHandler"], Any]] = {}
+    routes: Dict[tuple[str, str], Callable[["BenchHandler"], Any]] = {}
 
     def log_message(self, fmt: str, *args: Any) -> None:  # keep output quiet
         pass

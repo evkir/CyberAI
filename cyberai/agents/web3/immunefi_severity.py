@@ -15,7 +15,7 @@ Immunefi smart-contract impact reference (paraphrased):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from .slither_tool import SlitherFinding
@@ -147,7 +147,7 @@ def classify(finding: "SlitherFinding") -> str:
     return _IMPACT_FALLBACK.get((finding.impact, finding.confidence), "Insight")
 
 
-def classify_all(findings: List["SlitherFinding"]) -> List[dict]:
+def classify_all(findings: List["SlitherFinding"]) -> List[Dict[str, Any]]:
     """Classify findings, attaching an `immunefi_severity` field, sorted high→low."""
     rows = []
     for f in findings:
