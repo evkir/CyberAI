@@ -19,6 +19,13 @@ both halves move when modules are added. It has its own tool:
 
 python3 scripts/mypy_badge.py
 
+Adding a module to `[tool.mypy] files` costs its own errors and moves the two
+boundary counters the scope page states, sometimes in directions the module's
+shape does not predict. Read the price before paying it, with the declared
+flags and without editing the manifest:
+
+python3 scripts/scope_price.py cyberai/core/cache.py
+
 ## Lint
 ruff check cyberai/ --fix
 
