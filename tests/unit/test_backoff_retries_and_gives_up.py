@@ -85,6 +85,54 @@ def test_a_failure_outside_the_declared_set_is_not_retried(monkeypatch):
     assert calls["n"] == 1, "a failure the caller did not name must travel at once"
 
 
+def test_zero_attempts_is_refused_before_anything_is_called(monkeypatch):
+    """The helper answers the caller rather than failing inside itself.
+
+    Measured on 2026-09-23: max_retries=0 walked past an empty loop to the
+    final raise with nothing caught, and Python answered `raise None` with
+    "exceptions must derive from BaseException" -- a TypeError naming
+    neither the call nor the reason, logged one line after a claim that the
+    call had failed after zero attempts. mypy had been reporting the same
+    line as [misc] the whole time; the module sits outside [tool.mypy] files,
+    so the checker saw it and the gate did not.
+    """
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    calls = {"n": 0}
+
+    def never_called():
+        calls["n"] += 1
+        return "unreachable"
+
+    with pytest.raises(ValueError, match="at least 1"):
+        exponential_backoff(never_called, max_retries=0, exceptions=(_Boom,))
+    assert calls["n"] == 0, "the refusal comes before the first call, not after"
+
+
+def test_a_negative_ceiling_is_refused_too(monkeypatch):
+    """range() swallows a negative the same way it swallows zero."""
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    with pytest.raises(ValueError, match="got -1"):
+        exponential_backoff(lambda: "x", max_retries=-1, exceptions=(_Boom,))
+
+
+def test_one_attempt_is_allowed_and_calls_once(monkeypatch):
+    """Control: the guard must refuse zero without refusing the smallest run.
+
+    A guard written as `max_retries < 2`, or as a truthiness check on a
+    value that is then decremented, passes both tests above.
+    """
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    calls = {"n": 0}
+
+    def once():
+        calls["n"] += 1
+        raise _Boom("only attempt")
+
+    with pytest.raises(_Boom, match="only attempt"):
+        exponential_backoff(once, max_retries=1, exceptions=(_Boom,))
+    assert calls["n"] == 1
+
+
 def test_no_sleep_happens_after_the_last_attempt(monkeypatch):
     """A delay nobody waits through is a delay the caller pays for nothing."""
     slept: list[float] = []
