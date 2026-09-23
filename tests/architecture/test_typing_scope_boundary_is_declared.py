@@ -1,9 +1,10 @@
 """The typing scope has an edge, and until now nothing said where.
 
-`[tool.mypy] files` names 95 modules and the run reports `Success` on exactly
-95, which reads like a guarantee about those modules and is one only up to
-the boundary. Nineteen of them import a module outside the scope at module
-level. mypy follows such an import to resolve the name and stays silent about
+`[tool.mypy] files` resolves to 107 modules and the run reports `Success` on
+exactly 107, which reads like a guarantee about those modules and is one only
+up to the boundary. Twenty-two of them import a module outside the scope at
+module level. Both numbers were 95 and 19 when this was written and are
+restated here on 2026-09-23; the assertions below are what holds them. mypy follows such an import to resolve the name and stays silent about
 what it finds: appending an unannotated function to `cyberai/core/config.py`,
 which is outside the scope and imported from inside it, changed nothing about
 the output on a cold cache. A name crossing the edge is therefore typed by a
@@ -37,6 +38,9 @@ _PACKAGE = _ROOT / "cyberai"
 # counts and the direction depends on which side of the import it sits.
 # __main__.py reaches three modules nothing else in the scope reaches:
 # cli/audit_verify.py, cli/detector_eval.py, cli/scope.py.
+# 2026-09-23: immunefi_severity.py, bench/apps/_server.py and
+# core/exploit_memory.py were declared, priced at zero on both counters by
+# scripts/scope_price.py before the fact and moving neither afterwards.
 # Third move the same day: agents/exploit/safety_validator.py was declared,
 # and only reached fell, 31 to 30. It imports nothing outside the scope, so
 # it never became a crosser; it stopped being reached. A leaf costs one
@@ -103,7 +107,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 104
+    assert len(_scope()) == 107
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

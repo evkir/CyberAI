@@ -1,6 +1,6 @@
 # Typing scope
 
-`mypy --strict` reads 104 of 172 modules in the package. The other 68 hold 275
+`mypy --strict` reads 107 of 172 modules in the package. The other 65 hold 272
 errors and are not checked.
 
 The scope is a list of named modules, so a module that passes strictly stays
@@ -13,7 +13,7 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 104 modules in the scope, 22 import a module outside it at module level,
+the 107 modules in the scope, 22 import a module outside it at module level,
 and between them they reach 30 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured on 2026-09-17
 by appending an unannotated function to `cyberai/core/config.py`, which was
@@ -68,8 +68,28 @@ before the fact, which is what the numbers here are for.
 A third module went in the same day, `agents/exploit/safety_validator.py`,
 whose public signature declared two implicit Optionals. Only one counter
 moved: it imports nothing outside the scope, so it never was a crosser, and
-reached fell from 31 to 30. A leaf pays one counter and an entry point pays
-both, which is the shape of the rule rather than a number to memorise.
+reached fell from 31 to 30.
+
+Those three moves were once summarised here as a rule -- a leaf pays one
+counter, an entry point pays both. `scripts/scope_price.py` projected all 68
+undeclared modules on 2026-09-23 and the summary does not survive it. The
+moves fall into eleven classes, not two, and `core/cache.py` is the plainest
+refutation: it imports nothing outside the scope, so by that rule it was a
+leaf paying one counter, and it moves both. `agents/intel/epss_client.py` is
+the only module in the scope that reaches it and reaches nothing else, so
+declaring cache.py retires a crosser and a reached module at once.
+
+What the projection shows instead is two independent sums. A candidate
+enters the crosser set if it imports past the edge itself, and it removes
+every module whose only crossing was to reach it; `integrations/phantom_grid.py`
+removes two, which no rule about leaves permits. It adds its own targets to
+the reached set and removes itself if anything already reached it;
+`core/orchestrator.py` adds two while joining no crossing of its own. Because
+the two sums are independent, the observed pairs run from -2 and -1 up to +1
+and +5, and the largest class is neither: twenty modules move nothing at all,
+costing only the errors they carry. The price of a module is therefore read
+per module and before the fact, which is what the tool is for and what this
+paragraph no longer claims to predict.
 
 ## How the set was drawn
 
