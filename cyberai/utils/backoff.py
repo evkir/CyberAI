@@ -72,7 +72,7 @@ def exponential_backoff(
             time.sleep(delay)
 
     logger.error(f"[backoff] {fn.__name__} failed after {max_retries} attempts")
-    if last_exc is None:
+    if last_exc is None:  # pragma: no cover - unreachable while the guard stands
         # Unreachable while max_retries >= 1: the loop runs and either
         # returns or binds last_exc. The checker cannot see that, and the
         # honest way to say so is a branch that reports a broken invariant
