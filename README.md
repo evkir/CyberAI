@@ -417,6 +417,7 @@ methodology and the current scorecard.
 | [docs/benchmarks/cve-bench.md](docs/benchmarks/cve-bench.md) | The external suite, scored 0/3, with the cause |
 | [docs/architecture/risk-register.md](docs/architecture/risk-register.md) | Twenty-two risks to the project, each with a status and the test that holds it |
 | [docs/architecture/typing-scope.md](docs/architecture/typing-scope.md) | What the type checker reads, what it does not, and why |
+| [docs/architecture/refusal.md](docs/architecture/refusal.md) | Every way the tool says no, and why one reader narrows where another refuses |
 | [docs/workflows/htb-with-cyberai.md](docs/workflows/htb-with-cyberai.md) | Walkthrough: a lab box end to end |
 | [docs/workflows/web3-discovery.md](docs/workflows/web3-discovery.md) | Walkthrough: contract discovery to Immunefi export |
 | [docs/usage/examples.md](docs/usage/examples.md) | Command recipes by task |
