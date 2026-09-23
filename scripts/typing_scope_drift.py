@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Report modules that pass `mypy --strict` while sitting outside the scope.
 
-`[tool.mypy] files` names five directories and seventy-two individual modules.
+`[tool.mypy] files` names five directories and eighty-five individual modules
+(measured 2026-09-23; the count moves as modules are declared).
 A directory keeps its guarantee open: a module added inside one is checked from
 the moment it lands. A named module does not. A sibling dropped next to one of
-the seventy-two passes strictly, is never checked, and nothing says so. The
+the named ones passes strictly, is never checked, and nothing says so. The
 declared scope then understates what the repository holds, and it understates
 it more with every module added.
 
