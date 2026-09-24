@@ -176,7 +176,6 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("target")
-@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 # click.Choice over the declared set: an unknown --provider is answered by
 # the parser with the list of names, not by the run with a credential
 # resolved for a provider that does not exist.
@@ -285,7 +284,6 @@ def cli() -> None:
 )
 def scan(
     target: str,
-    verbose: bool,
     provider: Provider | None,
     model: str | None,
     dry_run: bool,
@@ -317,9 +315,6 @@ def scan(
     console.print(Panel(f"[bold]Target:[/bold] {target}", style="red"))
 
     config = CyberAIConfig.from_env()
-    # -v forces verbose on; without it, CYBERAI_VERBOSE from the env survives.
-    if verbose:
-        config.verbose = True
     if provider:
         config.llm.provider = provider
     # --model wins; otherwise a new provider re-resolves its default

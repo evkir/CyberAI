@@ -231,7 +231,6 @@ class CyberAIConfig:
     phantom: PhantomConfig = field(default_factory=PhantomConfig)
     intel: IntelConfig = field(default_factory=IntelConfig)
     output_dir: Path = Path("reports/")
-    verbose: bool = False
     timeout: int = 60
     max_agent_iterations: int = 10
     # Hard budget for total LLM spend in this scan, USD. 0.0 disables the check.
@@ -347,7 +346,6 @@ class CyberAIConfig:
             ),
             routing=routing,
             output_dir=output_dir,
-            verbose=_env_bool("CYBERAI_VERBOSE", False),
             timeout=_env_int("CYBERAI_TIMEOUT", 60),
             max_agent_iterations=_env_int("CYBERAI_MAX_AGENT_ITERATIONS", 10),
             max_cost_usd=_env_float("CYBERAI_MAX_COST_USD", 0.0),

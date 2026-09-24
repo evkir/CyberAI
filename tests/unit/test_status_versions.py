@@ -116,10 +116,10 @@ def test_every_field_the_orchestrator_reads_reaches_the_screen() -> None:
     """The screen shows what governs the run, checked against the run.
 
     Not a hand-written list: the fields are scanned out of orchestrator.py,
-    so a control added there without a line here fails. Four fields on
-    CyberAIConfig are read by nobody at all -- intel, timeout, verbose,
-    use_lab_dogfood -- and a rule written as "every field" would have
-    demanded a line for a lever that moves nothing.
+    so a control added there without a line here fails. The map is smaller
+    than the dataclass because a field the orchestrator never reads governs
+    nothing on this screen -- a rule written as "every field" would demand
+    a line for levers that move elsewhere or, until this commit, nowhere.
     """
     root = pathlib.Path(__file__).resolve().parents[2]
     tree = ast.parse((root / "cyberai" / "core" / "orchestrator.py").read_text())
