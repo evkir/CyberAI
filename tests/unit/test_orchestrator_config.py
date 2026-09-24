@@ -372,7 +372,6 @@ def test_from_env_all_bool_flags_enabled(monkeypatch):
 # -- Numeric / path env passthrough (from_env) --
 
 _NUMERIC_ENV_VARS = [
-    "CYBERAI_TIMEOUT",
     "CYBERAI_MAX_AGENT_ITERATIONS",
     "CYBERAI_MAX_COST_USD",
     "CYBERAI_JUDGE_THRESHOLD",
@@ -419,7 +418,6 @@ def test_env_int_invalid_and_empty_use_default(monkeypatch):
 def test_from_env_numeric_defaults(monkeypatch):
     _clear_numeric_env(monkeypatch)
     cfg = CyberAIConfig.from_env()
-    assert cfg.timeout == 60
     assert cfg.max_agent_iterations == 10
     assert cfg.max_cost_usd == 0.0
     assert cfg.judge_threshold == 0.7
@@ -431,7 +429,6 @@ def test_from_env_numeric_defaults(monkeypatch):
 
 def test_from_env_numeric_overrides(monkeypatch):
     _clear_numeric_env(monkeypatch)
-    monkeypatch.setenv("CYBERAI_TIMEOUT", "120")
     monkeypatch.setenv("CYBERAI_MAX_AGENT_ITERATIONS", "20")
     monkeypatch.setenv("CYBERAI_MAX_COST_USD", "5.0")
     monkeypatch.setenv("CYBERAI_JUDGE_THRESHOLD", "0.9")
@@ -440,7 +437,6 @@ def test_from_env_numeric_overrides(monkeypatch):
     monkeypatch.setenv("CYBERAI_LAB_MACHINES_DIR", "/home/x/oscp/machines")
     monkeypatch.setenv("CYBERAI_OUTPUT_DIR", "/tmp/out")
     cfg = CyberAIConfig.from_env()
-    assert cfg.timeout == 120
     assert cfg.max_agent_iterations == 20
     assert cfg.max_cost_usd == 5.0
     assert cfg.judge_threshold == 0.9

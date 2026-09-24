@@ -221,17 +221,10 @@ class PhantomConfig:
 
 
 @dataclass
-class IntelConfig:
-    nvd_api_key: Optional[str] = field(default_factory=lambda: os.getenv("NVD_API_KEY"))
-
-
-@dataclass
 class CyberAIConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     phantom: PhantomConfig = field(default_factory=PhantomConfig)
-    intel: IntelConfig = field(default_factory=IntelConfig)
     output_dir: Path = Path("reports/")
-    timeout: int = 60
     max_agent_iterations: int = 10
     # Hard budget for total LLM spend in this scan, USD. 0.0 disables the check.
     max_cost_usd: float = 0.0
@@ -346,7 +339,6 @@ class CyberAIConfig:
             ),
             routing=routing,
             output_dir=output_dir,
-            timeout=_env_int("CYBERAI_TIMEOUT", 60),
             max_agent_iterations=_env_int("CYBERAI_MAX_AGENT_ITERATIONS", 10),
             max_cost_usd=_env_float("CYBERAI_MAX_COST_USD", 0.0),
             judge_threshold=_env_float("CYBERAI_JUDGE_THRESHOLD", 0.7),
