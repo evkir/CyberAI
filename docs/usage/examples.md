@@ -3,7 +3,6 @@
 ## CLI
 cyberai scan 10.10.10.1 --scope 10.10.10.0/24 --output ./reports/
 cyberai scan target.htb --dry-run
-cyberai scan 10.10.10.1 -v
 
 ## Full pipeline
 import asyncio

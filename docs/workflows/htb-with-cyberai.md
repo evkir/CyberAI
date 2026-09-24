@@ -67,10 +67,18 @@ result = run_machine(
 
 ## Configuration
 
-Two config fields gate and tune the feature (both inert by default):
-
-- `use_lab_dogfood` — off by default; opt in to wire lab parsing into your flow
+- `use_lab_dogfood` — off by default; gates the `/api/lab` dashboard routes
 - `lab_flag_patterns` — extra flag regexes, empty by default
+- `lab_machines_dir` — where the dashboard looks for machine folders
+
+With `use_lab_dogfood` off, both `/api/lab` endpoints answer with a refusal
+naming itself rather than with data. That refusal is distinct from an empty
+list: enabled with no `lab_machines_dir` set is a configuration that has
+nothing to show, while disabled is a feature that was never turned on.
+
+The flag gates the dashboard, not the library. `run_machine` and
+`generate_writeup` are importable and work regardless, as the usage above
+shows — they read files off disk and answer, with no config in the path.
 
 The lab tooling is standalone and is not part of the recon → intel → exploit →
 report pipeline.

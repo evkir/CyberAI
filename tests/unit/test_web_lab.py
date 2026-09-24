@@ -19,8 +19,15 @@ def _machine(root: Path, name: str, *, flag: str | None = None) -> None:
         (m / "loot" / "proof.txt").write_text(flag)
 
 
-def _client(machines_dir: Path | None, patterns=None) -> TestClient:
+def _client(machines_dir: Path | None, patterns=None, *, enabled: bool = True) -> TestClient:
+    """A client for the lab routes, with the feature on unless asked otherwise.
+
+    The tests below are about what the routes report once the operator has
+    turned the feature on, so the flag defaults to on here and the two cases
+    that assert the refusal pass enabled=False.
+    """
     cfg = CyberAIConfig()
+    cfg.use_lab_dogfood = enabled
     if machines_dir is not None:
         cfg.lab_machines_dir = str(machines_dir)
     if patterns is not None:
@@ -28,7 +35,31 @@ def _client(machines_dir: Path | None, patterns=None) -> TestClient:
     return TestClient(create_app(cfg))
 
 
+def test_machines_refused_unless_enabled(tmp_path):
+    """Disabled is not the same answer as unconfigured.
+
+    Both used to produce an empty list, which is why the flag could gate
+    nothing for as long as it did: a configured directory served machines
+    whether or not the documented switch was on. The refusal names itself
+    so the two are distinguishable from the outside.
+    """
+    _machine(tmp_path, "brainpan", flag="a" * 32)
+    client = _client(tmp_path, enabled=False)
+    body = client.get("/api/lab/machines").json()
+    assert body["error"] == "lab dogfood disabled"
+    assert body["count"] == 0
+
+
+def test_writeup_refused_unless_enabled(tmp_path):
+    _machine(tmp_path, "brainpan", flag="a" * 32)
+    client = _client(tmp_path, enabled=False)
+    body = client.get("/api/lab/machines/brainpan").json()
+    assert body["error"] == "lab dogfood disabled"
+    assert "markdown" not in body
+
+
 def test_machines_unconfigured_is_empty():
+    """Enabled but with no directory named: an empty list, not a refusal."""
     client = _client(None)
     r = client.get("/api/lab/machines")
     assert r.json() == {"machines": [], "count": 0}
