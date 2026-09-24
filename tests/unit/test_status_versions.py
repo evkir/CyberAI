@@ -18,6 +18,10 @@ from cyberai import __main__ as main
 from cyberai.bench import environment as env
 from cyberai.bench.run_manifest import ToolVersion
 
+# The one probe the fake answers for with no path, so that the found half and
+# the missing half of the display cannot both be right by construction.
+_ABSENT = "halmos"
+
 
 def test_plain_status_starts_no_process(tmp_path, monkeypatch) -> None:
     """A tool has to be found before "nothing ran" means anything.
@@ -44,22 +48,34 @@ def test_plain_status_starts_no_process(tmp_path, monkeypatch) -> None:
 
 
 def test_the_flag_reports_the_version_the_tool_prints(tmp_path, monkeypatch) -> None:
+    """The reading is asserted where it is produced, not where it is wrapped."""
     stub = tmp_path / "nmap"
     stub.write_text("#!/bin/sh\necho 'Nmap version 7.98 ( https://nmap.org )'\n")
     stub.chmod(0o755)
     monkeypatch.setenv("NMAP_PATH", str(stub))
-    result = CliRunner().invoke(main.cli, ["status", "--versions"])
-    assert "nmap 7.98" in result.output
+    found, _ = main._toolchain_lines(versions=True)
+    assert "nmap 7.98" in found
 
 
 def test_a_located_tool_with_no_flag_says_so_rather_than_guessing(tmp_path, monkeypatch) -> None:
-    """searchsploit and mas-sentry carry flag=None: no version was ever measured."""
+    """searchsploit and mas-sentry carry flag=None: no version was ever measured.
+
+    Asserted against the line the command builds, not against the panel it
+    prints. Rich wraps the rendered panel at the console width, and the found
+    half is one comma-separated run of every located tool, so the wrap point
+    is decided by how many binaries happen to be installed on the machine
+    running the suite. On a host with the whole toolchain present the break
+    lands inside this very phrase and the assertion fails on a tree that is
+    correct; on a host missing one tool it lands elsewhere and passes for no
+    better reason. A test whose verdict is a function of the operator's PATH
+    measures the machine instead of the product.
+    """
     stub = tmp_path / "searchsploit"
     stub.write_text("#!/bin/sh\necho 'Usage: searchsploit'\n")
     stub.chmod(0o755)
     monkeypatch.setenv("SEARCHSPLOIT_PATH", str(stub))
-    result = CliRunner().invoke(main.cli, ["status", "--versions"])
-    assert f"searchsploit ({env.FLAG_NOT_MEASURED})" in result.output
+    found, _ = main._toolchain_lines(versions=True)
+    assert f"searchsploit ({env.FLAG_NOT_MEASURED})" in found
 
 
 def test_the_screen_names_the_source_of_the_one_control_that_defaults_on() -> None:
@@ -152,13 +168,25 @@ def test_one_pass_decides_both_halves(monkeypatch) -> None:
     Two walks over the resolvers can disagree, and a display that disagrees
     with itself is the defect this file's sibling commit removed between the
     CLI and the run manifest.
+
+    One probe answers with no path, so the two halves disagree about it.
+    An earlier revision handed every probe a path and asserted that nothing
+    was missing -- true of the code as written and equally true of a version
+    that never looks at path at all, which mutation confirmed by emptying
+    the missing half and watching this test pass. An assertion is only a
+    check where its input tells the two apart.
     """
     resolved: list[str] = []
     probed: list[str] = []
 
     def probe(probes=env.TOOL_PROBES, **kwargs: object):  # type: ignore[no-untyped-def]
         probed.append("once")
-        return tuple(ToolVersion(p.name, "/somewhere/" + p.name, "1.0", "") for p in probes)
+        return tuple(
+            ToolVersion(p.name, None, None, env.NOT_INSTALLED)
+            if p.name == _ABSENT
+            else ToolVersion(p.name, "/somewhere/" + p.name, "1.0", "")
+            for p in probes
+        )
 
     monkeypatch.setattr(main, "probe_toolchain", probe)
     monkeypatch.setattr(
@@ -170,4 +198,4 @@ def test_one_pass_decides_both_halves(monkeypatch) -> None:
 
     assert probed == ["once"]
     assert resolved == [], f"a second walk asked the resolvers again: {resolved}"
-    assert "Tools missing: none" in result.output
+    assert f"Tools missing: {_ABSENT}" in result.output
