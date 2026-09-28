@@ -59,6 +59,16 @@ def collected() -> int:
         text=True,
         check=False,
     )
+    # A collection that did not finish still prints a count, and it prints the
+    # part it managed: "2954/2975 tests collected (21 deselected), 1 error".
+    # Read for a number alone and a tree with a broken import answers 2954 --
+    # smaller than the truth, shaped exactly like it, and written into the
+    # README and the post as a measurement. The exit status is what tells the
+    # two apart, so it is read before the number is.
+    assert result.returncode == 0, (
+        f"pytest exited {result.returncode} while collecting; the count it printed "
+        f"describes what it reached, not what exists:\n{result.stdout[-2000:]}"
+    )
     match = re.search(r"(\d+)(?:/\d+)? tests? collected", result.stdout)
     assert match, f"could not read a collection count from pytest:\n{result.stdout[-2000:]}"
     return int(match.group(1))

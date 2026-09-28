@@ -30,7 +30,10 @@ the machine it last ran on.
 import importlib.util
 import pathlib
 import shutil
+import subprocess
 import types
+
+import pytest
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _SCRIPT = _ROOT / "scripts" / "tests_badge.py"
@@ -112,3 +115,51 @@ def test_the_sentence_is_found_across_a_line_break(tmp_path) -> None:
     assert tool.claimed_in_post(copy) == 7
     assert tool.rewrite_post(9, copy) is True
     assert tool.claimed_in_post(copy) == 9
+
+
+@pytest.mark.parametrize("status", [1, 2, 5])
+def test_an_unfinished_collection_is_not_a_count(monkeypatch, status: int) -> None:
+    """The number pytest prints after a collection error is the part it reached.
+
+    Measured on this tree: one unimportable test module and the run ends with
+    "2954/2975 tests collected (21 deselected), 1 error", exit status 2. The
+    first number is smaller than the truth and shaped exactly like it, so a
+    reader that takes the number and drops the status writes a short count
+    into the README and the post, and the badge gate then compares that count
+    against itself and passes. The status is the only thing that separates a
+    partial collection from a whole one.
+
+    Three statuses, because "not the one I saw" is not the property: 2 is the
+    collection error measured here, 1 is a run that collected and then failed,
+    5 is a run that collected nothing. A guard written against 2 alone admits
+    the other two and survives a test that only ever sends 2.
+    """
+    tool = _badge_tool()
+    partial = "========= 2954/2975 tests collected (21 deselected), 1 error in 2.80s =========="
+    monkeypatch.setattr(
+        tool.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], status, partial, ""),
+    )
+    with pytest.raises(AssertionError) as caught:
+        tool.collected()
+    assert "2954" not in str(caught.value).split("\n")[0], (
+        "the failure quotes the partial count as if it were the answer"
+    )
+    assert f"exited {status}" in str(caught.value)
+
+
+def test_a_finished_collection_of_the_same_shape_is_read(monkeypatch) -> None:
+    """The guard above must reject the status, not the sentence.
+
+    Same wording, same two numbers, exit status 0: this is what a clean run
+    that deselects looks like, and it has to come back as a number.
+    """
+    tool = _badge_tool()
+    whole = "========= 2954/2975 tests collected (21 deselected) in 2.80s =========="
+    monkeypatch.setattr(
+        tool.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, whole, ""),
+    )
+    assert tool.collected() == 2954

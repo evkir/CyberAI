@@ -75,7 +75,7 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = ["E", "F", "I", "PGH003", "W"]
 ignore = ["E501"]
 
 [tool.cyberai.measurement]
@@ -84,6 +84,12 @@ ignore = ["E501"]
 # names the one that was actually read. A release inside the bound moved the
 # partition by one module and turned the gate red on an untouched tree, so the
 # bound alone does not say what the numbers mean.
+#
+# Only tools named here are checked, and the check is narrow by design: the
+# guard demands a >= bound that admits the version and a page that names it.
+# A transitive dependency has neither, so it is pinned rather than declared.
+# mcp 2.0.0 requires mcp-types==2.0.0 exactly, so naming mcp fixes both; an
+# mcp-types key would state a measurement no bound admits and fail the guard.
 mypy = "1.19.1"
 mcp = "2.0.0"
 
