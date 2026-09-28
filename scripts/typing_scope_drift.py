@@ -43,9 +43,9 @@ import pathlib
 import re
 import subprocess
 import sys
-from importlib.metadata import PackageNotFoundError, version
 import tempfile
 import tomllib
+from importlib.metadata import PackageNotFoundError, version
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
 _PYPROJECT = _ROOT / "pyproject.toml"
