@@ -37,6 +37,16 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **A collection that stopped early can no longer write the test badge.**
+  `scripts/tests_badge.py` read the count pytest prints and ignored the exit
+  status, and a collection interrupted by one unimportable module prints the
+  part it reached: measured here, 2954 against a true 3005, exit 2. Nothing
+  turned red. The script would have written the short number into the README
+  badge and the launch post, and the gate that checks the badge compares it
+  against the same short count, so the public figure would have described a
+  tree where part of the suite never loaded. The status is now read before
+  the number, over the three exit codes that mean an incomplete run.
+
 - **Nothing can name a provider that does not exist.** `CYBERAI_LLM_PROVIDER`
   and `--provider` both assigned a plain string onto a field declared
   `Literal["openai", "anthropic", "ollama"]`, and the router put a `str`
