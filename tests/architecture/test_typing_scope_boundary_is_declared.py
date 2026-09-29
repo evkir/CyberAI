@@ -45,8 +45,8 @@ _PACKAGE = _ROOT / "cyberai"
 # and only reached fell, 31 to 30. It imports nothing outside the scope, so
 # it never became a crosser; it stopped being reached. A leaf costs one
 # counter, an entry point costs both.
-_EXPECTED_CROSSERS = 22
-_EXPECTED_REACHED = 30
+_EXPECTED_CROSSERS = 21
+_EXPECTED_REACHED = 29
 
 
 def _scope() -> set[pathlib.Path]:
@@ -107,7 +107,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 107
+    assert len(_scope()) == 108
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

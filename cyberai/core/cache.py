@@ -59,7 +59,7 @@ class FileCache:
             count += 1
         return count
 
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         files = list(self.cache_dir.glob("*.json"))
         expired = 0
         for f in files:
