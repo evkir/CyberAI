@@ -176,6 +176,7 @@ files = [
     "cyberai/core/cost_tracker.py",
     "cyberai/core/egress_guard.py",
     "cyberai/core/exploit_memory.py",
+    "cyberai/core/knowledge_base.py",
     "cyberai/core/llm_usage.py",
     "cyberai/core/model_router.py",
     "cyberai/core/phase_map.py",
