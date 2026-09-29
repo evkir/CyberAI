@@ -18,6 +18,8 @@ import re
 import tomllib
 import urllib.parse
 
+import pytest
+
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
 _README = _ROOT / "README.md"
 _PYPROJECT = _ROOT / "pyproject.toml"
@@ -72,3 +74,79 @@ def test_the_page_names_the_release_it_was_measured_with() -> None:
     assert floor in _PAGE.read_text(encoding="utf-8"), (
         f"the page does not name mypy {floor}, the release the dev extra pins the floor to"
     )
+
+
+_ISO = re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")
+
+
+def _paragraph_holding(needle: str) -> str:
+    blocks = _PAGE.read_text(encoding="utf-8").split("\n\n")
+    return next(block for block in blocks if needle in block)
+
+
+def test_the_error_count_beside_the_ratio_is_dated() -> None:
+    """The ratio is gated; the count beside it is not, so it has to carry a date.
+
+    The page dates every other count it states -- seven of them by 2026-09-29 --
+    and states this one without a date. Twice the disagreement was closed by
+    remeasuring the number, which holds until the tree moves again. What was
+    never asked is why this sentence stands undated while its neighbours do not.
+    """
+    block = _paragraph_holding("of 172 modules")
+    assert _ISO.search(block), (
+        "the error count sits beside a gated ratio without a measurement date; "
+        f"the paragraph reads {block!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "measured on 2026-09-17",
+        "as of 2026-09-20",
+        "measured 2026-09-29 with mypy 1.19.1",
+        "dated 2026-01-05 and still true",
+    ],
+)
+def test_the_date_reader_accepts_every_form_the_page_uses(text: str) -> None:
+    """The reader is checked apart from the guard that leans on it.
+
+    A reader written against the one wording in front of it passes the guard
+    for the wrong reason: the page happens to use that wording today.
+    """
+    assert _ISO.search(text), f"a dated sentence read as undated: {text!r}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "measured in 2026",
+        "measured 09/29/2026",
+        "measured September 2026",
+        "measured 2026-9-29",
+        "measured 2026-09",
+        "over the whole package",
+    ],
+)
+def test_the_date_reader_refuses_anything_short_of_a_day(text: str) -> None:
+    """Each entry is an input where a plausible weakening reads the text differently.
+
+    Picked by mutation rather than by eye: dropping the day from the pattern,
+    dropping the word boundary and widening the year each left every earlier
+    entry green. A set assembled from the wordings the page happens to use
+    checks the wordings, not the reader.
+    """
+    assert not _ISO.search(text), f"an undated sentence read as dated: {text!r}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "build 12026-09-29 finished",
+        "ticket 2026-09-2999 closed",
+        "measured 1899-09-29",
+        "measured 3026-09-29",
+    ],
+)
+def test_the_date_reader_refuses_a_number_that_only_looks_like_a_date(text: str) -> None:
+    assert not _ISO.search(text), f"a digit run read as a date: {text!r}"
