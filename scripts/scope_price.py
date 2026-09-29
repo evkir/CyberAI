@@ -24,6 +24,14 @@ guard by luck and diverge without warning.
 A run that produces no verdict line is not a clean module. `mypy` absent from
 the environment writes nothing to standard output, and every count taken from
 that silence reads as zero errors on a module nobody checked.
+
+Priced with no arguments it reads the whole outside, and that costs about half
+an hour: 65 modules in 29m17s measured 2026-09-29, a little under half a minute
+each, because every candidate gets its own `mypy` over a config written to a
+temporary directory. This is a tool for planning a day, not a step in the gate,
+and the docstring says so because the runtime is the only thing about it that a
+caller cannot see before waiting. The number moves with the size of the outside
+and with the machine, so it is dated here rather than asserted by a test.
 """
 
 from __future__ import annotations

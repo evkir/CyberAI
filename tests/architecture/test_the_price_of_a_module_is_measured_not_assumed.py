@@ -24,8 +24,10 @@ package is installed, and a gate resting on the install mode is a gate about
 one machine.
 """
 
+import ast
 import importlib.util
 import pathlib
+import re
 import subprocess
 import types
 
@@ -120,3 +122,56 @@ def test_the_count_belongs_to_the_module_it_is_charged_to() -> None:
     )
     assert module.errors_in(output, _ROOT / "cyberai" / "core" / "cache.py") == 2
     assert module.errors_in(output, _ROOT / "cyberai" / "core" / "logger.py") == 1
+
+
+_ISO = re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")
+_COST = re.compile(r"\b\d+m\d+s\b|\bhalf an hour\b|\bminutes?\b")
+
+
+def test_the_pricer_says_what_a_full_run_costs() -> None:
+    """A caller learns the runtime by waiting for it, unless the script says.
+
+    The default run prices every module outside the scope, one checker process
+    each, and returns in about half an hour. Nothing in the signature carries
+    that, so the first reader to reach for it in a gate finds out by blocking
+    the gate. The figure moves with the size of the outside and with the
+    machine, so it is dated rather than pinned: a test asserting the seconds
+    would fail on the next machine and teach the next reader to delete it.
+    """
+    docstring = ast.get_docstring(ast.parse(_SCRIPT.read_text(encoding="utf-8")))
+    assert docstring is not None, "the pricer has no docstring to carry its cost"
+    paragraphs = [block for block in docstring.split("\n\n") if _COST.search(block)]
+    assert paragraphs, (
+        "the pricer never says what a full run costs; a reader learns the "
+        f"runtime by waiting. The docstring reads {docstring!r}"
+    )
+    for block in paragraphs:
+        assert _ISO.search(block), (
+            "the pricer states a runtime with no date beside it, and a runtime "
+            f"moves with the tree and the machine. The paragraph reads {block!r}"
+        )
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["measured 2026-09-29", "on 2026-01-05", "2026-12-31 and later"],
+)
+def test_the_date_reader_accepts_a_full_date(text: str) -> None:
+    assert _ISO.search(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "measured in 2026",
+        "measured 2026-09",
+        "measured 09/29/2026",
+        "measured 2026-9-29",
+        "build 12026-09-29",
+        "ticket 2026-09-2999",
+        "measured 1899-09-29",
+        "about half an hour",
+    ],
+)
+def test_the_date_reader_refuses_anything_less(text: str) -> None:
+    assert not _ISO.search(text), f"read as dated: {text!r}"
