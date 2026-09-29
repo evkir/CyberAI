@@ -68,7 +68,7 @@ class KnowledgeBase:
             kb.set(key, value, agent="replay")
         return kb
 
-    def history(self) -> List[Dict]:
+    def history(self) -> List[Dict[str, str]]:
         return [{"key": e.key, "agent": e.agent, "timestamp": e.timestamp} for e in self._history]
 
     # ── dict-like access ──────────────────────────────────────────────
