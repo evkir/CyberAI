@@ -3,6 +3,12 @@ Tests for Orchestrator + CyberAIConfig integration.
 
 Covers the KI-1 fix: orchestrator accepts config, builds llm lazily,
 and the CLI wiring works in dry-run.
+
+The status assertions read _status_body rather than the rendered panel.
+Rich decides the wrap point from the console width, so a substring checked
+against the render carries the operator's terminal in its verdict, and the
+toolchain line moves that point from host to host. test_cli_status_works
+keeps the invocation, because the exit code of the command is its subject.
 """
 
 from __future__ import annotations
@@ -11,7 +17,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from cyberai.__main__ import _apply_feature_overrides, cli
+from cyberai.__main__ import _apply_feature_overrides, _status_body, cli
 from cyberai.core.config import (
     CyberAIConfig,
     LLMConfig,
@@ -105,10 +111,9 @@ def test_cli_without_the_flag_leaves_destructive_off():
 
 
 def test_cli_status_works():
-    runner = CliRunner()
-    result = runner.invoke(cli, ["status"])
+    result = CliRunner().invoke(cli, ["status"])
     assert result.exit_code == 0
-    assert "Provider" in result.output
+    assert "Provider" in _status_body()
 
 
 def test_status_reports_the_configured_trust_boundary(monkeypatch):
@@ -118,19 +123,18 @@ def test_status_reports_the_configured_trust_boundary(monkeypatch):
     """
     monkeypatch.setenv("CYBERAI_INJECTION_POLICY", "deny")
     monkeypatch.setenv("CYBERAI_INJECTION_THRESHOLD", "70")
-    result = CliRunner().invoke(cli, ["status"])
-    assert result.exit_code == 0
-    assert "deny" in result.output
-    assert "70" in result.output
+    body = _status_body()
+    assert "deny" in body
+    assert "70" in body
 
 
 def test_status_reports_the_defaults_when_nothing_is_set(monkeypatch):
     """Control: without this the assertion above passes on hardcoded text."""
     monkeypatch.delenv("CYBERAI_INJECTION_POLICY", raising=False)
     monkeypatch.delenv("CYBERAI_INJECTION_THRESHOLD", raising=False)
-    result = CliRunner().invoke(cli, ["status"])
-    assert ANNOTATE in result.output
-    assert str(DEFAULT_THRESHOLD) in result.output
+    body = _status_body()
+    assert ANNOTATE in body
+    assert str(DEFAULT_THRESHOLD) in body
 
 
 def test_status_prints_what_the_guard_resolved_not_what_was_asked_for(monkeypatch):
@@ -138,27 +142,27 @@ def test_status_prints_what_the_guard_resolved_not_what_was_asked_for(monkeypatc
     value that will act, not the string the operator typed."""
     monkeypatch.setenv("CYBERAI_INJECTION_POLICY", "aggressive")
     monkeypatch.setenv("CYBERAI_INJECTION_THRESHOLD", "soon")
-    result = CliRunner().invoke(cli, ["status"])
-    assert "aggressive" not in result.output
-    assert "soon" not in result.output
-    assert ANNOTATE in result.output
-    assert str(DEFAULT_THRESHOLD) in result.output
+    body = _status_body()
+    assert "aggressive" not in body
+    assert "soon" not in body
+    assert ANNOTATE in body
+    assert str(DEFAULT_THRESHOLD) in body
 
 
 def test_status_shows_the_sampling_settings(monkeypatch):
     monkeypatch.setenv("CYBERAI_TEMPERATURE", "0.7")
     monkeypatch.setenv("CYBERAI_SEED", "1337")
-    result = CliRunner().invoke(cli, ["status"])
-    assert "0.7" in result.output
-    assert "1337" in result.output
+    body = _status_body()
+    assert "0.7" in body
+    assert "1337" in body
 
 
 def test_status_says_an_unpinned_seed_is_not_set(monkeypatch):
     """Not measured is not zero. An absent seed must not read as 0."""
     monkeypatch.delenv("CYBERAI_SEED", raising=False)
-    result = CliRunner().invoke(cli, ["status"])
-    assert "not set" in result.output
-    assert "Seed: 0" not in result.output
+    body = _status_body()
+    assert "not set" in body
+    assert "Seed: 0" not in body
 
 
 def test_status_says_a_seed_does_nothing_on_anthropic(monkeypatch):
@@ -166,20 +170,20 @@ def test_status_says_a_seed_does_nothing_on_anthropic(monkeypatch):
     promise reproducibility this path cannot deliver."""
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("CYBERAI_SEED", "1337")
-    result = CliRunner().invoke(cli, ["status"])
-    assert "unsupported" in result.output
-    assert "not set" not in result.output
+    body = _status_body()
+    assert "unsupported" in body
+    assert "not set" not in body
 
 
 def test_status_reports_air_gapped(monkeypatch):
     monkeypatch.setenv("CYBERAI_AIR_GAPPED", "1")
-    assert "Air-gapped: on" in CliRunner().invoke(cli, ["status"]).output
+    assert "Air-gapped: on" in _status_body()
 
 
 def test_status_reports_air_gapped_off_by_default(monkeypatch):
     """Control: the line above would pass on a hardcoded string."""
     monkeypatch.delenv("CYBERAI_AIR_GAPPED", raising=False)
-    assert "Air-gapped: off" in CliRunner().invoke(cli, ["status"]).output
+    assert "Air-gapped: off" in _status_body()
 
 
 def test_status_names_the_variable_the_provider_needs(monkeypatch):
@@ -187,44 +191,40 @@ def test_status_names_the_variable_the_provider_needs(monkeypatch):
     export. Until the resolver was fixed that name was always OPENAI's."""
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
-    result = CliRunner().invoke(cli, ["status"])
-    assert "ANTHROPIC_API_KEY" in result.output
-    assert "set" in result.output
-    assert "sk-anthropic" not in result.output
+    body = _status_body()
+    assert "set (ANTHROPIC_API_KEY)" in body
+    assert "sk-anthropic" not in body
 
 
 def test_status_says_a_key_is_missing_when_it_is(monkeypatch):
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    result = CliRunner().invoke(cli, ["status"])
-    assert "missing (ANTHROPIC_API_KEY)" in result.output
+    assert "missing (ANTHROPIC_API_KEY)" in _status_body()
 
 
 def test_status_says_a_local_provider_needs_no_key(monkeypatch):
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "ollama")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    result = CliRunner().invoke(cli, ["status"])
-    assert "API key: not required" in result.output
+    assert "API key: not required" in _status_body()
 
 
 def test_status_never_prints_the_key_itself(monkeypatch):
     """Control: the assertions above would pass on a line that leaked it."""
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret-value")
-    assert "sk-secret-value" not in CliRunner().invoke(cli, ["status"]).output
+    assert "sk-secret-value" not in _status_body()
 
 
 def test_status_names_the_second_layer_when_it_is_on(monkeypatch):
     monkeypatch.setenv("CYBERAI_DETECTOR_L2", "1")
-    result = CliRunner().invoke(cli, ["status"])
-    assert DEFAULT_MODEL in result.output
+    assert DEFAULT_MODEL in _status_body()
 
 
 def test_status_says_the_second_layer_is_off_by_default(monkeypatch):
     monkeypatch.delenv("CYBERAI_DETECTOR_L2", raising=False)
-    result = CliRunner().invoke(cli, ["status"])
-    assert DEFAULT_MODEL not in result.output
-    assert "off" in result.output
+    body = _status_body()
+    assert DEFAULT_MODEL not in body
+    assert "off" in body
 
 
 # ── Per-provider default model resolution ─────────────────────────────
