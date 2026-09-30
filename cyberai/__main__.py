@@ -602,6 +602,50 @@ def _api_key_line(llm: LLMConfig) -> str:
     return f"{'set' if llm.api_key else 'missing'} ({variable})"
 
 
+def _status_body(*, versions: bool = False) -> str:
+    """Every line the status panel shows, built before anything renders it.
+
+    Rich wraps the rendered panel at the console width, and the found half of
+    the toolchain line is one comma-separated run over whichever binaries
+    resolve on this host, so where it breaks is decided by the operator's
+    PATH. An assertion read off the rendered text carries that machine in its
+    verdict: the same tree comes out green on a host missing a tool and red on
+    one with the whole toolchain installed. A caller that needs to check a
+    line reads it here, where no width applies.
+
+    The panel is a display of this string and adds nothing to it, so a line
+    absent here is absent from the screen.
+    """
+    config = CyberAIConfig.from_env()
+    # The guard a real client would build from this config, not a second
+    # reading of the environment. policy_from_env degrades an unusable
+    # value; printing the raw setting would name a policy that never acts.
+    guard = LLMClient(config.llm).guard
+    classifier = guard.classifier
+    tools_found, tools_missing = _toolchain_lines(versions=versions)
+    return (
+        f"Provider: {config.llm.provider}\n"
+        f"Model: {config.llm.model}\n"
+        f"Output: {config.output_dir}\n"
+        f"Injection policy: {guard.policy}\n"
+        f"Injection threshold: {guard.threshold}\n"
+        f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}\n"
+        f"Temperature: {config.llm.temperature}\n"
+        f"Seed: {_seed_line(config.llm)}\n"
+        f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
+        f"API key: {_api_key_line(config.llm)}\n"
+        f"Tools found: {tools_found}\n"
+        f"Tools missing: {tools_missing}\n"
+        f"Strict scope: {_strict_scope_line(config)}\n"
+        f"Cost budget: {_budget_line(config)}\n"
+        f"Planner: {'on' if config.enable_planner else 'off'}\n"
+        f"Replan: {'on' if config.enable_replan else 'off'}\n"
+        f"Model routing: {'on' if config.routing.enable_model_routing else 'off'}\n"
+        f"Web recon: {'on' if config.use_web_recon else 'off'}\n"
+        f"Planned redteam: {'on' if config.use_planned_redteam else 'off'}"
+    )
+
+
 @cli.command()
 @click.option(
     "--versions",
@@ -610,37 +654,7 @@ def _api_key_line(llm: LLMConfig) -> str:
 )
 def status(versions: bool) -> None:
     """Show CyberAI status and config."""
-    config = CyberAIConfig.from_env()
-    # The guard a real client would build from this config, not a second
-    # reading of the environment. policy_from_env degrades an unusable
-    # value; printing the raw setting would name a policy that never acts.
-    guard = LLMClient(config.llm).guard
-    classifier = guard.classifier
-    tools_found, tools_missing = _toolchain_lines(versions=versions)
-    console.print(
-        Panel(
-            f"Provider: {config.llm.provider}\n"
-            f"Model: {config.llm.model}\n"
-            f"Output: {config.output_dir}\n"
-            f"Injection policy: {guard.policy}\n"
-            f"Injection threshold: {guard.threshold}\n"
-            f"L2 classifier: {'on — ' + classifier.model if classifier else 'off'}\n"
-            f"Temperature: {config.llm.temperature}\n"
-            f"Seed: {_seed_line(config.llm)}\n"
-            f"Air-gapped: {'on' if config.air_gapped else 'off'}\n"
-            f"API key: {_api_key_line(config.llm)}\n"
-            f"Tools found: {tools_found}\n"
-            f"Tools missing: {tools_missing}\n"
-            f"Strict scope: {_strict_scope_line(config)}\n"
-            f"Cost budget: {_budget_line(config)}\n"
-            f"Planner: {'on' if config.enable_planner else 'off'}\n"
-            f"Replan: {'on' if config.enable_replan else 'off'}\n"
-            f"Model routing: {'on' if config.routing.enable_model_routing else 'off'}\n"
-            f"Web recon: {'on' if config.use_web_recon else 'off'}\n"
-            f"Planned redteam: {'on' if config.use_planned_redteam else 'off'}",
-            title="CyberAI Status",
-        )
-    )
+    console.print(Panel(_status_body(versions=versions), title="CyberAI Status"))
 
 
 cli.add_command(bench)

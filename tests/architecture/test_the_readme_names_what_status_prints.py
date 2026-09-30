@@ -48,20 +48,42 @@ _README = _ROOT / "README.md"
 _MAIN = _ROOT / "cyberai" / "__main__.py"
 
 
-def _printed_labels() -> set[str]:
-    """Every label the status panel writes, read out of its f-strings."""
+def _status_body_node() -> ast.FunctionDef:
+    """The function that builds the panel text."""
+    for node in ast.walk(ast.parse(_MAIN.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.FunctionDef) and node.name == "_status_body":
+            return node
+    raise AssertionError("no _status_body in __main__")
+
+
+def _status_command_node() -> ast.FunctionDef:
+    """The command an operator runs."""
     for node in ast.walk(ast.parse(_MAIN.read_text(encoding="utf-8"))):
         if isinstance(node, ast.FunctionDef) and node.name == "status":
-            labels = set()
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.JoinedStr):
-                    for value in inner.values:
-                        if isinstance(value, ast.Constant):
-                            for line in str(value.value).split("\n"):
-                                if ":" in line:
-                                    labels.add(line.split(":")[0].strip())
-            return labels
+            return node
     raise AssertionError("no status command in __main__")
+
+
+def _printed_labels() -> set[str]:
+    """Every label the status panel writes, read out of the builder.
+
+    Taken from _status_body rather than from the command. The lines moved
+    there so that a test can read one without the console width in its
+    verdict, and the command keeps no f-string of its own. Labels read off
+    the builder describe the screen only because
+    test_the_panel_shows_the_body_and_builds_nothing holds that the command
+    shows that result and adds nothing to it; without that guard this file
+    would check a string nobody prints.
+    """
+    labels = set()
+    for inner in ast.walk(_status_body_node()):
+        if isinstance(inner, ast.JoinedStr):
+            for value in inner.values:
+                if isinstance(value, ast.Constant):
+                    for line in str(value.value).split("\n"):
+                        if ":" in line:
+                            labels.add(line.split(":")[0].strip())
+    return labels
 
 
 # Both spellings of the invocation the README shows.
@@ -147,3 +169,36 @@ def test_the_readme_line_names_every_group():
     line = _readme_status_line()
     absent = [group for group in _STATUS_GROUPS if group not in line]
     assert not absent, f"the README line does not mention: {absent}"
+
+
+def test_the_panel_shows_the_body_and_builds_nothing():
+    """The command displays what the builder returned, and composes nothing.
+
+    _printed_labels answers what _status_body holds, which is a fact about
+    the screen only while the command passes that result to the panel
+    untouched. Two shapes would break it while every label check here stayed
+    green: a command that builds text of its own beside the builder, and a
+    panel handed something other than the builder's result. Both are stated,
+    because a guard written against the one that happened to occur lets the
+    neighbouring one through.
+    """
+    command = _status_command_node()
+
+    assert not [n for n in ast.walk(command) if isinstance(n, ast.JoinedStr)], (
+        "the command builds text of its own; labels read from _status_body "
+        "would stop describing what an operator sees"
+    )
+
+    panels = [
+        n
+        for n in ast.walk(command)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "Panel"
+    ]
+    assert len(panels) == 1, f"expected one panel in the command, found {len(panels)}"
+
+    shown = panels[0].args[0] if panels[0].args else None
+    assert (
+        isinstance(shown, ast.Call)
+        and isinstance(shown.func, ast.Name)
+        and shown.func.id == "_status_body"
+    ), "the panel shows something other than what _status_body built"
