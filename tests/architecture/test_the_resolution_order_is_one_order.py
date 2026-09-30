@@ -21,9 +21,7 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
-from click.testing import CliRunner
-
-from cyberai.__main__ import _TOOLCHAIN, cli
+from cyberai.__main__ import _TOOLCHAIN, _status_body
 
 # finder name -> (module, env variable the finder reads first)
 REGISTRY = {
@@ -215,7 +213,13 @@ def test_every_displayed_name_is_the_binary_its_finder_looks_for():
 
 
 def test_status_names_the_tool_it_could_not_find(monkeypatch):
-    """A count would not say which one is missing; the run that needs it would."""
+    """A count would not say which one is missing; the run that needs it would.
+
+    Read from the builder, not the rendered panel. Splitting the render on
+    "Tools missing:" fails as an IndexError rather than an assertion when Rich
+    wraps inside that label, and where it wraps is decided by how many
+    binaries resolve on the host running the suite.
+    """
     monkeypatch.setitem(_TOOLCHAIN, "nuclei", lambda: None)
-    output = CliRunner().invoke(cli, ["status"]).output
+    output = _status_body()
     assert "nuclei" in output.split("Tools missing:")[1]
