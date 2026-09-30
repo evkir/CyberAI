@@ -5,6 +5,13 @@ per located tool and status is the command an operator runs when something is
 already wrong; a default that pays that cost would be the defect the flag was
 added to avoid. So the cheap path has to stay provably cheap: the assertion is
 that no process starts, not that the output looks the same.
+
+Assertions about content read _status_body rather than the rendered panel.
+Rich decides where to wrap from the console width, and the found half of the
+toolchain line is one comma-separated run over whichever binaries resolve
+here, so a check made against the render carries the operator's terminal and
+PATH in its verdict. The command is still invoked where the command is the
+subject: that it exits zero, and that no process started.
 """
 
 from __future__ import annotations
@@ -44,7 +51,7 @@ def test_plain_status_starts_no_process(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(env, "run_sealed", boom)
     result = CliRunner().invoke(main.cli, ["status"])
     assert result.exit_code == 0
-    assert "nmap" in result.output
+    assert "nmap" in main._status_body()
 
 
 def test_the_flag_reports_the_version_the_tool_prints(tmp_path, monkeypatch) -> None:
@@ -85,8 +92,7 @@ def test_the_screen_names_the_source_of_the_one_control_that_defaults_on() -> No
     answers nothing. This one ends a run before the first phase, so "off"
     has to say who turned it off.
     """
-    runner = CliRunner()
-    assert "Strict scope: on (default)" in runner.invoke(main.cli, ["status"]).output
+    assert "Strict scope: on (default)" in main._status_body()
 
 
 def test_a_variable_that_is_set_is_named_even_when_it_is_empty(monkeypatch) -> None:
@@ -101,15 +107,15 @@ def test_a_variable_that_is_set_is_named_even_when_it_is_empty(monkeypatch) -> N
     operator has no way to see it.
     """
     monkeypatch.setenv("CYBERAI_STRICT_SCOPE", "")
-    output = CliRunner().invoke(main.cli, ["status"]).output
+    output = main._status_body()
     assert "(CYBERAI_STRICT_SCOPE)" in output
 
 
 def test_a_zero_budget_reads_as_disabled_rather_than_as_no_money(monkeypatch) -> None:
     monkeypatch.delenv("CYBERAI_MAX_COST_USD", raising=False)
-    assert "Cost budget: disabled" in CliRunner().invoke(main.cli, ["status"]).output
+    assert "Cost budget: disabled" in main._status_body()
     monkeypatch.setenv("CYBERAI_MAX_COST_USD", "5")
-    assert "Cost budget: 5.0 USD" in CliRunner().invoke(main.cli, ["status"]).output
+    assert "Cost budget: 5.0 USD" in main._status_body()
 
 
 def test_every_field_the_orchestrator_reads_reaches_the_screen() -> None:
@@ -152,7 +158,7 @@ def test_every_field_the_orchestrator_reads_reaches_the_screen() -> None:
         f"the map names what the orchestrator no longer reads: {set(shown) - read}"
     )
 
-    output = CliRunner().invoke(main.cli, ["status"]).output
+    output = main._status_body()
     for field, label in shown.items():
         assert f"{label}:" in output, f"{field} governs the run and has no line"
 
@@ -194,8 +200,8 @@ def test_one_pass_decides_both_halves(monkeypatch) -> None:
         "_TOOLCHAIN",
         {name: (lambda n=name: resolved.append(n) or None) for name in dict(main._TOOLCHAIN)},
     )
-    result = CliRunner().invoke(main.cli, ["status", "--versions"])
+    body = main._status_body(versions=True)
 
     assert probed == ["once"]
     assert resolved == [], f"a second walk asked the resolvers again: {resolved}"
-    assert f"Tools missing: {_ABSENT}" in result.output
+    assert f"Tools missing: {_ABSENT}" in body
