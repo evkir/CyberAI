@@ -51,7 +51,9 @@ class DockerBuilder:
         """True only if a usable docker CLI is on PATH."""
         return shutil.which("docker") is not None
 
-    def _run(self, args: list[str], timeout: int = DEFAULT_TIMEOUT) -> subprocess.CompletedProcess:
+    def _run(
+        self, args: list[str], timeout: int = DEFAULT_TIMEOUT
+    ) -> subprocess.CompletedProcess[str]:
         """Invoke the docker CLI with a sealed environment.
 
         No operator HOME: the compose plugin is a system install and the CLI

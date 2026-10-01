@@ -50,8 +50,14 @@ _PACKAGE = _ROOT / "cyberai"
 # exactly that afterwards: 20 reaching 28 became 18 reaching 27. Two modules
 # crossed only to reach it, so both stopped crossing, and it imports nothing
 # outside the scope, so it joined no crossing of its own.
-_EXPECTED_CROSSERS = 18
-_EXPECTED_REACHED = 27
+# 2026-10-01, same day: bench/docker_builder.py was declared, priced at -1 and
+# -1 and moving both by that: 18 reaching 27 became 17 reaching 26. Three
+# modules import it, two of them inside the scope, and only one stopped
+# crossing -- the other reaches past the edge elsewhere as well. Both modules
+# declared today so far were independent of one another, so their prices
+# summed; that is a fact about these two, not a rule about any two.
+_EXPECTED_CROSSERS = 17
+_EXPECTED_REACHED = 26
 
 
 def _scope() -> set[pathlib.Path]:
@@ -112,7 +118,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 110
+    assert len(_scope()) == 111
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 
