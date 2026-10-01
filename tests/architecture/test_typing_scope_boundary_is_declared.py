@@ -45,8 +45,13 @@ _PACKAGE = _ROOT / "cyberai"
 # and only reached fell, 31 to 30. It imports nothing outside the scope, so
 # it never became a crosser; it stopped being reached. A leaf costs one
 # counter, an entry point costs both.
-_EXPECTED_CROSSERS = 20
-_EXPECTED_REACHED = 28
+# 2026-10-01: integrations/phantom_grid.py was declared, priced at -2 and -1
+# by scripts/scope_price.py before the fact and moving both counters by
+# exactly that afterwards: 20 reaching 28 became 18 reaching 27. Two modules
+# crossed only to reach it, so both stopped crossing, and it imports nothing
+# outside the scope, so it joined no crossing of its own.
+_EXPECTED_CROSSERS = 18
+_EXPECTED_REACHED = 27
 
 
 def _scope() -> set[pathlib.Path]:
@@ -107,7 +112,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 109
+    assert len(_scope()) == 110
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 
