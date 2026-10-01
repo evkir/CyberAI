@@ -126,12 +126,9 @@ class BaseAgent(ABC):
         self.config = config
         self.session = session
         self.llm = llm
-        # KB is taken from the session if present, else a fresh one.
-        existing = getattr(session, "kb", None)
-        if not isinstance(existing, KnowledgeBase):
-            # legacy ScanSession.kb may be a plain dict — wrap it
-            existing = KnowledgeBase()
-        self.kb: KnowledgeBase = existing
+        # The session owns the KB: both producers build one, so the agent
+        # binds to it rather than deciding what it is.
+        self.kb: KnowledgeBase = session.kb
         self.audit = audit or AuditLogger(session_id=getattr(session, "session_id", "unknown"))
         self.memory = AgentMemory()
 
