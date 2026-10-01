@@ -56,8 +56,15 @@ _PACKAGE = _ROOT / "cyberai"
 # crossing -- the other reaches past the edge elsewhere as well. Both modules
 # declared today so far were independent of one another, so their prices
 # summed; that is a fact about these two, not a rule about any two.
-_EXPECTED_CROSSERS = 17
-_EXPECTED_REACHED = 26
+# 2026-10-01, third today: core/base_agent.py was declared, priced at -1 and
+# -1 and moving both by that: 17 reaching 26 became 16 reaching 25. Ten
+# modules import it and five of those are inside the scope, yet the crosser
+# count falls by one: the other four reach past the edge elsewhere too. The
+# same day web/app.py was priced and left alone -- one error, +1 crosser and
+# +5 reached, which is the pair this rule exists to make visible before the
+# fact rather than after.
+_EXPECTED_CROSSERS = 16
+_EXPECTED_REACHED = 25
 
 
 def _scope() -> set[pathlib.Path]:
@@ -118,7 +125,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 111
+    assert len(_scope()) == 112
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 
