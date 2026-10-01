@@ -1,9 +1,9 @@
 # Typing scope
 
-`mypy --strict` reads 109 of 172 modules in the package. The other 63 hold 267
-errors, measured 2026-09-29 with mypy 1.19.1 over the whole package. That count
+`mypy --strict` reads 112 of 172 modules in the package. The other 60 hold 262
+errors, measured 2026-10-01 with mypy 1.19.1 over the whole package. That count
 moves with the checker and with the tree, so it is dated here rather than gated
-by a test; the 107 and the 172 beside it are gated, and a test below says so.
+by a test; the 112 and the 172 beside it are gated, and a test below says so.
 
 The scope is a list of named modules, so a module that passes strictly stays
 outside it until someone says otherwise, and nothing about the module itself
@@ -15,8 +15,8 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 109 modules in the scope, 20 import a module outside it at module level,
-and between them they reach 28 such modules. mypy follows those imports to
+the 112 modules in the scope, 16 import a module outside it at module level,
+and between them they reach 25 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured on 2026-09-17
 by appending an unannotated function to `cyberai/core/config.py`, which was
 outside the scope then and imported from inside it, running with a cold cache,
@@ -84,7 +84,9 @@ declaring cache.py retires a crosser and a reached module at once.
 What the projection shows instead is two independent sums. A candidate
 enters the crosser set if it imports past the edge itself, and it removes
 every module whose only crossing was to reach it; `integrations/phantom_grid.py`
-removes two, which no rule about leaves permits. It adds its own targets to
+removes two, which no rule about leaves permits. That projection was paid on
+2026-10-01: the module was declared, and the counts fell from 20 reaching 28 to
+18 reaching 27, which is what the pricer read before the fact. It adds its own targets to
 the reached set and removes itself if anything already reached it;
 `core/orchestrator.py` adds two while joining no crossing of its own. Because
 the two sums are independent, the observed pairs run from -2 and -1 up to +1

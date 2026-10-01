@@ -64,7 +64,8 @@ class PhantomGridClient:
         api_key: Optional[str] = None,
         timeout: int = 10,
     ):
-        self.base_url = (base_url or os.getenv("PHANTOM_GRID_URL", DEFAULT_GRID_URL)).rstrip("/")
+        configured = base_url or os.getenv("PHANTOM_GRID_URL") or DEFAULT_GRID_URL
+        self.base_url = configured.rstrip("/")
         self.api_key = api_key or os.getenv("PHANTOM_GRID_KEY", "")
         self.timeout = timeout
         self._available: Optional[bool] = None
@@ -222,7 +223,7 @@ class PhantomGridClient:
         "raw_labels",
     )
 
-    def _parse(self, raw: Dict) -> OOBInteraction:
+    def _parse(self, raw: Dict[str, Any]) -> OOBInteraction:
         """Map a phantom-grid v2.0 interaction row onto OOBInteraction.
 
         Server field names differ from the dataclass: token_id/type/time/body.

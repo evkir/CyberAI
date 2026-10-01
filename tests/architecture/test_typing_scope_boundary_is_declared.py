@@ -45,8 +45,26 @@ _PACKAGE = _ROOT / "cyberai"
 # and only reached fell, 31 to 30. It imports nothing outside the scope, so
 # it never became a crosser; it stopped being reached. A leaf costs one
 # counter, an entry point costs both.
-_EXPECTED_CROSSERS = 20
-_EXPECTED_REACHED = 28
+# 2026-10-01: integrations/phantom_grid.py was declared, priced at -2 and -1
+# by scripts/scope_price.py before the fact and moving both counters by
+# exactly that afterwards: 20 reaching 28 became 18 reaching 27. Two modules
+# crossed only to reach it, so both stopped crossing, and it imports nothing
+# outside the scope, so it joined no crossing of its own.
+# 2026-10-01, same day: bench/docker_builder.py was declared, priced at -1 and
+# -1 and moving both by that: 18 reaching 27 became 17 reaching 26. Three
+# modules import it, two of them inside the scope, and only one stopped
+# crossing -- the other reaches past the edge elsewhere as well. Both modules
+# declared today so far were independent of one another, so their prices
+# summed; that is a fact about these two, not a rule about any two.
+# 2026-10-01, third today: core/base_agent.py was declared, priced at -1 and
+# -1 and moving both by that: 17 reaching 26 became 16 reaching 25. Ten
+# modules import it and five of those are inside the scope, yet the crosser
+# count falls by one: the other four reach past the edge elsewhere too. The
+# same day web/app.py was priced and left alone -- one error, +1 crosser and
+# +5 reached, which is the pair this rule exists to make visible before the
+# fact rather than after.
+_EXPECTED_CROSSERS = 16
+_EXPECTED_REACHED = 25
 
 
 def _scope() -> set[pathlib.Path]:
@@ -107,7 +125,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 109
+    assert len(_scope()) == 112
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

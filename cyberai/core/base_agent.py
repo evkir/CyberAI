@@ -44,7 +44,7 @@ class Tool:
 
     name: str
     description: str
-    func: Callable
+    func: Callable[..., Any]
     params: Dict[str, str] = field(default_factory=dict)
     parameters: Optional[Dict[str, str]] = None
     # Explicit JSON Schema for native LLM tool calling. params expresses only
@@ -126,11 +126,9 @@ class BaseAgent(ABC):
         self.config = config
         self.session = session
         self.llm = llm
-        # KB is taken from the session if present, else a fresh one.
-        self.kb: KnowledgeBase = getattr(session, "kb", None)
-        if not isinstance(self.kb, KnowledgeBase):
-            # legacy ScanSession.kb may be a plain dict — wrap it
-            self.kb = KnowledgeBase()
+        # The session owns the KB: both producers build one, so the agent
+        # binds to it rather than deciding what it is.
+        self.kb: KnowledgeBase = session.kb
         self.audit = audit or AuditLogger(session_id=getattr(session, "session_id", "unknown"))
         self.memory = AgentMemory()
 
