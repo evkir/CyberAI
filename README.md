@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.7.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-3044%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-3049%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%20112%2F172%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -300,6 +300,7 @@ Every setting can be driven from the environment (or a `.env` file - see
 | `CYBERAI_MAX_COST_USD` | LLM spend budget (0 = disabled) |
 | `CYBERAI_OUTPUT_DIR` | Report output directory |
 | `CYBERAI_SESSION_SECRET` | Audit-trail signing key; unset means a published fallback |
+| `CYBERAI_LOG_LEVEL` | Level for the package logger: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Unset, the package logs nothing below a warning, which hides the calls reporting that a check was skipped rather than passed. A value that is not a level leaves logging untouched rather than aborting the run |
 
 The `scan` command overrides the main flags per run, in either direction:
 

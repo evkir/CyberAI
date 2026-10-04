@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,56 @@ from rich.logging import RichHandler
 from cyberai.core.session_signing import SessionSigner
 
 console = Console(stderr=True)
+
+_PACKAGE_LOGGER = "cyberai"
+_LEVEL_ENV = "CYBERAI_LOG_LEVEL"
+
+
+def configure_package_logging(level: Optional[str] = None) -> Optional[int]:
+    """Give the package logger a handler, so its info calls reach someone.
+
+    Forty-odd modules call logging.getLogger directly and log through it.
+    Nothing in the package ever configured the resulting loggers, so their
+    warnings went out through logging's last resort and everything at info
+    went nowhere at all: twenty-three info calls, fourteen of them reporting
+    that a check was skipped rather than passed -- no evaluator for a class,
+    a target that did not come up, a suite that was empty. The distinction
+    between "not checked" and "clean" had no way out of the process.
+
+    The lever is an environment variable rather than a config field. A
+    config field was removed once already, as a flag whose mechanism did not
+    exist, and the modules that need this one do not all hold a config.
+
+    propagate is turned off on any logger that already carries its own
+    handler: the audit logger and the orchestrator get theirs from
+    get_logger, and a handler on the parent would print their records a
+    second time. Returns the level in force, or None when the variable is
+    unset or unreadable -- an unparseable value leaves logging exactly as it
+    was rather than aborting a scan over a typo.
+    """
+    raw = level if level is not None else os.getenv(_LEVEL_ENV)
+    if not raw:
+        return None
+    resolved = logging.getLevelNamesMapping().get(raw.strip().upper())
+    if resolved is None:
+        return None
+
+    package = logging.getLogger(_PACKAGE_LOGGER)
+    package.setLevel(resolved)
+    if not any(isinstance(h, RichHandler) for h in package.handlers):
+        handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
+        handler.setLevel(resolved)
+        package.addHandler(handler)
+    else:
+        for attached in package.handlers:
+            attached.setLevel(resolved)
+
+    for name, existing in logging.root.manager.loggerDict.items():
+        if not isinstance(existing, logging.Logger):
+            continue
+        if name.startswith(f"{_PACKAGE_LOGGER}.") and existing.handlers:
+            existing.propagate = False
+    return resolved
 
 
 def get_logger(
