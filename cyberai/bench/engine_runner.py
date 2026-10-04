@@ -59,12 +59,15 @@ def make_engine_runner(
 
         running = builder.start(target)
         if running is None:
-            # Docker absent or start failed — honest unsolved, not a fake pass.
+            # Honest unsolved, not a fake pass -- and which of the four ways
+            # it failed, because "never tried" and "came up and died" are
+            # different answers to the reader asking whose fault a zero is.
+            reason = getattr(builder, "last_failure", None)
             return BenchResult(
                 task_id=task.id,
                 suite=task.suite,
                 solved=False,
-                error="target not serving (docker unavailable or start failed)",
+                error=f"target not serving: {reason}" if reason else "target not serving",
                 details={
                     "engine": "real",
                     "vuln_class": target.vuln_class.value,

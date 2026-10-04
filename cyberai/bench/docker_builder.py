@@ -45,6 +45,19 @@ class DockerBuilder:
 
     def __init__(self, base_image: str = _BASE_IMAGE) -> None:
         self.base_image = base_image
+        # Why the last start() returned None, in words an operator can act
+        # on. Four different facts used to leave this class as one None and
+        # reach the scorecard as one disjunction: docker absent, the command
+        # raising, the command refusing, and a container that came up and
+        # never answered. The first says the target was never tried; the
+        # last says the target failed. A reader deciding whether a zero is
+        # the pipeline's fault cannot tell those apart from "docker
+        # unavailable or start failed".
+        #
+        # Set on every path out of start(), rather than computed up front
+        # the way the CVE-Bench box computes its own: three of the four are
+        # only known once the attempt has been made.
+        self.last_failure: str | None = None
 
     @property
     def available(self) -> bool:
@@ -63,10 +76,15 @@ class DockerBuilder:
         return run_sealed(["docker", *args], timeout=timeout)
 
     def start(self, target: VulnTarget) -> RunningTarget | None:
-        """Start a container for `target`. Returns None when Docker is absent
-        or the run fails — callers treat None as 'target unavailable'."""
+        """Start a container for `target`, or None when it could not be brought up.
+
+        Callers treat None as 'target unavailable' and read `last_failure`
+        for which of the four reasons it was.
+        """
+        self.last_failure = None
         if not self.available:
             logger.info("docker unavailable; skipping target %s", target.id)
+            self.last_failure = "docker is not on PATH"
             return None
         name = f"cyberai-bench-{target.id}"
         try:
@@ -91,9 +109,11 @@ class DockerBuilder:
             )
         except (subprocess.SubprocessError, OSError) as exc:
             logger.warning("docker start failed for %s: %s", target.id, exc)
+            self.last_failure = f"docker run raised {type(exc).__name__}: {exc}"
             return None
         if proc.returncode != 0:
             logger.warning("docker start nonzero for %s: %s", target.id, proc.stderr.strip())
+            self.last_failure = f"docker run exited {proc.returncode}: {proc.stderr.strip()}"
             return None
         running = RunningTarget(
             target_id=target.id,
@@ -103,6 +123,7 @@ class DockerBuilder:
         if not self._wait_ready(target.port):
             logger.warning("target %s never accepted connections; stopping", target.id)
             self.stop(running)
+            self.last_failure = f"container started but never answered on port {target.port}"
             return None
         return running
 

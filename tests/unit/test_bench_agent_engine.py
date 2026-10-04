@@ -31,12 +31,23 @@ _SQLI_TASK = "local-sqli-login"
 class _FakeBuilder:
     """Docker stand-in: hands back a URL and records teardown."""
 
-    def __init__(self, base_url: str | None = "http://t.local:1"):
+    def __init__(
+        self, base_url: str | None = "http://t.local:1", failure: str = "docker is not on PATH"
+    ):
         self.base_url = base_url
         self.stopped: list[str] = []
+        # The production builder records why a start returned None, and the
+        # runner puts that into the result. A double without the attribute
+        # sends the runner down its fallback branch, so it would stand in
+        # for a builder that cannot say why -- which is the shape this
+        # change exists to remove.
+        self.failure = failure
+        self.last_failure: str | None = None
 
     def start(self, target):
+        self.last_failure = None
         if self.base_url is None:
+            self.last_failure = self.failure
             return None
         return RunningTarget(target_id=target.id, container_id="fake", base_url=self.base_url)
 
@@ -102,13 +113,34 @@ def test_broken_judge_is_unknown_not_a_clean_bill_of_health():
     assert result.details["agreement"] is None
 
 
-def test_target_that_never_starts_is_unsolved_not_skipped():
-    run, task = _runner(_FakeBuilder(base_url=None))
+def test_target_that_never_starts_says_which_way_it_failed():
+    """The reason reaches the artefact, not a disjunction covering four facts.
+
+    start() returns None when docker is absent, when the command raises,
+    when it exits nonzero, and when a container comes up and never answers.
+    The first says the target was never tried and the last says it failed;
+    a reader deciding whether a zero belongs to the pipeline cannot tell
+    those apart from one sentence naming both.
+    """
+    run, task = _runner(_FakeBuilder(base_url=None, failure="docker is not on PATH"))
     result = run(task)
 
     assert result.solved is False
     assert result.details["available"] is False
-    assert "docker unavailable" in (result.error or "")
+    assert result.error == "target not serving: docker is not on PATH"
+
+
+def test_a_target_that_came_up_and_died_does_not_read_as_never_tried():
+    """The same branch, the other end of it. Asserted as a distinct string:
+    a test pinning only a shared substring stays green when both reasons
+    collapse back into one."""
+    run, task = _runner(
+        _FakeBuilder(base_url=None, failure="container started but never answered on port 8081")
+    )
+    result = run(task)
+
+    assert result.error == "target not serving: container started but never answered on port 8081"
+    assert "docker" not in (result.error or ""), "a dead container is not a missing docker"
 
 
 def test_unknown_task_id_reports_an_error():
