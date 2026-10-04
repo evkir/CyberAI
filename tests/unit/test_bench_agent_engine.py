@@ -188,7 +188,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
     seen = {}
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             seen["cfg"] = cfg
             # BaseAgent assigns this on every agent, so a double without it is
             # not standing in for one. Left off, the caller reading it has to
@@ -199,7 +199,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -219,7 +219,7 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
     seen = {}
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             seen["cfg"] = cfg
             self.llm = None
 
@@ -227,7 +227,7 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -265,14 +265,14 @@ def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatc
     """
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -297,14 +297,14 @@ def _recording_agents(monkeypatch):
     seen: list = []
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -376,14 +376,14 @@ def test_a_client_on_the_path_makes_the_count_unmeasured(monkeypatch):
     the honest answer becomes absent rather than zero."""
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = object()
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -414,3 +414,50 @@ def test_the_model_fact_reaches_the_result_the_scorecard_reads():
 
     assert result.details["llm_calls"] == 0
     assert result.details["llm_zero_reason"] == "engine_uses_no_model"
+
+
+def test_both_agents_are_handed_one_audit_logger(monkeypatch):
+    """One session, one trail owner.
+
+    Left to the fallback in BaseAgent, each agent built its own AuditLogger
+    from the same session id. Two objects then owned one trail: a database
+    path or a signer configured on one was absent from the other, and before
+    get_logger deduplicated its handlers every record also reached the signed
+    JSONL twice under two signatures.
+
+    Asserted as identity rather than as a line count: the duplicate output is
+    fixed one layer down, so counting lines here would stay green with the
+    two owners back.
+
+    What this does not hold: dropping output_dir from that construction
+    survives the whole suite. Nothing here reads where the bench trail lands,
+    so the argument is kept because the alternative sends it to the default
+    directory regardless of the configured one, not because a test would say
+    so.
+    """
+    seen: list = []
+
+    class _Recon:
+        def __init__(self, cfg, session, llm=None, audit=None):
+            seen.append(audit)
+            self.llm = None
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session, llm=None, audit=None):
+            seen.append(audit)
+            self.llm = None
+
+        def _run_web_exploit(self, base_url, classes=None):
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+
+    agent_attack("http://t")
+
+    assert len(seen) == 2, f"expected two agents, saw {len(seen)}"
+    assert seen[0] is not None, "an agent left to its own fallback owns a second trail"
+    assert seen[0] is seen[1], "the two agents were handed different audit loggers"
