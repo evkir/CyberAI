@@ -17,6 +17,7 @@ from .cli.mcp_scan import mcp_scan
 from .cli.web3_audit import web3
 from .core.config import _PROVIDER_KEY_ENV, _PROVIDERS, CyberAIConfig, LLMConfig, Provider
 from .core.llm_client import LLMClient
+from .core.logger import configure_package_logging
 from .core.orchestrator import Orchestrator
 from .core.scan_session import ScanPhase, ScanState
 
@@ -172,6 +173,11 @@ def _parse_auth_headers(pairs: tuple[str, ...]) -> dict[str, str] | None:
 @click.version_option(__version__, "-V", "--version", prog_name="cyberai")
 def cli() -> None:
     """CyberAI — AI-powered pentest platform."""
+    # Nothing in the package configured logging, so every info call in it
+    # went nowhere. This is the one place a command cannot avoid passing
+    # through, and it runs before any phase starts. Unset, it changes
+    # nothing.
+    configure_package_logging()
 
 
 @cli.command()

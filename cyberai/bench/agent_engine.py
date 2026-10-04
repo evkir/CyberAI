@@ -44,6 +44,7 @@ from cyberai.bench.targets import LocalSuiteAdapter, VulnTarget
 from cyberai.core.config import CyberAIConfig
 from cyberai.core.cost_tracker import CostTracker
 from cyberai.core.llm_usage import llm_zero_reason
+from cyberai.core.logger import AuditLogger
 from cyberai.core.scan_session import ScanSession
 
 logger = logging.getLogger(__name__)
@@ -157,18 +158,24 @@ def agent_attack(
     description = str((task.metadata if task else {}).get("one_day_description", ""))
     classes = classes_from_description(description) if one_day and description else None
 
-    recon = ReconAgent(cfg, session)
+    # One audit logger for the session, handed to both agents. Left to the
+    # fallback in BaseAgent, each agent built its own from the same session
+    # id, and two AuditLogger objects then owned one trail: anything
+    # configured on one -- a database path, a signer -- was absent from the
+    # other. The main pipeline has always worked this way; this path did not.
+    audit = AuditLogger(session_id=session.session_id, output_dir=cfg.output_dir)
+
+    recon = ReconAgent(cfg, session, None, audit)
     recon._run_web_recon(base_url)
-    exploit = ExploitAgent(cfg, session)
+    exploit = ExploitAgent(cfg, session, None, audit)
     report = exploit._run_web_exploit(base_url, classes=classes)
 
-    # Read off the agents that ran, not off the config. Both are constructed
-    # with two positional arguments, so the client parameter keeps its None
-    # default and no model can be reached from here -- a fact of this code
-    # path, which is why the count is a proven zero rather than a default.
-    # The moment either agent is handed a client, there is no tracker on
-    # this path to count its calls with, so both fields go back to None:
-    # not measured is the only answer available until one exists.
+    # Read off the agents that ran, not off the config. Both are handed None
+    # for the client, so no model can be reached from here -- a fact of this
+    # code path, which is why the count is a proven zero rather than a
+    # default. The moment either agent is handed a client, there is no
+    # tracker on this path to count its calls with, so both fields go back
+    # to None: not measured is the only answer available until one exists.
     model_free = recon.llm is None and exploit.llm is None
 
     return AttackOutcome(
@@ -234,12 +241,15 @@ def make_agent_runner(
 
         running = builder.start(target)
         if running is None:
-            # Docker absent or start failed — honest unsolved, not a fake pass.
+            # Honest unsolved, not a fake pass -- and which of the four ways
+            # it failed, because "never tried" and "came up and died" are
+            # different answers to the reader asking whose fault a zero is.
+            reason = getattr(builder, "last_failure", None)
             return BenchResult(
                 task_id=task.id,
                 suite=task.suite,
                 solved=False,
-                error="target not serving (docker unavailable or start failed)",
+                error=f"target not serving: {reason}" if reason else "target not serving",
                 details={
                     "engine": "agent",
                     "vuln_class": target.vuln_class.value,

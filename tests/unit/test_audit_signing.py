@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from cyberai.cli.audit_verify import verify_trail
-from cyberai.core.logger import AuditLogger
+from cyberai.core.logger import AuditLogger, get_logger
 from cyberai.core.session_signing import SessionSigner
 
 
@@ -84,3 +84,69 @@ def test_the_key_comes_from_the_environment_at_call_time(trail: Path, monkeypatc
     monkeypatch.setenv("CYBERAI_SESSION_SECRET", "engagement-key")
     assert verify_trail(str(trail)).tampered == [1, 2, 3]
     assert verify_trail(str(trail), SessionSigner(secret=None)).tampered == [1, 2, 3]
+
+
+def test_rebuilding_the_logger_for_one_session_does_not_double_the_trail(tmp_path):
+    """One action, one line.
+
+    logging.getLogger returns the same object for a name, and AuditLogger
+    derives its name from the session id. Two builds for one session used
+    to stack a second RichHandler and a second FileHandler, so a single
+    agent_action reached the signed trail twice under two signatures. The
+    bench path builds two agents on one session without handing either an
+    audit logger, so this was reachable in production, not only in tests.
+    """
+    session_id = "doubled"
+    first = AuditLogger(session_id=session_id, output_dir=str(tmp_path))
+    second = AuditLogger(session_id=session_id, output_dir=str(tmp_path))
+
+    assert first.logger is second.logger
+
+    first.agent_action("recon", "one action")
+
+    trail = tmp_path / f"audit_{session_id}.jsonl"
+    lines = [ln for ln in trail.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert len(lines) == 1, f"one action wrote {len(lines)} lines"
+
+
+def test_a_second_build_does_not_stack_a_second_console_handler(tmp_path):
+    """The console half of the same defect, counted rather than observed.
+
+    Asserting on the trail alone would stay green if only the file handler
+    were deduplicated, because stderr leaves no artefact to read back.
+    """
+    from rich.logging import RichHandler
+
+    session_id = "console"
+    first = AuditLogger(session_id=session_id, output_dir=str(tmp_path))
+    AuditLogger(session_id=session_id, output_dir=str(tmp_path))
+
+    rich = [h for h in first.logger.handlers if isinstance(h, RichHandler)]
+    assert len(rich) == 1, f"{len(rich)} console handlers after two builds"
+
+
+def test_a_different_destination_still_gets_its_own_file_handler(tmp_path):
+    """Deduplication keys on the path, so it must not swallow a real second file.
+
+    A guard written as "at most one FileHandler" would pass the two tests
+    above and silently drop the trail of a session that legitimately writes
+    somewhere else.
+
+    Measured, not assumed: mutating the key from the resolved path to the
+    handler type fails this assertion and nine more in this file. Under that
+    mutant a later logger binds to the handler an earlier one opened, so its
+    signed lines land in the earlier file and every trail-verification test
+    here reads an empty one. The path key therefore holds the isolation of
+    this whole file, not just the assertion below.
+    """
+    import logging
+
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+
+    name = "cyberai.audit.twofiles"
+    get_logger(name, str(tmp_path / "a.jsonl"))
+    logger = get_logger(name, str(other / "b.jsonl"))
+
+    files = {h.baseFilename for h in logger.handlers if isinstance(h, logging.FileHandler)}
+    assert len(files) == 2, f"expected two destinations, got {sorted(files)}"

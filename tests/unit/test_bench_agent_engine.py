@@ -31,12 +31,23 @@ _SQLI_TASK = "local-sqli-login"
 class _FakeBuilder:
     """Docker stand-in: hands back a URL and records teardown."""
 
-    def __init__(self, base_url: str | None = "http://t.local:1"):
+    def __init__(
+        self, base_url: str | None = "http://t.local:1", failure: str = "docker is not on PATH"
+    ):
         self.base_url = base_url
         self.stopped: list[str] = []
+        # The production builder records why a start returned None, and the
+        # runner puts that into the result. A double without the attribute
+        # sends the runner down its fallback branch, so it would stand in
+        # for a builder that cannot say why -- which is the shape this
+        # change exists to remove.
+        self.failure = failure
+        self.last_failure: str | None = None
 
     def start(self, target):
+        self.last_failure = None
         if self.base_url is None:
+            self.last_failure = self.failure
             return None
         return RunningTarget(target_id=target.id, container_id="fake", base_url=self.base_url)
 
@@ -102,13 +113,34 @@ def test_broken_judge_is_unknown_not_a_clean_bill_of_health():
     assert result.details["agreement"] is None
 
 
-def test_target_that_never_starts_is_unsolved_not_skipped():
-    run, task = _runner(_FakeBuilder(base_url=None))
+def test_target_that_never_starts_says_which_way_it_failed():
+    """The reason reaches the artefact, not a disjunction covering four facts.
+
+    start() returns None when docker is absent, when the command raises,
+    when it exits nonzero, and when a container comes up and never answers.
+    The first says the target was never tried and the last says it failed;
+    a reader deciding whether a zero belongs to the pipeline cannot tell
+    those apart from one sentence naming both.
+    """
+    run, task = _runner(_FakeBuilder(base_url=None, failure="docker is not on PATH"))
     result = run(task)
 
     assert result.solved is False
     assert result.details["available"] is False
-    assert "docker unavailable" in (result.error or "")
+    assert result.error == "target not serving: docker is not on PATH"
+
+
+def test_a_target_that_came_up_and_died_does_not_read_as_never_tried():
+    """The same branch, the other end of it. Asserted as a distinct string:
+    a test pinning only a shared substring stays green when both reasons
+    collapse back into one."""
+    run, task = _runner(
+        _FakeBuilder(base_url=None, failure="container started but never answered on port 8081")
+    )
+    result = run(task)
+
+    assert result.error == "target not serving: container started but never answered on port 8081"
+    assert "docker" not in (result.error or ""), "a dead container is not a missing docker"
 
 
 def test_unknown_task_id_reports_an_error():
@@ -188,7 +220,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
     seen = {}
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             seen["cfg"] = cfg
             # BaseAgent assigns this on every agent, so a double without it is
             # not standing in for one. Left off, the caller reading it has to
@@ -199,7 +231,7 @@ def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -219,7 +251,7 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
     seen = {}
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             seen["cfg"] = cfg
             self.llm = None
 
@@ -227,7 +259,7 @@ def test_agent_attack_forces_the_web_path_on(monkeypatch):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -265,14 +297,14 @@ def test_agent_attack_carries_the_out_of_band_count_out_of_the_report(monkeypatc
     """
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -297,14 +329,14 @@ def _recording_agents(monkeypatch):
     seen: list = []
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -376,14 +408,14 @@ def test_a_client_on_the_path_makes_the_count_unmeasured(monkeypatch):
     the honest answer becomes absent rather than zero."""
 
     class _Recon:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = object()
 
         def _run_web_recon(self, base_url):
             return {}
 
     class _Exploit:
-        def __init__(self, cfg, session):
+        def __init__(self, cfg, session, llm=None, audit=None):
             self.llm = None
 
         def _run_web_exploit(self, base_url, classes=None):
@@ -414,3 +446,50 @@ def test_the_model_fact_reaches_the_result_the_scorecard_reads():
 
     assert result.details["llm_calls"] == 0
     assert result.details["llm_zero_reason"] == "engine_uses_no_model"
+
+
+def test_both_agents_are_handed_one_audit_logger(monkeypatch):
+    """One session, one trail owner.
+
+    Left to the fallback in BaseAgent, each agent built its own AuditLogger
+    from the same session id. Two objects then owned one trail: a database
+    path or a signer configured on one was absent from the other, and before
+    get_logger deduplicated its handlers every record also reached the signed
+    JSONL twice under two signatures.
+
+    Asserted as identity rather than as a line count: the duplicate output is
+    fixed one layer down, so counting lines here would stay green with the
+    two owners back.
+
+    What this does not hold: dropping output_dir from that construction
+    survives the whole suite. Nothing here reads where the bench trail lands,
+    so the argument is kept because the alternative sends it to the default
+    directory regardless of the configured one, not because a test would say
+    so.
+    """
+    seen: list = []
+
+    class _Recon:
+        def __init__(self, cfg, session, llm=None, audit=None):
+            seen.append(audit)
+            self.llm = None
+
+        def _run_web_recon(self, base_url):
+            return {}
+
+    class _Exploit:
+        def __init__(self, cfg, session, llm=None, audit=None):
+            seen.append(audit)
+            self.llm = None
+
+        def _run_web_exploit(self, base_url, classes=None):
+            return {}
+
+    monkeypatch.setattr("cyberai.bench.agent_engine.ReconAgent", _Recon)
+    monkeypatch.setattr("cyberai.bench.agent_engine.ExploitAgent", _Exploit)
+
+    agent_attack("http://t")
+
+    assert len(seen) == 2, f"expected two agents, saw {len(seen)}"
+    assert seen[0] is not None, "an agent left to its own fallback owns a second trail"
+    assert seen[0] is seen[1], "the two agents were handed different audit loggers"

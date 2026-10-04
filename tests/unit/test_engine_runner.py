@@ -17,17 +17,42 @@ def _task(adapter: LocalSuiteAdapter, tid: str):
     return next(t for t in adapter.load_tasks() if t.id == tid)
 
 
-def test_docker_absent_reports_unsolved_with_error():
+def test_docker_absent_reports_unsolved_with_the_reason():
+    """The reason the builder recorded is the reason the result carries.
+
+    MagicMock answers every attribute, so a double left to its defaults
+    hands the runner a Mock where a sentence belongs and its repr reaches
+    the scorecard. The previous assertion read a substring that survived
+    that, which is why last_failure is set here and compared whole.
+    """
     adapter = _adapter()
     builder = MagicMock()
-    builder.start.return_value = None  # docker unavailable / start failed
+    builder.start.return_value = None
+    builder.last_failure = "docker is not on PATH"
     runner = make_engine_runner(adapter, builder=builder)
 
     result = runner(_task(adapter, "local-sqli-login"))
     assert result.solved is False
-    assert "not serving" in (result.error or "")
+    assert result.error == "target not serving: docker is not on PATH"
     assert result.details["available"] is False
     builder.stop.assert_not_called()
+
+
+def test_a_builder_that_cannot_say_why_still_reports_a_sentence():
+    """The fallback branch, pinned so it cannot start emitting an object.
+
+    last_failure is None on a builder that was never asked, and the result
+    has to read as prose either way: a scorecard cell holding the repr of
+    whatever the attribute returned is worse than one holding less.
+    """
+    adapter = _adapter()
+    builder = MagicMock()
+    builder.start.return_value = None
+    builder.last_failure = None
+    runner = make_engine_runner(adapter, builder=builder)
+
+    result = runner(_task(adapter, "local-sqli-login"))
+    assert result.error == "target not serving"
 
 
 def test_unknown_task_id_unsolved():

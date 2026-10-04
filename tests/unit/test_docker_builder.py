@@ -91,3 +91,107 @@ def test_start_stops_container_when_never_ready(_which):
     ):
         assert b.start(LOCAL_SUITE[0]) is None
     stop.assert_called_once()
+
+
+@patch("cyberai.bench.docker_builder.shutil.which", return_value=None)
+def test_a_missing_docker_says_so_rather_than_nothing(_which):
+    b = DockerBuilder()
+    assert b.start(LOCAL_SUITE[0]) is None
+    assert b.last_failure == "docker is not on PATH"
+
+
+@patch("cyberai.bench.docker_builder.shutil.which", return_value="/usr/bin/docker")
+def test_a_refused_run_carries_the_code_and_what_docker_printed(_which):
+    b = DockerBuilder()
+    fake = MagicMock(returncode=125, stdout="", stderr="  port is already allocated\n")
+    with patch.object(b, "_run", return_value=fake):
+        assert b.start(LOCAL_SUITE[0]) is None
+    assert b.last_failure == "docker run exited 125: port is already allocated"
+
+
+@patch("cyberai.bench.docker_builder.shutil.which", return_value="/usr/bin/docker")
+def test_a_raising_run_names_the_exception(_which):
+    b = DockerBuilder()
+    with patch.object(b, "_run", side_effect=OSError("no such file")):
+        assert b.start(LOCAL_SUITE[0]) is None
+    assert b.last_failure == "docker run raised OSError: no such file"
+
+
+@patch("cyberai.bench.docker_builder.shutil.which", return_value="/usr/bin/docker")
+def test_a_container_that_never_answers_is_not_a_missing_docker(_which):
+    """Four facts used to leave this class as one None.
+
+    This is the end of the branch furthest from "docker is absent": the
+    daemon ran, the container started, and the application inside it never
+    answered. A reader deciding whether a zero belongs to the pipeline needs
+    those apart, so the assertion is on the whole sentence and on the absence
+    of the word that would make it read as the other one.
+    """
+    target = LOCAL_SUITE[0]
+    b = DockerBuilder()
+    fake = MagicMock(returncode=0, stdout="abc123\n", stderr="")
+    with (
+        patch.object(b, "_run", return_value=fake),
+        patch.object(DockerBuilder, "_wait_ready", return_value=False),
+        patch.object(DockerBuilder, "stop", return_value=True),
+    ):
+        assert b.start(target) is None
+    assert b.last_failure == f"container started but never answered on port {target.port}"
+    assert "docker" not in b.last_failure
+
+
+@patch("cyberai.bench.docker_builder.shutil.which", return_value="/usr/bin/docker")
+def test_a_start_that_works_clears_what_the_last_one_recorded(_which):
+    """Otherwise the reason outlives the failure and the next result quotes it."""
+    b = DockerBuilder()
+    with patch.object(b, "_run", side_effect=OSError("transient")):
+        b.start(LOCAL_SUITE[0])
+    assert b.last_failure is not None
+
+    fake = MagicMock(returncode=0, stdout="abc123\n", stderr="")
+    with (
+        patch.object(b, "_run", return_value=fake),
+        patch.object(DockerBuilder, "_wait_ready", return_value=True),
+    ):
+        assert isinstance(b.start(LOCAL_SUITE[0]), RunningTarget)
+    assert b.last_failure is None
+
+
+def test_the_four_ways_to_fail_do_not_share_a_sentence():
+    """A guard on the set, not on four strings read one at a time.
+
+    Each assertion above pins its own branch and all four would stay green
+    if two of them were made identical; what this change exists to remove is
+    exactly that collapse.
+    """
+    target = LOCAL_SUITE[0]
+    reasons = []
+
+    with patch("cyberai.bench.docker_builder.shutil.which", return_value=None):
+        b = DockerBuilder()
+        b.start(target)
+        reasons.append(b.last_failure)
+
+    with patch("cyberai.bench.docker_builder.shutil.which", return_value="/usr/bin/docker"):
+        b = DockerBuilder()
+        with patch.object(b, "_run", side_effect=OSError("boom")):
+            b.start(target)
+        reasons.append(b.last_failure)
+
+        b = DockerBuilder()
+        with patch.object(b, "_run", return_value=MagicMock(returncode=1, stdout="", stderr="no")):
+            b.start(target)
+        reasons.append(b.last_failure)
+
+        b = DockerBuilder()
+        fake = MagicMock(returncode=0, stdout="abc\n", stderr="")
+        with (
+            patch.object(b, "_run", return_value=fake),
+            patch.object(DockerBuilder, "_wait_ready", return_value=False),
+            patch.object(DockerBuilder, "stop", return_value=True),
+        ):
+            b.start(target)
+        reasons.append(b.last_failure)
+
+    assert all(reasons), f"a branch left the reason unset: {reasons}"
+    assert len(set(reasons)) == 4, f"two branches share a sentence: {reasons}"

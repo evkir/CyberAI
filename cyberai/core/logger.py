@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,56 @@ from cyberai.core.session_signing import SessionSigner
 
 console = Console(stderr=True)
 
+_PACKAGE_LOGGER = "cyberai"
+_LEVEL_ENV = "CYBERAI_LOG_LEVEL"
+
+
+def configure_package_logging(level: Optional[str] = None) -> Optional[int]:
+    """Give the package logger a handler, so its info calls reach someone.
+
+    Forty-odd modules call logging.getLogger directly and log through it.
+    Nothing in the package ever configured the resulting loggers, so their
+    warnings went out through logging's last resort and everything at info
+    went nowhere at all: twenty-three info calls, fourteen of them reporting
+    that a check was skipped rather than passed -- no evaluator for a class,
+    a target that did not come up, a suite that was empty. The distinction
+    between "not checked" and "clean" had no way out of the process.
+
+    The lever is an environment variable rather than a config field. A
+    config field was removed once already, as a flag whose mechanism did not
+    exist, and the modules that need this one do not all hold a config.
+
+    propagate is turned off on any logger that already carries its own
+    handler: the audit logger and the orchestrator get theirs from
+    get_logger, and a handler on the parent would print their records a
+    second time. Returns the level in force, or None when the variable is
+    unset or unreadable -- an unparseable value leaves logging exactly as it
+    was rather than aborting a scan over a typo.
+    """
+    raw = level if level is not None else os.getenv(_LEVEL_ENV)
+    if not raw:
+        return None
+    resolved = logging.getLevelNamesMapping().get(raw.strip().upper())
+    if resolved is None:
+        return None
+
+    package = logging.getLogger(_PACKAGE_LOGGER)
+    package.setLevel(resolved)
+    if not any(isinstance(h, RichHandler) for h in package.handlers):
+        handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
+        handler.setLevel(resolved)
+        package.addHandler(handler)
+    else:
+        for attached in package.handlers:
+            attached.setLevel(resolved)
+
+    for name, existing in logging.root.manager.loggerDict.items():
+        if not isinstance(existing, logging.Logger):
+            continue
+        if name.startswith(f"{_PACKAGE_LOGGER}.") and existing.handlers:
+            existing.propagate = False
+    return resolved
+
 
 def get_logger(
     name: str, log_file: Optional[str] = None, signer: Optional[SessionSigner] = None
@@ -19,18 +70,33 @@ def get_logger(
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
-    # Rich console handler
-    rich_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
-    rich_handler.setLevel(logging.INFO)
-    logger.addHandler(rich_handler)
+    # Rich console handler. logging.getLogger returns the SAME object for a
+    # name, so a second call on one name used to stack a second set of
+    # handlers: one record then reached stderr twice and the signed JSONL
+    # trail twice, under two different signatures. Callers that rebuild an
+    # AuditLogger for a session they already have are the real producers of
+    # that shape, so the guard lives here rather than at each call site.
+    if not any(isinstance(h, RichHandler) for h in logger.handlers):
+        rich_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
+        rich_handler.setLevel(logging.INFO)
+        logger.addHandler(rich_handler)
 
-    # File handler (structured JSON)
+    # File handler (structured JSON). Keyed on the resolved path, not on the
+    # handler type: one logger legitimately writes one file, and a different
+    # path is a different destination rather than a repeat.
     if log_file:
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(JsonFormatter(signer))
-        logger.addHandler(file_handler)
+        target = str(Path(log_file).resolve())
+        attached = {
+            str(Path(h.baseFilename).resolve())
+            for h in logger.handlers
+            if isinstance(h, logging.FileHandler)
+        }
+        if target not in attached:
+            Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(JsonFormatter(signer))
+            logger.addHandler(file_handler)
 
     return logger
 

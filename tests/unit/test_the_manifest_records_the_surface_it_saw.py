@@ -26,7 +26,7 @@ from cyberai.cli.bench import bench
 
 
 class _Agent:
-    def __init__(self, cfg, session):
+    def __init__(self, cfg, session, llm=None, audit=None):
         self.llm = None
 
     def _run_web_recon(self, base_url):
