@@ -19,18 +19,33 @@ def get_logger(
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
-    # Rich console handler
-    rich_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
-    rich_handler.setLevel(logging.INFO)
-    logger.addHandler(rich_handler)
+    # Rich console handler. logging.getLogger returns the SAME object for a
+    # name, so a second call on one name used to stack a second set of
+    # handlers: one record then reached stderr twice and the signed JSONL
+    # trail twice, under two different signatures. Callers that rebuild an
+    # AuditLogger for a session they already have are the real producers of
+    # that shape, so the guard lives here rather than at each call site.
+    if not any(isinstance(h, RichHandler) for h in logger.handlers):
+        rich_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
+        rich_handler.setLevel(logging.INFO)
+        logger.addHandler(rich_handler)
 
-    # File handler (structured JSON)
+    # File handler (structured JSON). Keyed on the resolved path, not on the
+    # handler type: one logger legitimately writes one file, and a different
+    # path is a different destination rather than a repeat.
     if log_file:
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(JsonFormatter(signer))
-        logger.addHandler(file_handler)
+        target = str(Path(log_file).resolve())
+        attached = {
+            str(Path(h.baseFilename).resolve())
+            for h in logger.handlers
+            if isinstance(h, logging.FileHandler)
+        }
+        if target not in attached:
+            Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(JsonFormatter(signer))
+            logger.addHandler(file_handler)
 
     return logger
 
