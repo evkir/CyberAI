@@ -63,8 +63,15 @@ _PACKAGE = _ROOT / "cyberai"
 # same day web/app.py was priced and left alone -- one error, +1 crosser and
 # +5 reached, which is the pair this rule exists to make visible before the
 # fact rather than after.
+# 2026-10-05: recon/dns_tool.py and core/timeout.py were declared together,
+# priced at 0 errors each, 0 crossers each, and -1 and 0 reached: 16 reaching
+# 25 became 16 reaching 24. Neither was made clean by anybody typing it. Dead
+# public names were deleted from both -- an untyped bruteforce helper and a
+# SIGALRM decorator nothing installed -- and what remained already passed, so
+# the drift report demanded them the same hour. A module can arrive at the
+# boundary by subtraction, and the price is still read off the pricer.
 _EXPECTED_CROSSERS = 16
-_EXPECTED_REACHED = 25
+_EXPECTED_REACHED = 24
 
 
 def _scope() -> set[pathlib.Path]:
@@ -125,7 +132,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 112
+    assert len(_scope()) == 114
     assert len(list(_PACKAGE.rglob("*.py"))) == 172
 
 

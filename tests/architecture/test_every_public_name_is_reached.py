@@ -11,11 +11,12 @@ Reachability is transitive, which is the whole difficulty. An importer is
 not the test, because a name can be used only by a neighbour in its own
 module and still be live -- analyze_trust is never imported anywhere and is
 called by analyze_trust_propagation, which agents/mcp_scan/agent.py imports.
-Measured on this tree: 459 public names, 76 without an importer, 31 without
-a path from one, 12 once local registration counts as a path, and 8 once
-relative imports are resolved. The forty-five between the first two numbers
-are that shape and a rule built on imports alone would have accused every
-one of them.
+Measured while this was written: 459 public names, 76 without an importer,
+31 without a path from one, 12 once local registration counts as a path, 8
+once relative imports are resolved, and 0 once those eight were deleted.
+Every step but the last was a mechanism the instrument did not know about
+rather than a name anybody fixed, and the forty-five between the first two
+numbers are the shape a rule built on imports alone would have accused.
 
 The closure starts at every imported name and at names used at module
 level, then walks into the body of everything it reaches. Restricting the
@@ -27,8 +28,8 @@ position rather than by spelling.
 
 UNREACHED below is the declared state, checked in both directions: a name
 that stops being unreached fails here, and so does a name that is listed
-and no longer exists. Each remaining entry is a question about one name
-rather than about a mechanism.
+and no longer exists. It is empty, so the next unreachable name to arrive
+has to be argued for in review rather than added quietly.
 """
 
 from __future__ import annotations
@@ -41,19 +42,9 @@ PACKAGE = REPO / "cyberai"
 SCANNED = ("cyberai", "tests", "scripts")
 
 # Public names with no path from an importer. Each entry is a claim that
-# nothing reaches it; the guard fails when one becomes reachable.
-UNREACHED: frozenset[str] = frozenset(
-    {
-        "cyberai.agents.exploit.poc_mapper.batch_lookup",
-        "cyberai.agents.intel.nvd_client.search_cves_async",
-        "cyberai.agents.intel.nvd_client.search_cves_batch",
-        "cyberai.agents.recon.dns_tool.detect_subdomains",
-        "cyberai.core.rate_limiter.get_limiter",
-        "cyberai.core.timeout.AgentTimeoutError",
-        "cyberai.core.timeout.timeout_handler",
-        "cyberai.core.timeout.with_timeout",
-    }
-)
+# nothing reaches it; the guard fails when one becomes reachable. Empty is
+# the honest state today and the guard reads correctly when it is empty.
+UNREACHED: frozenset[str] = frozenset()
 
 _DEFINITION = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
