@@ -137,19 +137,3 @@ PHANTOM_GRID_RATE_LIMITER = RateLimiter(
         window_seconds=1.0,
     )
 )
-
-LIMITERS = {
-    "nvd_no_key": NVD_RATE_LIMITER_NO_KEY,
-    "nvd_with_key": NVD_RATE_LIMITER_WITH_KEY,
-    "epss": EPSS_RATE_LIMITER,
-    "openai": OPENAI_RATE_LIMITER,
-    "anthropic": ANTHROPIC_RATE_LIMITER,
-    "phantom_grid": PHANTOM_GRID_RATE_LIMITER,
-}
-
-
-def get_limiter(name: str) -> RateLimiter:
-    """Fetch a named per-API limiter."""
-    if name not in LIMITERS:
-        raise KeyError(f"Unknown rate limiter: {name!r}")
-    return LIMITERS[name]

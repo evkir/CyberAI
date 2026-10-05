@@ -1,49 +1,10 @@
+"""Default per-agent time limits.
+
+The decorator and the SIGALRM handler that lived here were removed: nothing
+imported them and nothing called them, and a signal-based timeout that no
+path installs is a promise the pipeline does not keep. The table below is
+read by core/async_base_agent.py, which is the whole of this module now.
 """
-Agent timeout enforcement with graceful fallback.
-Prevents runaway agents from hanging the pipeline.
-"""
-
-import functools
-import signal
-from typing import Any, Callable, Optional
-
-
-class AgentTimeoutError(Exception):
-    pass
-
-
-def timeout_handler(signum, frame):
-    raise AgentTimeoutError("Agent exceeded time limit")
-
-
-def with_timeout(seconds: int, fallback: Optional[Any] = None):
-    """
-    Decorator: kill agent tool call if it exceeds `seconds`.
-    On timeout, returns `fallback` instead of crashing the pipeline.
-
-    Usage:
-        @with_timeout(30, fallback={"error": "timeout"})
-        def run_nmap(target): ...
-    """
-
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(seconds)
-            try:
-                result = func(*args, **kwargs)
-                signal.alarm(0)  # Cancel alarm
-                return result
-            except AgentTimeoutError:
-                signal.alarm(0)
-                if fallback is not None:
-                    return fallback
-                raise
-
-        return wrapper
-
-    return decorator
 
 
 class AgentTimeoutManager:

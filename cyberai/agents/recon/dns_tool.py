@@ -38,33 +38,6 @@ def run_dns(target: str) -> Dict[str, Any]:
     return results
 
 
-def detect_subdomains(target: str, wordlist: List[str] = None) -> Dict[str, Any]:
-    """Basic subdomain bruteforce from wordlist"""
-    if wordlist is None:
-        wordlist = [
-            "www",
-            "mail",
-            "ftp",
-            "admin",
-            "api",
-            "dev",
-            "staging",
-            "vpn",
-            "remote",
-            "portal",
-            "app",
-        ]
-    found = []
-    for sub in wordlist:
-        host = f"{sub}.{target}"
-        try:
-            dns.resolver.resolve(host, "A", lifetime=3)
-            found.append(host)
-        except Exception:
-            pass
-    return {"target": target, "subdomains": found}
-
-
 async def _query_one(resolver: "dns.asyncresolver.Resolver", target: str, rtype: str) -> List[str]:
     """Resolve a single record type; return [] on any failure (matches sync behaviour)."""
     try:

@@ -1,7 +1,7 @@
 # Typing scope
 
-`mypy --strict` reads 112 of 172 modules in the package. The other 60 hold 262
-errors, measured 2026-10-01 with mypy 1.19.1 over the whole package. That count
+`mypy --strict` reads 114 of 172 modules in the package. The other 58 hold 254
+errors, measured 2026-10-05 with mypy 1.19.1 over the whole package. That count
 moves with the checker and with the tree, so it is dated here rather than gated
 by a test; the 112 and the 172 beside it are gated, and a test below says so.
 
@@ -15,8 +15,8 @@ module that could be declared and is not becomes a failing CI step rather than
 a quiet omission.
 
 Not checked is stronger than it sounds, and the boundary is the reason. Of
-the 112 modules in the scope, 16 import a module outside it at module level,
-and between them they reach 25 such modules. mypy follows those imports to
+the 114 modules in the scope, 16 import a module outside it at module level,
+and between them they reach 24 such modules. mypy follows those imports to
 resolve names and does not report what it finds there: measured on 2026-09-17
 by appending an unannotated function to `cyberai/core/config.py`, which was
 outside the scope then and imported from inside it, running with a cold cache,

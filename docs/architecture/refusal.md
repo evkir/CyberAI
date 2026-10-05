@@ -44,7 +44,6 @@ is the subject of the second half of this page.
 | `InjectionBlocked` | `core/security/guard.py` | under the `deny` policy, a prompt-injection verdict stops the call before any provider is contacted |
 | `CorpusError` | `core/security/eval_corpus.py` | the evaluation corpus could not be read; surfaces as one CLI line |
 | `RecordMismatch` | `core/security/llm_classifier.py` | a replay recording does not match the corpus it is replayed against; surfaces as one CLI line |
-| `AgentTimeoutError` | `core/timeout.py` | nothing, when a fallback was supplied; otherwise it travels |
 
 This table is generated from the tree rather than written once, and the
 first thing it found was a refusal that did not exist. `RateLimitError` sat
@@ -53,6 +52,12 @@ raising it, no code catching it and no code importing it. A refusal nobody
 raises is indistinguishable, from the outside, from one that never fires.
 It was removed on 2026-09-23; the 429 the class described is real and is
 already answered, by `httpx.HTTPStatusError` in both NVD request paths.
+
+`AgentTimeoutError` left the table on 2026-10-05 for the same reason and by
+the same route. It was raised by a SIGALRM decorator in `core/timeout.py`
+that no module imported and no path installed, so the refusal it documented
+could not fire; the per-agent limits that module still holds are read by
+`core/async_base_agent.py` and are not a refusal.
 
 `InjectionBlocked` is caught once on its way out, in `core/llm_client.py`,
 and re-raised. The catch exists to write the verdict to the audit trail
