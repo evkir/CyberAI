@@ -12,8 +12,9 @@ not the test, because a name can be used only by a neighbour in its own
 module and still be live -- analyze_trust is never imported anywhere and is
 called by analyze_trust_propagation, which agents/mcp_scan/agent.py imports.
 Measured on this tree: 459 public names, 76 without an importer, 31 without
-a path from one. The forty-five in between are that shape and a rule built
-on imports alone would have accused every one of them.
+a path from one, and 12 once local registration counts as a path. The
+forty-five between the first two numbers are that shape and a rule built on
+imports alone would have accused every one of them.
 
 The closure starts at every imported name and at names used at module
 level, then walks into the body of everything it reaches. Restricting the
@@ -25,9 +26,8 @@ position rather than by spelling.
 
 UNREACHED below is the declared state, checked in both directions: a name
 that stops being unreached fails here, and so does a name that is listed
-and no longer exists. The list is long today and every entry on it is a
-question this file does not yet answer -- the commits after this one each
-remove a mechanism's worth of them.
+and no longer exists. Each remaining entry is a question about one name
+rather than about a mechanism.
 """
 
 from __future__ import annotations
@@ -43,10 +43,6 @@ SCANNED = ("cyberai", "tests", "scripts")
 # nothing reaches it; the guard fails when one becomes reachable.
 UNREACHED: frozenset[str] = frozenset(
     {
-        "cyberai.__main__.audit_verify",
-        "cyberai.__main__.replay",
-        "cyberai.__main__.scope_import",
-        "cyberai.__main__.status",
         "cyberai.agents.exploit.attack_path.AttackPath",
         "cyberai.agents.exploit.attack_path.build_attack_paths",
         "cyberai.agents.exploit.poc_mapper.batch_lookup",
@@ -55,25 +51,10 @@ UNREACHED: frozenset[str] = frozenset(
         "cyberai.agents.recon.dns_tool.detect_subdomains",
         "cyberai.agents.web3.etherscan.ContractSource",
         "cyberai.agents.web3.etherscan.EtherscanClient",
-        "cyberai.cli.bench.list_suites",
-        "cyberai.cli.bench.run",
-        "cyberai.cli.detector_eval.detector_eval",
-        "cyberai.cli.web3_audit.audit",
-        "cyberai.cli.web3_audit.web3",
         "cyberai.core.rate_limiter.get_limiter",
         "cyberai.core.timeout.AgentTimeoutError",
         "cyberai.core.timeout.timeout_handler",
         "cyberai.core.timeout.with_timeout",
-        "cyberai.web.routes.bench.get_scorecard",
-        "cyberai.web.routes.bench.list_scorecards",
-        "cyberai.web.routes.bench.trigger_run",
-        "cyberai.web.routes.lab.get_machine_writeup",
-        "cyberai.web.routes.lab.list_machines",
-        "cyberai.web.routes.regression.get_regression",
-        "cyberai.web.routes.report.get_report",
-        "cyberai.web.routes.session.get_session",
-        "cyberai.web.routes.session.list_sessions",
-        "cyberai.web.routes.session.stream_session",
     }
 )
 
@@ -95,6 +76,23 @@ def _names_used(node: ast.AST) -> set[str]:
     return used
 
 
+def _registered_locally(node: ast.AST, local: set[str]) -> bool:
+    """Decorated by an attribute of an object this module owns.
+
+    `@cli.command()` and `@router.get(...)` hand the function to a registry
+    that lives beside it, so importing the module is what reaches it and no
+    import of the function can exist. The receiver has to be local: the
+    `@click.option` stacked on the same functions is an imported module and
+    registers nothing.
+    """
+    for decorator in getattr(node, "decorator_list", []):
+        called = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(called, ast.Attribute) and isinstance(called.value, ast.Name):
+            if called.value.id in local:
+                return True
+    return False
+
+
 def _definitions() -> tuple[dict[str, str], dict[str, set[str]], set[str]]:
     """Every definition, what its body names, and what module level names."""
     owner: dict[str, str] = {}
@@ -104,11 +102,20 @@ def _definitions() -> tuple[dict[str, str], dict[str, set[str]], set[str]]:
         module = _dotted(path)
         tree = ast.parse(path.read_text(encoding="utf-8"))
         here = {n.name for n in tree.body if isinstance(n, _DEFINITION)}
+        local = here | {
+            t.id
+            for n in tree.body
+            if isinstance(n, ast.Assign)
+            for t in n.targets
+            if isinstance(t, ast.Name)
+        }
         for node in tree.body:
             if isinstance(node, _DEFINITION):
                 key = f"{module}.{node.name}"
                 owner[key] = module
                 uses[key] = _names_used(node)
+                if _registered_locally(node, local):
+                    module_level.add(key)
             else:
                 module_level |= {f"{module}.{name}" for name in _names_used(node) if name in here}
     return owner, uses, module_level
@@ -190,3 +197,29 @@ def test_reachability_is_transitive_and_not_a_name_search():
                 frontier.append(nxt)
     assert reached == {"m.entry", "m.helper"}
     assert "other.helper" not in reached
+
+
+def test_a_decorator_registers_only_when_the_registry_is_local():
+    """The control, on the two shapes that sit on the same function.
+
+    `@cli.command()` hands the function to an object defined beside it and
+    is the only reason those functions are reachable. `@click.option` is an
+    attribute of an imported module and hands over nothing; counting it
+    would mark every decorated function alive and empty this guard out.
+    """
+    module = ast.parse(
+        "import click\n"
+        "cli = click.Group()\n"
+        "@cli.command()\n"
+        "@click.option('--flag')\n"
+        "def registered(flag): ...\n"
+        "@click.option('--flag')\n"
+        "def decorated_only(flag): ...\n"
+    )
+    local = {"cli"}
+    found = {
+        node.name: _registered_locally(node, local)
+        for node in module.body
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert found == {"registered": True, "decorated_only": False}
