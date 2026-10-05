@@ -12,9 +12,10 @@ not the test, because a name can be used only by a neighbour in its own
 module and still be live -- analyze_trust is never imported anywhere and is
 called by analyze_trust_propagation, which agents/mcp_scan/agent.py imports.
 Measured on this tree: 459 public names, 76 without an importer, 31 without
-a path from one, and 12 once local registration counts as a path. The
-forty-five between the first two numbers are that shape and a rule built on
-imports alone would have accused every one of them.
+a path from one, 12 once local registration counts as a path, and 8 once
+relative imports are resolved. The forty-five between the first two numbers
+are that shape and a rule built on imports alone would have accused every
+one of them.
 
 The closure starts at every imported name and at names used at module
 level, then walks into the body of everything it reaches. Restricting the
@@ -43,14 +44,10 @@ SCANNED = ("cyberai", "tests", "scripts")
 # nothing reaches it; the guard fails when one becomes reachable.
 UNREACHED: frozenset[str] = frozenset(
     {
-        "cyberai.agents.exploit.attack_path.AttackPath",
-        "cyberai.agents.exploit.attack_path.build_attack_paths",
         "cyberai.agents.exploit.poc_mapper.batch_lookup",
         "cyberai.agents.intel.nvd_client.search_cves_async",
         "cyberai.agents.intel.nvd_client.search_cves_batch",
         "cyberai.agents.recon.dns_tool.detect_subdomains",
-        "cyberai.agents.web3.etherscan.ContractSource",
-        "cyberai.agents.web3.etherscan.EtherscanClient",
         "cyberai.core.rate_limiter.get_limiter",
         "cyberai.core.timeout.AgentTimeoutError",
         "cyberai.core.timeout.timeout_handler",
@@ -121,26 +118,42 @@ def _definitions() -> tuple[dict[str, str], dict[str, set[str]], set[str]]:
     return owner, uses, module_level
 
 
-def _imported_from_elsewhere(owner: dict[str, str]) -> set[str]:
+def _absolute(node: ast.ImportFrom, path: pathlib.Path) -> str:
+    """The module an import names, with `from .x import y` spelled out.
+
+    Eighty imports in this package are relative, and the package writes a
+    sibling as `.attack_path` rather than by its full name. Skipping them
+    reported AttackPath, build_attack_paths and EtherscanClient as reached
+    by nothing while agent.py imported and called all three.
+    """
+    if not node.level:
+        return node.module or ""
+    package = path.parent
+    for _ in range(node.level - 1):
+        package = package.parent
+    dotted = package.relative_to(REPO).as_posix().replace("/", ".")
+    return f"{dotted}.{node.module}" if node.module else dotted
+
+
+def _imported_anywhere(owner: dict[str, str]) -> set[str]:
     entry: set[str] = set()
     for area in SCANNED:
         for path in sorted((REPO / area).rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
-                if not isinstance(node, ast.ImportFrom) or node.level:
+                if not isinstance(node, ast.ImportFrom):
                     continue
-                if not (node.module or "").startswith("cyberai"):
+                module = _absolute(node, path)
+                if not module.startswith("cyberai"):
                     continue
-                entry |= {
-                    key for alias in node.names if (key := f"{node.module}.{alias.name}") in owner
-                }
+                entry |= {key for alias in node.names if (key := f"{module}.{alias.name}") in owner}
     return entry
 
 
 def _reachable() -> tuple[set[str], set[str]]:
     """Public names, and the ones a path from an importer arrives at."""
     owner, uses, module_level = _definitions()
-    frontier = list(_imported_from_elsewhere(owner) | module_level)
+    frontier = list(_imported_anywhere(owner) | module_level)
     reached = set(frontier)
     while frontier:
         current = frontier.pop()
@@ -223,3 +236,22 @@ def test_a_decorator_registers_only_when_the_registry_is_local():
         if isinstance(node, ast.FunctionDef)
     }
     assert found == {"registered": True, "decorated_only": False}
+
+
+def test_a_relative_import_resolves_to_the_module_it_means():
+    """The control, on the spelling that hid three live names.
+
+    A sibling written `.attack_path` and a parent written `..config` name
+    modules as surely as the full path does, and the package writes them
+    that way eighty times. Reading only the absolute form left three names
+    accused that agent.py imports on its own line.
+    """
+    path = REPO / "cyberai" / "agents" / "exploit" / "agent.py"
+    sibling, parent, absolute = ast.parse(
+        "from .attack_path import AttackPath\n"
+        "from ..recon import dns_tool\n"
+        "from cyberai.core.config import CyberAIConfig\n"
+    ).body
+    assert _absolute(sibling, path) == "cyberai.agents.exploit.attack_path"
+    assert _absolute(parent, path) == "cyberai.agents.recon"
+    assert _absolute(absolute, path) == "cyberai.core.config"
