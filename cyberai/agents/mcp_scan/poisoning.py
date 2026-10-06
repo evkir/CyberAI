@@ -116,7 +116,10 @@ def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     # one of them, so a directive carried in an icon field reached no matcher
     # at all -- not because no pattern described it, but because the text was
     # never collected. A channel nothing reads cannot be scored.
-    for key in ("annotations", "meta", "outputSchema", "icons"):
+    # ``_meta`` is the protocol spelling and the probe dumps by alias. This
+    # loop once asked for "meta", so a directive a server put there reached
+    # no matcher and the tool scored clean.
+    for key in ("annotations", "_meta", "outputSchema", "icons"):
         val = tool.get(key)
         if val:
             parts.append(json.dumps(val, default=str))

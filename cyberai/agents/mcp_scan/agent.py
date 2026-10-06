@@ -2,9 +2,11 @@
 
 Standalone agent (not in the recon -> intel -> exploit -> report network
 pipeline): the target is an MCP endpoint (stdio command or HTTP/SSE URL) rather
-than a network host. This skeleton connects to the target and inventories its
-advertised capability surface; metadata analysis (tool-poisoning,
-over-privilege) and live injection are layered on in later commits.
+than a network host. It connects to the target, inventories its advertised
+capability surface, and runs the static red-team stages over that surface:
+tool-poisoning, over-privilege, cross-server trust, transport attestation,
+network exposure, authorization metadata, and an optional MST low-level
+fuzzer, folded into an OWASP-MCP / MITRE-ATLAS report and a STRIDE scorecard.
 
 The underlying probe is async; this agent is driven synchronously from the CLI,
 so the probe is run via ``asyncio.run`` inside the tool handler.
@@ -53,7 +55,7 @@ console = Console()
 
 
 class MCPScanAgent(BaseAgent):
-    """Inventory and (later) attack a target MCP server or LLM endpoint."""
+    """Inventory and statically red-team a target MCP server or LLM endpoint."""
 
     AGENT_NAME = "mcp_scan"
     ROLE = "MCP/LLM Red-Team Operator"
@@ -80,8 +82,9 @@ class MCPScanAgent(BaseAgent):
 
         ``target`` is an MCP endpoint: a stdio command line, an ``http(s)://``
         URL (streamable-HTTP), or an ``sse://`` URL. An explicit transport may
-        be supplied via ``context["transport"]``. This skeleton records the
-        capability inventory; findings are produced by later analysis stages.
+        be supplied via ``context["transport"]``. The capability inventory and
+        the findings from each analysis stage are collected into the returned
+        dict.
         """
         transport = (context or {}).get("transport")
         self._log(f"MCP scan target: {target}")

@@ -251,3 +251,21 @@ def test_agent_records_shadowing_finding() -> None:
     findings = agent.session.findings
     assert len(findings) == 1
     assert findings[0].severity == Severity.HIGH
+
+
+def test_the_scan_does_not_contradict_the_session_it_was_given() -> None:
+    """A field the scan reports about the session agrees with the session.
+
+    AttestationScan once declared ``connected`` with a False default and never
+    set it, so every published scan said "no session" beside a top-level
+    ``connected: true`` -- and on HTTP, beside ``unauthenticated: true``. The
+    assertion holds whether the field is absent or carried correctly; it fails
+    only when the scan states something about the session that is not so.
+    """
+    for endpoint, transport in (
+        ("python server.py", "stdio"),
+        ("https://mcp.target.tld/mcp", "http"),
+    ):
+        for connected in (True, False):
+            data = assess_attestation(endpoint, transport, connected).to_dict()
+            assert data.get("connected", connected) is connected, (transport, connected)

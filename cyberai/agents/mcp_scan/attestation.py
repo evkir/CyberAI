@@ -44,7 +44,6 @@ class AttestationScan:
 
     endpoint: str
     transport: str
-    connected: bool = False
     unauthenticated: bool = False
     transport_encrypted: bool = True
     declared_capabilities: list[str] = field(default_factory=list)
