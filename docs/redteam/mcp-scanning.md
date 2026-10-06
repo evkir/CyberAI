@@ -20,8 +20,15 @@ CyberAI comes from the other side. During an engagement it:
 2. Connects as an anonymous client and inventories the advertised tools,
    prompts, and resources.
 3. Analyzes that surface for attacker-usable weaknesses.
-4. Optionally confirms exploitation out-of-band (OOB callback) so a finding is
-   reported only when a real signal comes back — not on a heuristic match.
+
+Step 3 is where this command stops. Every verdict it reports is a static
+inference over metadata the server volunteered: the probe completes a
+handshake, lists what is advertised, and calls nothing. Out-of-band
+confirmation is how CyberAI proves blind findings on the network side, and
+it is not wired to this path -- `mcp-scan` has no OOB option, and the
+red-team fuzzer runs from planned injection subtasks rather than from an
+MCP endpoint. A reader who expects a confirmed exploit here would be
+expecting another command's work.
 
 The two postures are complementary; the offensive layer is what an external
 attacker actually sees, and it is still thin ground across the tooling
