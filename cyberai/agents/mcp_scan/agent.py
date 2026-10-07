@@ -21,6 +21,7 @@ from rich.console import Console
 
 from cyberai.agents.mcp_scan.attestation import assess_attestation
 from cyberai.agents.mcp_scan.exposure import assess_exposure
+from cyberai.agents.mcp_scan.instructions import analyze_instructions
 from cyberai.agents.mcp_scan.overprivilege import analyze_overprivilege
 from cyberai.agents.mcp_scan.poisoning import analyze_tools
 from cyberai.agents.mcp_scan.scorecard import build_mcp_scorecard
@@ -110,6 +111,9 @@ class MCPScanAgent(BaseAgent):
             probe_result["capabilities"],
         )
         trust = self._analyze_trust(target, probe_result["tools"])
+        instructions = self._analyze_instructions(
+            target, probe_result["instructions"], probe_result["tools"]
+        )
         auth_metadata = probe_auth_metadata(target, probe_result["transport"]).to_dict()
         mst = self._run_mst(target, probe_result["transport"], context)
         result: dict[str, Any] = {
@@ -119,6 +123,7 @@ class MCPScanAgent(BaseAgent):
             "exposure": exposure,
             "attestation": attestation,
             "trust": trust,
+            "instructions": instructions,
             "auth_metadata": auth_metadata,
             "mst": mst,
             "probe": probe_result,
@@ -134,6 +139,7 @@ class MCPScanAgent(BaseAgent):
                 "exposed": exposure["exposed"],
                 "unauthenticated": attestation["unauthenticated"],
                 "shadowing_tools": trust["shadowing"],
+                "steering_instructions": instructions["is_finding"],
                 "mst_findings": len(mst),
             },
         )
@@ -283,6 +289,36 @@ class MCPScanAgent(BaseAgent):
             )
         return {
             "unauthenticated": scan.unauthenticated,
+            "scan": scan.to_dict(),
+        }
+
+    def _analyze_instructions(
+        self, target: str, instructions: str | None, tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Score the free text the server sends with its initialize reply.
+
+        Like exposure and attestation this is a property of the endpoint, not
+        of any tool, so at most one Finding is recorded. A server that sends no
+        instructions is reported absent rather than clean: the two are
+        different answers and INFO alone cannot tell them apart.
+        """
+        scan = analyze_instructions(instructions, tools)
+        if scan.is_finding:
+            self.session.add_finding(
+                severity=Severity(scan.severity),
+                title=f"MCP server instructions steer the client ({target})",
+                description=(
+                    f"The initialize reply from '{target}' carries instructions the "
+                    f"client places in model context before any tool is listed. "
+                    f"{' '.join(scan.reasons)}"
+                ),
+                agent=self.AGENT_NAME,
+                target=target,
+                evidence=[scan.to_dict()],
+            )
+        return {
+            "present": scan.present,
+            "is_finding": scan.is_finding,
             "scan": scan.to_dict(),
         }
 

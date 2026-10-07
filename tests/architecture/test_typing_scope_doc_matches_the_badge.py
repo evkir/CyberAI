@@ -30,7 +30,9 @@ def _badge_ratio() -> tuple[int, int]:
     line = next(
         line for line in _README.read_text(encoding="utf-8").splitlines() if "badge/mypy-" in line
     )
-    label = urllib.parse.unquote(re.search(r"badge/mypy-(.+?)-[a-z]+\)", line).group(1))
+    shield = re.search(r"badge/mypy-(.+?)-[a-z]+\)", line)
+    assert shield, f"the mypy badge line carries no shields.io label; it reads {line!r}"
+    label = urllib.parse.unquote(shield.group(1))
     match = re.search(r"(\d+)\s*/\s*(\d+)", label)
     assert match, f"the mypy badge states no ratio; it reads {label!r}"
     return int(match.group(1)), int(match.group(2))
@@ -92,7 +94,11 @@ def test_the_error_count_beside_the_ratio_is_dated() -> None:
     remeasuring the number, which holds until the tree moves again. What was
     never asked is why this sentence stands undated while its neighbours do not.
     """
-    block = _paragraph_holding("of 172 modules")
+    # The needle carries no count: a module added to the package moved the
+    # ratio and this line raised StopIteration, which reads as "the paragraph
+    # lost its date" and is not what happened. The ratio is gated above; this
+    # test only has to find the paragraph that states it.
+    block = _paragraph_holding("modules in the package")
     assert _ISO.search(block), (
         "the error count sits beside a gated ratio without a measurement date; "
         f"the paragraph reads {block!r}"

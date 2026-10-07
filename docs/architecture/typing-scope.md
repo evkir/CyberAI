@@ -1,9 +1,9 @@
 # Typing scope
 
-`mypy --strict` reads 114 of 172 modules in the package. The other 58 hold 254
+`mypy --strict` reads 115 of 173 modules in the package. The other 58 hold 254
 errors, measured 2026-10-05 with mypy 1.19.1 over the whole package. That count
 moves with the checker and with the tree, so it is dated here rather than gated
-by a test; the 112 and the 172 beside it are gated, and a test below says so.
+by a test; the 115 and the 173 beside it are gated, and a test below says so.
 
 The scope is a list of named modules, so a module that passes strictly stays
 outside it until someone says otherwise, and nothing about the module itself

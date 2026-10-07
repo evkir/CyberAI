@@ -41,6 +41,7 @@ landscape.
 | tool-poisoning | Hidden instructions, unicode tricks, base64, hidden HTML, executable icon carriers in tool metadata | MCP03:2025 Tool Poisoning | AML.T0110 AI Agent Tool Poisoning |
 | over-privilege | Tools that touch fs/net/exec beyond their declared purpose | MCP02:2025 Privilege Escalation via Scope Creep | AML.T0086 Exfiltration via AI Agent Tool Invocation |
 | trust-propagation | Steering / shadowing of sibling tools, cross-server name collisions | MCP06:2025 Intent Flow Subversion | AML.T0051 LLM Prompt Injection |
+| server-instructions | Steering text in the initialize reply: an unconditional directive naming a tool the server does not advertise, and the poisoning matchers over the same text | MCP06:2025 Intent Flow Subversion | AML.T0051 LLM Prompt Injection |
 | attestation | Anonymous acceptance, self-asserted identity, no message auth, the capability set the server declares | MCP07:2025 Insufficient Authentication & Authorization | - |
 | exposure | Remote reachability, DNS-rebinding surface, dangerous capabilities | MCP07:2025 Insufficient Authentication & Authorization | AML.T0040 AI Model Inference API Access |
 | authorization-metadata | RFC 9728 protected-resource metadata: the 401 challenge, the pointer it carries, the issuer, dynamic client registration, client-id metadata documents, the `iss` parameter | MCP01:2025 Token Mismanagement & Secret Exposure | - |
@@ -66,7 +67,7 @@ scan cannot observe.
 
 | # | Class | Verdict | What the scan actually does |
 | --- | --- | --- | --- |
-| 1 | Prompt Injection | partial | Ten detector categories over eight metadata channels. Server `instructions` are probed but reach no stage. |
+| 1 | Prompt Injection | partial | Ten detector categories over eight metadata channels, and the same matchers over the server's `instructions`, which also scores an unconditional directive naming a tool the server does not advertise. Measured on eleven formulations: six scored, three clean ones correctly silent, two missed -- a summons naming a tool without an underscore, and one whose directive is phrased outside the four forms the stage reads. |
 | 2 | Command Injection | no | Needs a tool call; the probe invokes nothing. |
 | 3 | Tool Poisoning (TPA) | yes | Nine MCP patterns plus the generic detector, over every advertised channel. |
 | 4 | Remote Code Execution | no | Confirmation requires execution, which is out of scope for a read-only probe. |

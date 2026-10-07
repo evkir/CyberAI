@@ -14,7 +14,8 @@ generic checklist:
 * Repudiation     - MCP does not sign or attest invocations (context only)
 * Info disclosure - over-privileged exfiltration capability combinations
 * Denial of svc   - network reachability of the endpoint (rebinding surface)
-* Elevation       - cross-server shadowing / confused-deputy + unauth invoke
+* Elevation       - cross-server shadowing / confused-deputy + unauth invoke,
+                    and session text summoning a tool the server never advertised
 """
 
 from __future__ import annotations
@@ -57,6 +58,7 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     exposure = result.get("exposure", {})
     attestation = result.get("attestation", {})
     trust = result.get("trust", {})
+    instructions = result.get("instructions", {})
 
     poison_sevs = [t.get("severity", "INFO") for t in poisoning.get("tools", [])]
     overpriv_sevs = [t.get("severity", "INFO") for t in overpriv.get("tools", [])]
@@ -74,8 +76,21 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     # Info-disclosure and elevation draw on more than one stage.
     info_sevs = list(overpriv_sevs) + ([exp_sev] if dangerous else [])
     info_signals = overpriv.get("overprivileged", 0) + (1 if dangerous else 0)
-    elev_sevs = list(trust_sevs) + ([att_sev] if unauth else []) + ([exp_sev] if dangerous else [])
-    elev_signals = trust.get("shadowing", 0) + (1 if unauth else 0) + (1 if dangerous else 0)
+    inst_scan = instructions.get("scan", {})
+    steering = bool(instructions.get("is_finding"))
+    inst_sev = str(inst_scan.get("severity", Severity.INFO.value))
+    elev_sevs = (
+        list(trust_sevs)
+        + ([att_sev] if unauth else [])
+        + ([exp_sev] if dangerous else [])
+        + ([inst_sev] if steering else [])
+    )
+    elev_signals = (
+        trust.get("shadowing", 0)
+        + (1 if unauth else 0)
+        + (1 if dangerous else 0)
+        + (1 if steering else 0)
+    )
 
     lines: list[str] = []
     lines.append(f"# MCP Red-Team Scorecard - `{result.get('endpoint', '?')}`")
@@ -133,7 +148,9 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
             "Elevation of privilege",
             _worst(elev_sevs),
             elev_signals,
-            "cross-server shadowing / confused-deputy + unauth invoke (trust/attestation)",
+            "cross-server shadowing / confused-deputy + unauth invoke, "
+            "server instructions summoning an unadvertised tool "
+            "(trust/attestation/instructions)",
         )
     )
     lines.append("")

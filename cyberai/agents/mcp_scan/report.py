@@ -129,6 +129,19 @@ def build_risk_rows(result: Dict[str, Any]) -> List[RiskRow]:
         )
     )
 
+    i_sev, i_sig, _ = _endpoint_stage(result.get("instructions", {}), "is_finding")
+    rows.append(
+        RiskRow(
+            "server-instructions",
+            "MCP06:2025",
+            "Intent Flow Subversion",
+            "AML.T0051",
+            "LLM Prompt Injection",
+            i_sev,
+            i_sig,
+        )
+    )
+
     e_sev, e_sig, _ = _endpoint_stage(result.get("exposure", {}), "exposed")
     rows.append(
         RiskRow(
@@ -176,6 +189,13 @@ def _severity_summary(result: Dict[str, Any], rows: List[RiskRow]) -> Dict[str, 
     exp = result.get("exposure", {})
     if exp.get("exposed"):
         sevs.append(str(exp.get("scan", {}).get("severity", Severity.INFO.value)))
+    # Endpoint-level like the two above: the server's own initialize text is
+    # one finding or none, so it contributes one severity rather than a list.
+    # Left out, this histogram read zero HIGH while the table beside it
+    # carried a HIGH row for the same scan.
+    inst = result.get("instructions", {})
+    if inst.get("is_finding"):
+        sevs.append(str(inst.get("scan", {}).get("severity", Severity.INFO.value)))
     sevs += [str(m.get("severity", Severity.INFO.value)) for m in result.get("mst", []) or []]
     return {level: sevs.count(level) for level in _ORDER}
 

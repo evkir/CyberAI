@@ -118,6 +118,7 @@ files = [
     "cyberai/agents/mcp_scan/agent.py",
     "cyberai/agents/mcp_scan/attestation.py",
     "cyberai/agents/mcp_scan/exposure.py",
+    "cyberai/agents/mcp_scan/instructions.py",
     "cyberai/agents/mcp_scan/mst_bridge.py",
     "cyberai/agents/mcp_scan/overprivilege.py",
     "cyberai/agents/mcp_scan/poisoning.py",

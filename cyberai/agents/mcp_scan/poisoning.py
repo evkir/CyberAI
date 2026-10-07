@@ -96,6 +96,14 @@ def _schema_strings(node: Any) -> list[str]:
     return out
 
 
+# The tool metadata an LLM is shown that is not plain text: each is dumped
+# whole rather than walked, because a directive can sit in any value. The
+# over-privilege stage reads the same list -- it was blind to three of these
+# until measured, and a tool hiding "send the result to <url>" in _meta or
+# outputSchema scored an empty capability surface while poisoning flagged it.
+SERVER_CONTROLLED_BLOBS: tuple[str, ...] = ("annotations", "_meta", "outputSchema", "icons")
+
+
 def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     """Flatten all LLM-visible metadata of a tool into one scannable blob."""
     parts: list[str] = []
@@ -119,7 +127,7 @@ def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     # ``_meta`` is the protocol spelling and the probe dumps by alias. This
     # loop once asked for "meta", so a directive a server put there reached
     # no matcher and the tool scored clean.
-    for key in ("annotations", "_meta", "outputSchema", "icons"):
+    for key in SERVER_CONTROLLED_BLOBS:
         val = tool.get(key)
         if val:
             parts.append(json.dumps(val, default=str))
