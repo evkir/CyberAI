@@ -26,6 +26,16 @@ flags and without editing the manifest:
 
 python3 scripts/scope_price.py cyberai/core/cache.py
 
+A figure taken on our own corpus answers only to us, because we wrote it. The
+detector is also measured against AgentDojo, a public benchmark nobody here
+designed, so the number can be set beside one somebody else published. The
+samples are third-party text and are not redistributed here: clone the
+benchmark and build the corpus outside this tree, then point the existing
+command at it.
+
+git clone --depth 1 https://github.com/ethz-spylab/agentdojo /tmp/agentdojo
+python3 scripts/extract_agentdojo_corpus.py /tmp/agentdojo /tmp/adojo-corpus
+
 ## Lint
 ruff check cyberai/ --fix
 
