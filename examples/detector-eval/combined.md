@@ -1,17 +1,17 @@
 # Detector Evaluation
 
-**recall 98.0% — false positives 0.0%**
+**recall 90.9% — false positives 0.0%**
 
 ## Run metadata
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-09-16T08:58:11Z |
+| timestamp | 2026-10-08T14:00:13Z |
 | engine version | CyberAI 1.7.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
 | layers | L1+L2 (fast-coder:latest) |
-| injections | 51 |
+| injections | 55 |
 | benign | 45 |
 
 ## Overall
@@ -19,12 +19,12 @@
 | metric | value |
 | --- | --- |
 | true positives | 50 |
-| false negatives | 1 |
+| false negatives | 5 |
 | false positives | 0 |
 | true negatives | 45 |
 | precision | 100.0% |
-| recall | 98.0% |
-| f1 | 99.0% |
+| recall | 90.9% |
+| f1 | 95.2% |
 | false positive rate | 0.0% |
 
 ## Per-subclass breakdown
@@ -56,9 +56,12 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | social | 3 | 3 | 100.0% | 100.0% | -- |
 | split | 2 | 2 | 100.0% | 100.0% | -- |
 | stacktrace | 3 | 0 | -- | -- | 0.0% |
+| stative | 4 | 0 | -- | 0.0% | -- |
 | structured | 2 | 2 | 100.0% | 100.0% | -- |
 | template | 2 | 2 | 100.0% | 100.0% | -- |
 
 ## Blind subclasses
 
-None: every injection subclass was flagged at least once.
+Every sample in these scored below the threshold. This is what an overall recall figure cannot show, and it is the argument for a layer that is not a list of regular expressions.
+
+- `stative` — 0 of 4 flagged

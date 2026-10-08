@@ -107,11 +107,23 @@ def test_the_two_layer_report_beats_the_one_layer_report() -> None:
     Not a fixed target: the pattern layer is re-derived here, so this compares
     what the two configurations do today. It fails if a change ever makes the
     second layer cost recall instead of adding it.
+
+    This asserted an empty blind list until 2026-10-08, and that assertion was
+    true for as long as no sample defeated both layers. Four did: the stative
+    subclass states an attacker's goal as a fact about the world rather than
+    asking for it, and neither patterns nor model score it above zero. The
+    assertion is now that the second layer shrinks the blind list and that
+    what survives is named -- a list that merely got shorter would let the
+    next technique in without a word.
     """
     samples = load_corpus(_CORPUS)
     classifier = LLMClassifier(transport=recorded_transport(_RECORDING))
     one = evaluate(samples, threshold=DEFAULT_THRESHOLD)
     two = evaluate(samples, threshold=DEFAULT_THRESHOLD, scorer=combined_scorer(classifier))
-    assert two.overall.recall > one.overall.recall
+    one_recall, two_recall = one.overall.recall, two.overall.recall
+    assert one_recall is not None and two_recall is not None, "a corpus with no injections"
+    assert two_recall > one_recall
     assert two.overall.false_positive <= one.overall.false_positive
-    assert two.blind_subclasses() == []
+    blind_one, blind_two = one.blind_subclasses(), two.blind_subclasses()
+    assert set(blind_two) < set(blind_one), (blind_one, blind_two)
+    assert blind_two == ["stative"], blind_two

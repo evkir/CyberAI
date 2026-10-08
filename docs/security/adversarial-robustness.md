@@ -65,8 +65,8 @@ from real tools. Reproduce with:
 
     cyberai detector eval --corpus tests/corpus
 
-At the production threshold of 50, measured 2026-08-31 on CyberAI 1.6.0:
-recall 62.7%, precision 100.0%, false positives 0.0%. The detector's own
+At the production threshold of 50, measured 2026-10-08 on CyberAI 1.7.0:
+recall 58.2%, precision 100.0%, false positives 0.0%. The detector's own
 `is_injection` cut of 25 gives the same three figures, because no sample in
 either class scores between 25 and 50. That gap is a property of the
 weights rather than a coincidence: a directive category is worth 50 and any
@@ -111,11 +111,12 @@ detected. That is the trade the measurement argues for: one crafted sample
 against every stacktrace, HTML body and nmap comment in the benign half.
 
 The overall recall figure is still the least useful number in that
-paragraph. Three injection subclasses score below the threshold on every
+paragraph. Four injection subclasses score below the threshold on every
 sample they hold: five non-English languages, paraphrase that avoids the
-keywords, and social pressure. A list of English regular
-expressions cannot reach any of them, which is the case for a layer that is
-not a list of regular expressions rather than for more entries in this one.
+keywords, social pressure, and instructions written as statements of
+settled fact. A list of English regular expressions cannot reach any of
+them, which is the case for a layer that is not a list of regular
+expressions rather than for more entries in this one.
 
 It was six. Exfiltration phrasing and MCP tool metadata left the list when
 the weights changed, and neither left because a pattern was added: their
@@ -149,11 +150,16 @@ maximum. Reproduce without a GPU with:
     cyberai detector eval --corpus tests/corpus --l2-replay \
       examples/detector-eval/l2-verdicts.json
 
-At the production threshold the pair measures recall 98.0%, precision
-100.0% and false positives 0.0%, against 62.7% recall for the patterns
-alone. No technique in the corpus scores zero any more. One sample escapes
-both layers: it is filed under the encoded subclass and holds no base64,
-its payload is ROT13, and neither layer reads that.
+At the production threshold the pair measures recall 90.9%, precision
+100.0% and false positives 0.0%, against 58.2% recall for the patterns
+alone. One technique still scores zero on both layers: the stative
+subclass, four samples that state an attacker's goal as a fact about the
+world rather than asking for it. They were written against this detector
+after a public benchmark showed the same shape, and they are the reason
+recall is lower here than it was at 1.6.0 -- the corpus got harder, not
+the detector worse. One further sample escapes both layers: it is filed
+under the encoded subclass and holds no base64, its payload is ROT13, and
+neither layer reads that.
 
 The layers turn out to be complementary rather than corroborating. Of the
 five injections the model misses, four are ones the patterns take: three at

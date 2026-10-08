@@ -235,7 +235,7 @@ class TrustGuard:
                 # exactly one directive category, so a message at the
                 # threshold cannot move -- and the call costs seconds.
                 # Measured on the eval corpus the short circuit skips 32 of
-                # 96 samples, changing no verdict. Both numbers follow the
+                # 100 samples, changing no verdict. Both numbers follow the
                 # corpus and are re-derived by
                 # tests/architecture/test_the_short_circuit_is_measured.py.
                 #

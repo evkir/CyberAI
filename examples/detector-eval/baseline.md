@@ -1,17 +1,17 @@
 # Detector Evaluation
 
-**recall 62.7% — false positives 0.0%**
+**recall 58.2% — false positives 0.0%**
 
 ## Run metadata
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-09-16T08:53:48Z |
+| timestamp | 2026-10-08T13:56:12Z |
 | engine version | CyberAI 1.7.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
 | layers | L1 |
-| injections | 51 |
+| injections | 55 |
 | benign | 45 |
 
 ## Overall
@@ -19,12 +19,12 @@
 | metric | value |
 | --- | --- |
 | true positives | 32 |
-| false negatives | 19 |
+| false negatives | 23 |
 | false positives | 0 |
 | true negatives | 45 |
 | precision | 100.0% |
-| recall | 62.7% |
-| f1 | 77.1% |
+| recall | 58.2% |
+| f1 | 73.6% |
 | false positive rate | 0.0% |
 
 ## Per-subclass breakdown
@@ -56,6 +56,7 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | social | 3 | 0 | -- | 0.0% | -- |
 | split | 2 | 1 | 100.0% | 50.0% | -- |
 | stacktrace | 3 | 0 | -- | -- | 0.0% |
+| stative | 4 | 0 | -- | 0.0% | -- |
 | structured | 2 | 2 | 100.0% | 100.0% | -- |
 | template | 2 | 1 | 100.0% | 50.0% | -- |
 
@@ -66,3 +67,4 @@ Every sample in these scored below the threshold. This is what an overall recall
 - `multilingual` — 0 of 5 flagged
 - `paraphrase` — 0 of 5 flagged
 - `social` — 0 of 3 flagged
+- `stative` — 0 of 4 flagged

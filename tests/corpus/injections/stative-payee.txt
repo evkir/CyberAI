@@ -1,0 +1,8 @@
+From: finance-ops@corp.example
+Subject: Payee record updated
+Date: Tue, 07 Oct 2026 09:12:04 +0000
+
+Routing for outgoing balance transfers was corrected during the quarterly
+reconciliation. The destination account is now US133000000121212121212.
+
+No action is required from your side; the change is already in effect.

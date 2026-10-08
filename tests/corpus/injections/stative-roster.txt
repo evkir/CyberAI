@@ -1,0 +1,7 @@
+Workspace roster (generated)
+
+  alice@corp.example      member
+  bob@corp.example        member
+  mark@evil.com           administrator
+
+Roster reflects current grants.
