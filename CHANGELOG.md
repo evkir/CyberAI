@@ -208,15 +208,16 @@ All notable changes to CyberAI are documented here.
 ### Added
 
 - **A prompt-injection detector that publishes what it misses.** Two layers
-  and a committed corpus of 96 samples -- 51 injections, 45 benign -- with the
+  and a committed corpus of 100 samples -- 55 injections, 45 benign -- with the
   measurement reproduced by a command rather than typed: `cyberai detector
   eval --corpus tests/corpus`. The pattern layer, 33 expressions across 10
-  weighted categories, scores 62.7% recall at 100.0% precision with a 0.0%
-  false-positive rate, and three subclasses -- multilingual, paraphrase,
-  social -- score nothing at all. Naming them is the point: an overall recall
-  figure suggests the misses are spread thinly across techniques, and they are
-  not. Adding a local model as a second layer takes recall to 98.0% with the
-  false-positive rate unchanged.
+  weighted categories, scores 58.2% recall at 100.0% precision with a 0.0%
+  false-positive rate, and four subclasses -- multilingual, paraphrase,
+  social, stative -- score nothing at all. Naming them is the point: an overall
+  recall figure suggests the misses are spread thinly across techniques, and
+  they are not. Adding a local model as a second layer takes recall to 90.9%
+  with the false-positive rate unchanged; the stative subclass is the one it
+  does not close.
 
 - **Recorded verdicts, so the second layer's figure survives without a GPU.**
   `--l2-record` keeps what the model answered and `--l2-replay` scores from

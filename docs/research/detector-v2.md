@@ -24,12 +24,12 @@ which counted patterns rather than categories: seven categories held more
 than one pattern, so a single category could reach the threshold alone while
 the documentation claimed two had to agree.
 
-Measured on the tracked corpus of 51 injections and 45 benign samples:
+Measured on the tracked corpus of 55 injections and 45 benign samples:
 
 | layer | recall | precision | false positives |
 | --- | --- | --- | --- |
-| L1 | 62.7% | 100.0% | 0.0% |
-| L1+L2 | 98.0% | 100.0% | 0.0% |
+| L1 | 58.2% | 100.0% | 0.0% |
+| L1+L2 | 90.9% | 100.0% | 0.0% |
 
 The benign half is real tool output — nmap service scans, nuclei JSON, MCP
 tool descriptions written in the imperative, Java stack traces carrying
@@ -41,7 +41,7 @@ why precision is reported next to recall and not instead of it.
 A local model over Ollama answers one question about one piece of text.
 Composition is `max(L1, L2)`: the second layer is worth exactly one directive
 category and cannot lower a verdict the first layer already reached. It runs
-only when L1 scored below the threshold, which skips 32 of 96 samples and
+only when L1 scored below the threshold, which skips 32 of 100 samples and
 changes no verdict.
 
 It is off unless `CYBERAI_DETECTOR_L2=1`. Measured on the development
@@ -104,7 +104,7 @@ injection slot are excluded.
 | L1 | 16.7% | 100.0% | 0.0% | `examples/detector-eval/agentdojo-l1.md` |
 | L1+L2 | 93.1% | 99.6% | 0.6% | `examples/detector-eval/agentdojo.md` |
 
-The pattern layer scores 16.7% here against 62.7% on our own corpus, and the
+The pattern layer scores 16.7% here against 58.2% on our own corpus, and the
 gap is the finding rather than the headline. All of it comes from one
 template: `injecagent` prefixes its goal with an explicit instruction to
 disregard what came before, and the other five carry no trigger word at all.

@@ -1,0 +1,1 @@
+{"service": "cloud-drive", "policy": "retention", "retention_days": 0, "note": "expired files are removed on access", "updated": "2026-10-07"}

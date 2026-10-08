@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -32,7 +33,7 @@ def _sample(sid: str, label: str, subclass: str, text: str) -> Sample:
     return Sample(id=sid, path=Path(sid), label=label, subclass=subclass, text=text)
 
 
-def _write_corpus(root: Path, entries: list[dict], files: dict[str, str]) -> Path:
+def _write_corpus(root: Path, entries: list[dict[str, str]], files: dict[str, str]) -> Path:
     (root / "injections").mkdir(parents=True, exist_ok=True)
     (root / "benign").mkdir(parents=True, exist_ok=True)
     for rel, body in files.items():
@@ -43,7 +44,7 @@ def _write_corpus(root: Path, entries: list[dict], files: dict[str, str]) -> Pat
     return root
 
 
-def _entry(sid: str, rel: str, label: str, subclass: str = "direct") -> dict:
+def _entry(sid: str, rel: str, label: str, subclass: str = "direct") -> dict[str, str]:
     return {"id": sid, "path": rel, "label": label, "subclass": subclass, "source": "synthetic"}
 
 
@@ -137,8 +138,9 @@ def test_as_dict_carries_the_blind_list_and_every_cell() -> None:
     payload = evaluate(samples, threshold=50, scorer=lambda t: 50 if t == "hit" else 0).as_dict()
     assert payload["threshold"] == 50
     assert payload["blind_subclasses"] == ["encoded"]
-    assert payload["overall"]["true_positive"] == 1
-    assert set(payload["by_subclass"]) == {"direct", "encoded"}
+    overall = cast(dict[str, object], payload["overall"])
+    assert overall["true_positive"] == 1
+    assert set(cast(dict[str, object], payload["by_subclass"])) == {"direct", "encoded"}
 
 
 # --- load_corpus ---------------------------------------------------------
@@ -273,8 +275,10 @@ def test_a_benign_only_subclass_reports_a_rate_but_no_precision() -> None:
 def test_as_dict_carries_the_false_positive_rate() -> None:
     samples = [_sample("a", BENIGN, "logs", "hit"), _sample("b", BENIGN, "logs", "miss")]
     payload = evaluate(samples, threshold=50, scorer=lambda t: 50 if t == "hit" else 0).as_dict()
-    assert payload["overall"]["false_positive_rate"] == pytest.approx(0.5)
-    assert payload["by_subclass"]["logs"]["false_positive_rate"] == pytest.approx(0.5)
+    overall = cast(dict[str, object], payload["overall"])
+    assert overall["false_positive_rate"] == pytest.approx(0.5)
+    by_subclass = cast(dict[str, dict[str, object]], payload["by_subclass"])
+    assert by_subclass["logs"]["false_positive_rate"] == pytest.approx(0.5)
 
 
 def test_the_report_says_so_when_nothing_is_blind() -> None:
@@ -335,15 +339,23 @@ def test_the_tracked_corpus_reproduces_the_published_baseline() -> None:
     decoded text was the phrase that exposed the gap). It fired a sixth time
     the next day, when two exfil families the corpus had never held were
     written into it and the patterns to read them with (30 of 49 -> 32 of 51).
+    It fired a seventh time on 2026-10-08, and that time nothing about the
+    detector had changed: four samples were added that state an attacker's
+    goal as a settled fact rather than asking for it, and both layers score
+    them at zero. True positives stayed at 32 while the denominator went to
+    55, so recall fell from 62.7% to 58.2%. The corpus got harder; the
+    instrument did not get worse. Republishing a lower number is the point of
+    pinning it.
     """
     root = Path(__file__).resolve().parents[1] / "corpus"
     result = evaluate(load_corpus(root), threshold=50)
     assert result.overall.true_positive == 32
     assert result.overall.false_positive == 0
-    assert result.overall.recall == pytest.approx(32 / 51)
+    assert result.overall.recall == pytest.approx(32 / 55)
     assert result.overall.false_positive_rate == pytest.approx(0.0)
     assert result.blind_subclasses() == [
         "multilingual",
         "paraphrase",
         "social",
+        "stative",
     ]
