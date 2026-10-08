@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from cyberai.agents.mcp_scan.report import (
     build_mcp_report,
@@ -12,7 +13,7 @@ from cyberai.agents.mcp_scan.report import (
 from cyberai.mcp.auth_metadata import AuthMetadata
 
 
-def _clean_result() -> dict:
+def _clean_result() -> dict[str, Any]:
     return {
         "endpoint": "stdio://python3 server.py",
         "transport": "stdio",
@@ -27,7 +28,7 @@ def _clean_result() -> dict:
     }
 
 
-def _rich_result() -> dict:
+def _rich_result() -> dict[str, Any]:
     return {
         "endpoint": "http://evil.example.com/mcp",
         "transport": "http",
@@ -48,20 +49,21 @@ def _rich_result() -> dict:
     }
 
 
-def test_build_risk_rows_five_stages_without_mst():
+def test_build_risk_rows_six_stages_without_mst() -> None:
     rows = build_risk_rows(_clean_result())
     assert [r.stage for r in rows] == [
         "tool-poisoning",
         "over-privilege",
         "trust-propagation",
         "attestation",
+        "server-instructions",
         "exposure",
     ]
     # clean result -> no signals anywhere
     assert all(r.signals == 0 for r in rows)
 
 
-def test_owasp_and_atlas_ids_are_canonical():
+def test_owasp_and_atlas_ids_are_canonical() -> None:
     rows = {r.stage: r for r in build_risk_rows(_rich_result())}
     assert rows["tool-poisoning"].owasp_id == "MCP03:2025"
     assert rows["tool-poisoning"].atlas_id == "AML.T0110"
@@ -74,7 +76,7 @@ def test_owasp_and_atlas_ids_are_canonical():
     assert rows["exposure"].atlas_id == "AML.T0040"
 
 
-def test_mst_row_only_when_present():
+def test_mst_row_only_when_present() -> None:
     assert all(r.stage != "mst-fuzzing" for r in build_risk_rows(_rich_result()))
     res = _rich_result()
     res["mst"] = [{"check": "stdio_rce", "severity": "CRITICAL", "detail": "rce"}]
@@ -86,7 +88,7 @@ def test_mst_row_only_when_present():
     assert mst[0].tools == ["stdio_rce"]
 
 
-def test_row_severity_is_worst_of_stage():
+def test_row_severity_is_worst_of_stage() -> None:
     res = _rich_result()
     res["poisoning"]["tools"] = [
         {"tool_name": "a", "severity": "LOW"},
@@ -100,7 +102,7 @@ def test_row_severity_is_worst_of_stage():
     assert row.tools == ["a", "b", "c"]
 
 
-def test_report_clean_has_no_hits():
+def test_report_clean_has_no_hits() -> None:
     md, data = build_mcp_report(_clean_result())
     assert data["owasp_categories"] == []
     assert data["atlas_techniques"] == []
@@ -115,7 +117,7 @@ def test_report_clean_has_no_hits():
     assert "STRIDE" in md  # scorecard embedded
 
 
-def test_report_rich_mapping_and_summary():
+def test_report_rich_mapping_and_summary() -> None:
     res = _rich_result()
     res["mst"] = [{"check": "stdio_rce", "severity": "CRITICAL", "detail": "rce"}]
     md, data = build_mcp_report(res)
@@ -137,15 +139,19 @@ def test_report_rich_mapping_and_summary():
     assert "Prompt Injection via Contextual Payloads" in md
 
 
-def test_render_json_roundtrip():
+def test_render_json_roundtrip() -> None:
     payload = render_mcp_report_json(_rich_result())
     data = json.loads(payload)
     assert data["endpoint"] == "http://evil.example.com/mcp"
     assert data["transport"] == "http"
-    assert isinstance(data["risks"], list) and len(data["risks"]) == 5
+    # The count comes from the builder, not a literal: a stage added to
+    # build_risk_rows should not need an edit here to stay honest. What is
+    # asserted is that the JSON carries every row the builder produced.
+    assert isinstance(data["risks"], list)
+    assert len(data["risks"]) == len(build_risk_rows(_rich_result()))
 
 
-def test_a_stdio_target_says_the_section_does_not_apply():
+def test_a_stdio_target_says_the_section_does_not_apply() -> None:
     """Reporting a missing PRM on stdio would be a finding invented from a
     category error: there is no network origin to protect."""
     result = _clean_result()
@@ -157,7 +163,7 @@ def test_a_stdio_target_says_the_section_does_not_apply():
     assert "- protected resource metadata:" not in markdown
 
 
-def test_an_unreachable_authorization_endpoint_is_named_not_scored():
+def test_an_unreachable_authorization_endpoint_is_named_not_scored() -> None:
     """A posture that could not be read must not print as a posture of "no"."""
     result = _clean_result()
     result["auth_metadata"] = AuthMetadata(
@@ -171,7 +177,7 @@ def test_an_unreachable_authorization_endpoint_is_named_not_scored():
     assert data["auth_metadata"]["error"] == "ConnectError: refused"
 
 
-def test_a_failed_session_puts_its_error_in_the_report_header():
+def test_a_failed_session_puts_its_error_in_the_report_header() -> None:
     result = dict(_clean_result(), connected=False, error="ConnectError: refused")
 
     markdown, _ = build_mcp_report(result)

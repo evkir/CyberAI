@@ -39,6 +39,7 @@ _PAGE_NAME = {
     "poisoning": "tool-poisoning",
     "overprivilege": "over-privilege",
     "trust": "trust-propagation",
+    "instructions": "server-instructions",
     "attestation": "attestation",
     "exposure": "exposure",
     "auth_metadata": "authorization-metadata",
