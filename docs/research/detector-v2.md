@@ -104,6 +104,11 @@ injection slot are excluded.
 | L1 | 16.7% | 100.0% | 0.0% | `examples/detector-eval/agentdojo-l1.md` |
 | L1+L2 | 93.1% | 99.6% | 0.6% | `examples/detector-eval/agentdojo.md` |
 
+The second row is `fast-coder:latest` at seed 0, temperature 0, against the
+classifier prompt fingerprinted in the committed recording. A figure from a
+local model means nothing without those three, and the recording refuses to
+load under a different prompt rather than publishing a stale number quietly.
+
 The pattern layer scores 16.7% here against 58.2% on our own corpus, and the
 gap is the finding rather than the headline. All of it comes from one
 template: `injecagent` prefixes its goal with an explicit instruction to
@@ -160,6 +165,17 @@ The figure is a live GPU run and is not reproducible in CI. What CI holds
 instead is the shape: the option keys named above are read out of the client
 and compared against this section, and against the L2 classifier, which
 builds the same request independently.
+
+That table is eight calls on one prompt, and it does not generalise as far as
+it reads. On 2026-10-08 the public-benchmark corpus was scored twice by live
+runs under `fast-coder:latest` at seed 0 and temperature 0, and the two runs
+disagreed on one sample of 441. The earlier run's report was overwritten by
+the later one, so its figure is not quoted here: a number whose artifact no
+longer exists is a memory of a terminal, not a measurement. What stands is
+the committed recording, which reproduces the surviving run exactly. What is
+not established is that a second live run reproduces the first, and where the
+seed is lost on that path has not been measured -- which is why the figures
+above are quoted with the model and seed named.
 
 ## Reproducing
 
