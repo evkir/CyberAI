@@ -67,7 +67,7 @@ scan cannot observe.
 
 | # | Class | Verdict | What the scan actually does |
 | --- | --- | --- | --- |
-| 1 | Prompt Injection | partial | Ten detector categories over eight metadata channels. Server `instructions` are probed but reach no stage. |
+| 1 | Prompt Injection | partial | Ten detector categories over eight metadata channels, and the same matchers over the server's `instructions`, which also scores an unconditional directive naming a tool the server does not advertise. Measured on eleven formulations: six scored, three clean ones correctly silent, two missed -- a summons naming a tool without an underscore, and one whose directive is phrased outside the four forms the stage reads. |
 | 2 | Command Injection | no | Needs a tool call; the probe invokes nothing. |
 | 3 | Tool Poisoning (TPA) | yes | Nine MCP patterns plus the generic detector, over every advertised channel. |
 | 4 | Remote Code Execution | no | Confirmation requires execution, which is out of scope for a read-only probe. |

@@ -24,6 +24,14 @@ name carries an underscore, so a server inviting ``fetch`` rather than
 ``fetch_url`` is not matched structurally and is left to the text matchers.
 The advertised set is the one this scan probed: a tool a server reveals only
 after a later ``tools/list`` reads as unadvertised here.
+
+Two further limits, both measured rather than supposed. A path in the text --
+``~/.ssh/id_rsa`` -- matches the identifier shape, so it is listed among the
+unadvertised names even though no such tool was invited; the verdict is right
+for another reason (the shared matchers score the read) but the list beside it
+names something that is not a tool. And the directive half reads four phrasings:
+a summons worded outside them, such as a tool said to appear after
+authentication, is not structural evidence here.
 """
 
 from __future__ import annotations
