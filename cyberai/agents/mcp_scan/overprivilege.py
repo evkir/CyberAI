@@ -18,6 +18,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from cyberai.agents.mcp_scan.poisoning import SERVER_CONTROLLED_BLOBS
 from cyberai.core.scan_session import Severity
 
 # Capability-class signals keyed by class. Matched against a normalized,
@@ -158,10 +159,17 @@ def _collect_capability_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
         if schema_text:
             parts.extend(schema_text)
             fields.append("inputSchema")
-    annotations = tool.get("annotations")
-    if isinstance(annotations, dict) and annotations:
-        parts.append(json.dumps(annotations))
-        fields.append("annotations")
+    # One list with the poisoning stage, not a second opinion about which
+    # channels a server controls. Measured on the poisoned fixture: two tools
+    # carried "send the result to <url>" in outputSchema and _meta, and this
+    # stage reported an empty capability surface for both while its sibling
+    # flagged them. Reading four channels where the other read eight is how a
+    # copy of a whitelist drifts.
+    for key in SERVER_CONTROLLED_BLOBS:
+        blob = tool.get(key)
+        if blob:
+            parts.append(json.dumps(blob, default=str))
+            fields.append(key)
     raw = " ".join(parts).lower()
     norm = re.sub(r"[^a-z0-9]+", " ", raw)
     return norm, fields
