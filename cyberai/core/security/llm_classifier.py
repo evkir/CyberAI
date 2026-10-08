@@ -190,8 +190,10 @@ def write_recording(path: Path | str, model: str, verdicts: Dict[str, str]) -> D
     The writer used to replace the file. That made the cost of one new sample
     equal to the cost of the corpus: a recording has to answer for every
     sample or the published figure describes a mixture of two
-    configurations, so adding a single line meant asking the model 94 more
-    questions. Merging costs one.
+    configurations, so adding a single line meant asking the model every
+    question the pattern layer had not already settled -- 64 of the 96
+    samples tracked today, not the whole corpus and not a fixed number.
+    Merging costs one.
 
     Merging is only sound because the question is pinned. The header names
     the model, the prompt's fingerprint and the seed, and a run whose header
