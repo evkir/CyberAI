@@ -215,6 +215,17 @@ _MIN_BENIGN = 40
 # report column.
 _FIELD_NAME = re.compile(r"[a-z_]+")
 
+# A slot upstream fills with an attack at run time. The text around it is not
+# benign tool output -- it is the carrier the injection is placed into, and
+# scoring it as clean measures a false-positive rate on targets. Measured on
+# the checkout this was written against, 25 strings carry one.
+_INJECTION_SLOT = re.compile(r"\{[a-z_]*inject[a-z_]*\}")
+
+# This file is the list of slots itself, not an environment. Everything in it
+# exists to be filled with an attack; 32 of its strings reached the benign
+# class before it was skipped.
+_SLOT_FILE = "injection_vectors.yaml"
+
 
 def read_benign(checkout: pathlib.Path) -> List[Tuple[str, str]]:
     """Environment text from every suite, deduplicated by content.
@@ -224,20 +235,29 @@ def read_benign(checkout: pathlib.Path) -> List[Tuple[str, str]]:
     the copies would inflate the denominator of any false-positive rate taken
     here, which is the one number this side of the corpus exists to produce.
 
-    Nothing is filtered on top of the length floor. Dropping addresses or
-    opening hours because they look unlike tool output would be choosing the
-    benign population to suit the answer, and the two refuted filtering
-    hypotheses in this project were both that shape.
+    Two things are excluded, and neither is a judgement about how a text
+    looks. A string holding an unfilled injection slot is the carrier an
+    attack is placed into, and injection_vectors.yaml is the list of those
+    slots rather than an environment: counting either as clean measures a
+    false-positive rate on targets. Together they accounted for 57 of the 222
+    strings the first run called benign.
+
+    Nothing else is filtered. Dropping addresses or opening hours because
+    they look unlike tool output would be choosing the benign population to
+    suit the answer, and the two refuted filtering hypotheses in this project
+    were both that shape.
     """
     suites = checkout / "src" / "agentdojo" / "data" / "suites"
     found: Dict[str, Tuple[str, str]] = {}
     for path in sorted(suites.rglob("*.yaml")):
+        if path.name == _SLOT_FILE:
+            continue
         with path.open(encoding="utf-8") as handle:
             document = yaml.load(handle, _ImportLoader)
 
         def walk(node: object, key: str | None = None) -> None:
             if isinstance(node, str):
-                if len(node) >= _MIN_BENIGN:
+                if len(node) >= _MIN_BENIGN and not _INJECTION_SLOT.search(node):
                     field = key if key and _FIELD_NAME.fullmatch(key) else "document"
                     found.setdefault(re.sub(r"\s+", " ", node).strip(), (field, node))
             elif isinstance(node, dict):

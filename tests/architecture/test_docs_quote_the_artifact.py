@@ -51,6 +51,12 @@ _CHANGELOG = _ROOT / "CHANGELOG.md"
 _MEASURED_DOCS = (_DOC, _RESEARCH, _README, _CHANGELOG)
 _ARTIFACT = _ROOT / "examples" / "detector-eval" / "baseline.md"
 _COMBINED = _ROOT / "examples" / "detector-eval" / "combined.md"
+# The same two layers measured on a public benchmark nobody here designed.
+# Its corpus is built outside the tree from a checkout, so these reports are
+# the only committed trace of those runs and the only source a figure about
+# them can travel from.
+_PUBLIC_L1 = _ROOT / "examples" / "detector-eval" / "agentdojo-l1.md"
+_PUBLIC_BOTH = _ROOT / "examples" / "detector-eval" / "agentdojo.md"
 _CORPUS = _ROOT / "tests" / "corpus"
 
 _ALT_THRESHOLD = 25
@@ -95,10 +101,19 @@ def test_production_threshold_figures_come_from_the_artifact() -> None:
     section carrying numbers. A second layer brought a second section and a
     second artifact, and a rule that reads one heading would have let the
     new figures through unchecked -- which is the failure it exists to stop.
+
+    The union is over sources, not over values. Two corpora produced 100.0%
+    and 0.0% independently, so a figure can be accounted for by an artifact
+    that never measured it. This answers "did some run produce this number",
+    which is weaker than "did the run this sentence describes", and the
+    distinction is recorded here rather than found by someone moving a figure
+    between sections.
     """
     fresh_alt = _percentages(_rendered_at(_ALT_THRESHOLD))
     from_artifact = _percentages(_ARTIFACT.read_text(encoding="utf-8"))
     from_artifact |= _percentages(_COMBINED.read_text(encoding="utf-8"))
+    from_artifact |= _percentages(_PUBLIC_L1.read_text(encoding="utf-8"))
+    from_artifact |= _percentages(_PUBLIC_BOTH.read_text(encoding="utf-8"))
 
     for path in _MEASURED_DOCS:
         quoted = _percentages(path.read_text(encoding="utf-8"))
