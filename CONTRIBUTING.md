@@ -36,6 +36,14 @@ command at it.
 git clone --depth 1 https://github.com/ethz-spylab/agentdojo /tmp/agentdojo
 python3 scripts/extract_agentdojo_corpus.py /tmp/agentdojo /tmp/adojo-corpus
 
+The MCP audit card in examples/ is produced by a run, not written by hand. It
+scans two targets: a fixture built to carry server instructions, and this
+project's own MCP server, which nobody wrote as a test case and which the
+scanner flags CRITICAL. A gate compares the committed card against a fresh
+scan, so regenerate it in the same branch that changes what the scanner reads:
+
+python3 scripts/mcp_audit_artifact.py examples/mcp-audit/own-servers.md
+
 ## Lint
 ruff check cyberai/ --fix
 
