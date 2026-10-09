@@ -5,16 +5,25 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.7.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-3116%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-3119%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%20115%2F173%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
 
 # 🤖 CyberAI
 
-**Offensive testing for MCP servers and LLM agents — runtime, not metadata**
+**Metadata audit for MCP servers. Runtime red-team for LLM agents.**
 
-> Blind findings proven out-of-band, not inferred from response diffs.
+> For MCP servers it reads what the server declares — `initialize`,
+> instructions, tools, prompts, resources — and says which risk classes it
+> checks and which it does not:
+> [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md). It does not
+> call a target's tools. A run against our own two servers, including the
+> CRITICAL it found on ours, is published in
+> [examples/mcp-audit/own-servers.md](examples/mcp-audit/own-servers.md).
+>
+> For LLM agents it is a live channel: injected canaries are proven
+> out-of-band, not inferred from response diffs.
 > Built by someone who red-teams AI, not just with it.
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
@@ -144,11 +153,12 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 |---|---|---|
 | **v1.0** | Core platform | typed 4-phase pipeline, OOB exploitation, Web3 (Slither/Immunefi), MCP server, LLM-as-judge, scope import, async, cost tracking |
 | **v1.1** | Proof & benchmarks | reproducible bench harness + local vuln suite, honest scorecard, per-phase model router, air-gapped path (egress guard) |
-| **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
+| **v1.2** | MCP audit and LLM red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
 | **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
 | **v1.4** | Autonomy & unified reporting | graph planner driving exploit order, exploit-memory recall, unified OOB confirmation, behavioral fingerprinting, findings grouped by attack surface |
 | **v1.5** | The HTTP surface | API-spec and JS-bundle route discovery, authenticated walks, object-level authorization checks, out-of-band confirmation on the product path |
 | **v1.6** | Honest release | one trust boundary in front of the model with three policies, decontaminated proofs, the agent score published, Apache-2.0 |
+| **v1.7** | Refusal by default | an unscoped run refuses the exploit phase (breaking), the regression gate reads the toolchain it recorded, a benchmark record no longer pulls the probe that fills it |
 
 **Next:** wider public proof — benchmark re-runs published as a tracked delta, sample reports for each attack surface, and reproducible live runs.
 
