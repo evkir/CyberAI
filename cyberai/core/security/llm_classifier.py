@@ -205,9 +205,14 @@ def write_recording(path: Path | str, model: str, verdicts: Dict[str, str]) -> D
 
     What the header cannot pin is the weights behind the name. ``ollama
     pull`` can move a tag, and a merge across that would be silent. The
-    counts returned are the instrument for that: a run that re-asks a
-    question it already had answered reports it, and a number that should be
-    zero and is not says the tag moved.
+    rewritten count is the instrument for that: it counts the questions this
+    run answered differently from the recording, so a tag that did not move
+    reports zero however often the corpus is re-asked, and any other number
+    names answers that changed under a pinned seed and a pinned prompt.
+
+    It counts changed answers rather than shared keys for that reason. The
+    overlap between two runs is the size of the corpus they have in common,
+    which is non-zero on every rerun and says nothing about the weights.
     """
     target = Path(path)
     header = recording_header(model)
@@ -232,7 +237,7 @@ def write_recording(path: Path | str, model: str, verdicts: Dict[str, str]) -> D
     )
     return {
         "added": len(merged) - len(kept),
-        "rewritten": len(set(kept) & set(verdicts)),
+        "rewritten": sum(1 for k, v in verdicts.items() if k in kept and kept[k] != v),
         "total": len(merged),
     }
 
