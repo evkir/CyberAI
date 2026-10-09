@@ -59,10 +59,11 @@ Two things set it apart from "LLM wrapper over nmap":
 Reach beyond the network: the **Web3 agent** runs Slither static analysis and
 maps detectors to Immunefi severity tiers for smart-contract audits.
 
-**In one sentence:** an offensive AI-supply-chain red-team platform — it attacks
-MCP servers and LLM/RAG endpoints, proves blind vulnerabilities out-of-band,
-audits Web3 contracts on-chain, and publishes reproducible benchmarks, with a
-fully air-gapped path on local models (Ollama/vLLM).
+**In one sentence:** an offensive AI-supply-chain red-team platform — it reads
+MCP servers from their published metadata and says what the surface allows,
+attacks LLM/RAG endpoints with live payloads, proves blind vulnerabilities
+out-of-band, audits Web3 contracts on-chain, and publishes reproducible
+benchmarks, with a fully air-gapped path on local models (Ollama/vLLM).
 
 Real orchestrator output (trust-aware pipeline in action):
 
@@ -194,8 +195,9 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
   measured rather than described. On the tracked corpus the pattern layer
   scores 58.2% recall at 100.0% precision with a 0.0% false-positive rate,
   and it is blind to four injection subclasses: multilingual, paraphrase,
-  social, stative. The optional local-model layer takes recall to 90.9% with the
-  false-positive rate unchanged. Neither number is typed by hand — both come
+  social, stative. The optional local-model layer takes recall to 90.9% and
+  costs precision to do it: 92.6%, at a 3.8% false-positive rate, all of it
+  on server descriptions written to address an assistant. Neither number is typed by hand — both come
   out of `cyberai detector eval --corpus tests/corpus`, the second with
   `--l2-replay examples/detector-eval/l2-verdicts.json`, and a test fails if
   this paragraph and that command disagree. Also run
