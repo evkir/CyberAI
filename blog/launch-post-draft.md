@@ -1,4 +1,4 @@
-# CyberAI is alive: honest benchmarks, offensive MCP/LLM red-team, and on-chain Web3 proof
+# CyberAI is alive: honest benchmarks, an MCP audit that names its gaps, and on-chain Web3 proof
 
 > **Status: draft.** Not published yet. The test count is written by
 > `scripts/tests_badge.py` from a collection, and every benchmark figure below
@@ -20,28 +20,51 @@ clean over 115 of 173 modules, Apache-2.0.
 It is not a wrapper that pipes nmap output into a chat model. Three things make
 it a different category of tool.
 
-## 1. Offensive MCP and LLM red-team, not a config scanner
+## 1. MCP metadata audit, and a runtime red-team for LLM channels
 
-The Model Context Protocol is now an attack surface, and defensive scanners for
-it already exist — mcp-scan, Cisco's scanner, and several others. They all do
-the same thing: statically inspect *your own installed* servers and flag risky
-configuration.
+The Model Context Protocol is now an attack surface, and scanners for it
+already exist — mcp-scan, Snyk's, Cisco's. CyberAI reads the same surface
+they do: what a server declares over `initialize`, `tools/list`,
+`prompts/list` and `resources/list`. It does not call a target's tools, and
+the sections below are split so it is clear which half does what.
 
-CyberAI takes the opposite direction. During a pentest it discovers an MCP
-server or an LLM/RAG endpoint belonging to the *target*, and attacks it:
+Two things are worth naming. The first is a stage for the `instructions`
+field returned by `initialize`: server-controlled text that reaches the
+model's system context, and a channel distinct from the tool descriptions
+these scanners are built around. Whether any of them also reads it is not
+something we have measured, so this is a statement about our own stages and
+not a comparison.
 
-| module | what it does |
+The second is the coverage page. It names the classes we do *not* check, with
+a vendor ranking (Adversa AI's MCP Top 25) as the list to answer to, and a
+test fails if a stage exists without a row in it:
+[docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md).
+
+Reading what a server declares (metadata):
+
+| module | what it reads |
 | --- | --- |
 | `cyberai/agents/mcp_scan/poisoning.py` | hidden instructions in tool descriptions and schemas |
 | `cyberai/agents/mcp_scan/overprivilege.py` | declared capability vs. what a tool actually reaches |
 | `cyberai/agents/mcp_scan/attestation.py` | missing message/origin authentication |
 | `cyberai/agents/mcp_scan/exposure.py` | locally-bound servers reachable from outside, DNS rebinding |
 | `cyberai/agents/mcp_scan/trust.py` | implicit trust propagation between chained servers |
+| `cyberai/agents/mcp_scan/instructions.py` | directives in the `instructions` field of `initialize` |
+
+Sending traffic of our own (runtime), against an LLM channel rather than an
+MCP server:
+
+| module | what it does |
+| --- | --- |
 | `cyberai/agents/redteam/fuzzer.py` | live injection fuzzing of any LLM channel |
 
 A finding from the fuzzer is only promoted to confirmed when an out-of-band
 callback lands. Injected canaries are served through
 [phantom-grid](https://github.com/evkir/phantom-grid); no callback, no claim.
+
+Both halves are for a server you own or have written permission to test.
+Scanning someone else's live endpoint because it is reachable is not in
+scope here, and the audit we published is a run against our own two servers.
 
 ```bash
 cyberai mcp-scan http://target/mcp --report
