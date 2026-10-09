@@ -221,7 +221,7 @@ def detector_eval(
             raise click.ClickException(str(exc)) from exc
         console.print(
             f"[green]verdicts recorded:[/green] {l2_record} "
-            f"({written['added']} new, {written['rewritten']} re-asked, "
+            f"({written['added']} new, {written['rewritten']} changed, "
             f"{written['total']} total)"
         )
 

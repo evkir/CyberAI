@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 ![Version](https://img.shields.io/badge/version-v1.7.0-brightgreen)
-![Tests](https://img.shields.io/badge/tests-3113%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-3116%20collected-brightgreen)
 ![Mypy](https://img.shields.io/badge/mypy-strict%3A%20115%2F173%20modules-blue)
 ![LLM](https://img.shields.io/badge/LLM-OpenAI%20%7C%20Anthropic%20%7C%20Ollama-blueviolet)
 ![Air-Gapped](https://img.shields.io/badge/air--gapped-ready-success)
@@ -412,6 +412,7 @@ methodology and the current scorecard.
 | [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md) | What the trust boundary covers, and what it does not |
 | [docs/research/detector-v2.md](docs/research/detector-v2.md) | The three detector layers, what each was measured at, and what was not measured |
 | [examples/detector-eval/baseline.md](examples/detector-eval/baseline.md) | Detector precision and recall on the tracked corpus, per technique |
+| [examples/mcp-audit/own-servers.md](examples/mcp-audit/own-servers.md) | An MCP audit run against our own two servers, including the CRITICAL on ours |
 | [docs/benchmarks/local-suite.md](docs/benchmarks/local-suite.md) | The local suite: targets, success signals, methodology |
 | [docs/benchmarks/reproducibility.md](docs/benchmarks/reproducibility.md) | What a run pins, what it records, what it cannot promise |
 | [docs/benchmarks/contamination-2026-08.md](docs/benchmarks/contamination-2026-08.md) | A self-referential proof, how it was found, what the numbers did |
