@@ -1,0 +1,1 @@
+Self-hosted MCP for controlled AI development and staging without a general-purpose remote shell.

@@ -1,0 +1,1 @@
+Pack a folder with a glob, look inside an archive, unpack it with bomb, traversal and symlink guards

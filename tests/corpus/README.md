@@ -3,7 +3,8 @@
 Two classes, one sample per file, metadata in `manifest.jsonl`.
 
     injections/   positives: text that tries to steer a model
-    benign/       negatives: real tool output that must not be flagged
+    benign/       negatives: tool output and published server descriptions,
+                  neither of which may be flagged
 
 ## Why metadata lives outside the samples
 

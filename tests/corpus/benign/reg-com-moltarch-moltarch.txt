@@ -1,0 +1,1 @@
+Marketing intelligence API for AI agents. Real campaign data, not LLM guesses.

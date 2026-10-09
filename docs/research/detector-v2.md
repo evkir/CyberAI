@@ -24,24 +24,32 @@ which counted patterns rather than categories: seven categories held more
 than one pattern, so a single category could reach the threshold alone while
 the documentation claimed two had to agree.
 
-Measured on the tracked corpus of 55 injections and 45 benign samples:
+Measured on the tracked corpus of 55 injections and 105 benign samples:
 
 | layer | recall | precision | false positives |
 | --- | --- | --- | --- |
 | L1 | 58.2% | 100.0% | 0.0% |
-| L1+L2 | 90.9% | 100.0% | 0.0% |
+| L1+L2 | 90.9% | 92.6% | 3.8% |
 
-The benign half is real tool output — nmap service scans, nuclei JSON, MCP
-tool descriptions written in the imperative, Java stack traces carrying
-`${}`. A detector that flags those is not usable in this product, which is
-why precision is reported next to recall and not instead of it.
+The benign half is two kinds of text. Forty-five are real tool output — nmap
+service scans, nuclei JSON, MCP tool descriptions written in the imperative,
+Java stack traces carrying `${}`. Sixty are server descriptions published in
+the MCP registry, added on 2026-10-09 because no sample in the first group
+addresses a model, and an MCP client reads almost nothing else.
+
+That second group is where the whole precision cost of L2 sits. It flags
+four of the sixty; three of those name an assistant or a client, which is
+how a server card is written. The pattern layer flags none of them. A
+detector that cannot read a server card without calling it an attack is not
+usable in this product, which is why precision is reported next to recall
+and not instead of it.
 
 ## L2 — local classifier
 
 A local model over Ollama answers one question about one piece of text.
 Composition is `max(L1, L2)`: the second layer is worth exactly one directive
 category and cannot lower a verdict the first layer already reached. It runs
-only when L1 scored below the threshold, which skips 32 of 100 samples and
+only when L1 scored below the threshold, which skips 32 of 160 samples and
 changes no verdict.
 
 It is off unless `CYBERAI_DETECTOR_L2=1`. Measured on the development
@@ -123,6 +131,12 @@ The second layer closes that to 93.1%. The 19 misses are 17 `direct` and 2
 from a legitimate instruction. Its hostility is a fact about the channel, not
 about the sentence. The single false positive is the mirror image — an
 ordinary Slack message asking a colleague to invite someone to a channel.
+
+One false positive in 165 here against four in 60 on our own server cards is
+not a contradiction between the two tables. AgentDojo's benign strings are
+mail and chat between people; like captured tool output, they are not written
+to a model. The classifier's weakness is narrower than either benchmark alone
+reports, and only a corpus holding text addressed to an assistant shows it.
 
 Two cautions belong next to these numbers. The benign class had 57 of its
 first 222 strings removed as injection carriers; a false-positive rate taken

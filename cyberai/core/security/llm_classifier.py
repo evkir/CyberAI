@@ -191,7 +191,7 @@ def write_recording(path: Path | str, model: str, verdicts: Dict[str, str]) -> D
     equal to the cost of the corpus: a recording has to answer for every
     sample or the published figure describes a mixture of two
     configurations, so adding a single line meant asking the model every
-    question the pattern layer had not already settled -- 68 of the 100
+    question the pattern layer had not already settled -- 128 of the 160
     samples tracked today, not the whole corpus and not a fixed number.
     Merging costs one.
 

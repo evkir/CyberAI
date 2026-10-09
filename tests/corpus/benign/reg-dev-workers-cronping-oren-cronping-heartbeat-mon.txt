@@ -1,0 +1,1 @@
+Dead-man's-switch for cron jobs & AI agents. Import a crontab to arm one silent-miss alert per job.

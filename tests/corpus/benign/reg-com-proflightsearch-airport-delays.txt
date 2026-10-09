@@ -1,0 +1,1 @@
+Read-only airport delay, weather, and 24h forecast tools for AI assistants. Airport-level only.

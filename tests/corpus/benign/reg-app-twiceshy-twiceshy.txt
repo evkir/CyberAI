@@ -1,0 +1,1 @@
+Experience memory for coding agents: validated traps, fixes and dead-ends at decision time.
