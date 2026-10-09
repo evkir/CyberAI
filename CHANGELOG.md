@@ -6,6 +6,22 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **The benign half of the corpus holds prose written for an assistant, and
+  the second layer's precision is stated for the first time.** The negatives
+  were forty-five captures of tool output, none of which addresses a model,
+  so the local classifier had never been measured on the one kind of text an
+  MCP client actually receives. Sixty server descriptions from the public
+  MCP registry were added, sampled at a fixed seed rather than chosen by
+  score: selecting on what the detector says would measure it against
+  itself. The pattern layer flags none of them. The model flags four, three
+  of which name an assistant or a client, which is how a server card is
+  written. Published two-layer figures move to 92.6% precision at a 3.8%
+  false-positive rate, with recall at 90.9%; the pattern layer is unchanged
+  at 100.0% and 0.0%. The research page and the README carried the claim
+  that the second layer costs no precision, which was a property of the old
+  benign class, and a new test now checks each layer's row against that
+  layer's own report instead of against every figure in every report.
+
 - **The MCP scanner reads the icon field, and scores what a client would
   execute.** `icons` arrived with protocol revision 2025-11-25 and is text
   shown beside a tool's name before any call. The metadata collector named
