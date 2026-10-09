@@ -12,9 +12,18 @@
 
 # 🤖 CyberAI
 
-**Offensive testing for MCP servers and LLM agents — runtime, not metadata**
+**Metadata audit for MCP servers. Runtime red-team for LLM agents.**
 
-> Blind findings proven out-of-band, not inferred from response diffs.
+> For MCP servers it reads what the server declares — `initialize`,
+> instructions, tools, prompts, resources — and says which risk classes it
+> checks and which it does not:
+> [docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md). It does not
+> call a target's tools. A run against our own two servers, including the
+> CRITICAL it found on ours, is published in
+> [examples/mcp-audit/own-servers.md](examples/mcp-audit/own-servers.md).
+>
+> For LLM agents it is a live channel: injected canaries are proven
+> out-of-band, not inferred from response diffs.
 > Built by someone who red-teams AI, not just with it.
 
 ![CyberAI benchmark demo](https://raw.githubusercontent.com/evkir/CyberAI/main/docs/assets/demo-bench.gif)
