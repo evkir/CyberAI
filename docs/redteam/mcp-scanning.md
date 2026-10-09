@@ -65,6 +65,11 @@ Verdicts were produced by running the scanner against the fixture stands in
 produced from static metadata where the class is defined by behaviour a
 scan cannot observe.
 
+What one of those runs looks like end to end is committed at
+[examples/mcp-audit/own-servers.md](../../examples/mcp-audit/own-servers.md):
+two targets, the commands that produced them, and the evidence behind each
+flag. The second target is this project's own MCP server, and it is not clean.
+
 | # | Class | Verdict | What the scan actually does |
 | --- | --- | --- | --- |
 | 1 | Prompt Injection | partial | Ten detector categories over eight metadata channels, and the same matchers over the server's `instructions`, which also scores an unconditional directive naming a tool the server does not advertise. Measured on eleven formulations: six scored, three clean ones correctly silent, two missed -- a summons naming a tool without an underscore, and one whose directive is phrased outside the four forms the stage reads. |

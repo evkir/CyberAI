@@ -2,11 +2,24 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-10-09T06:52:47Z |
+| timestamp | 2026-10-09T07:08:12Z |
 | engine version | CyberAI 1.7.0 |
 | llm calls | 0 |
 | llm zero reason | the scan agent calls no model |
 | transport | stdio |
+
+Both targets are ours, and that is the limit of what this card shows. A
+stand built by the people who wrote the scanner answers "does the agent do
+what we planned", not "does it find what nobody planned" -- the second
+question needs a target we did not write. One of the two findings below
+does reach past that limit, because nobody wrote this project's own MCP
+server as a test case for its own scanner. The only measurement against
+material from outside this project is the detector against AgentDojo, in
+examples/detector-eval/.
+
+What the card does not show: coverage. Which vulnerability classes the
+scanner reads and which it cannot is a separate question with its own
+page, docs/redteam/mcp-scanning.md, measured against an external list.
 
 ## Target: the fixture that carries server instructions
 
