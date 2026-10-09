@@ -1,0 +1,1 @@
+Score inbound recruiter and sales pitches on relevance, specificity, cadence and spam signals.

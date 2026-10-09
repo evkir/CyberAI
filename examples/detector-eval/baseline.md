@@ -6,13 +6,13 @@
 
 | field | value |
 | --- | --- |
-| timestamp | 2026-10-08T13:56:12Z |
+| timestamp | 2026-10-09T19:24:57Z |
 | engine version | CyberAI 1.7.0 |
 | corpus | tests/corpus |
 | threshold | 50 |
 | layers | L1 |
 | injections | 55 |
-| benign | 45 |
+| benign | 105 |
 
 ## Overall
 
@@ -21,7 +21,7 @@
 | true positives | 32 |
 | false negatives | 23 |
 | false positives | 0 |
-| true negatives | 45 |
+| true negatives | 105 |
 | precision | 100.0% |
 | recall | 58.2% |
 | f1 | 73.6% |
@@ -51,6 +51,7 @@ A slice holding no positives has no precision, and one holding no negatives has 
 | roleplay | 3 | 3 | 100.0% | 100.0% | -- |
 | scanner_text | 8 | 0 | -- | -- | 0.0% |
 | scanner_xml | 1 | 0 | -- | -- | 0.0% |
+| server_card | 60 | 0 | -- | -- | 0.0% |
 | service_json | 2 | 0 | -- | -- | 0.0% |
 | smuggling | 4 | 4 | 100.0% | 100.0% | -- |
 | social | 3 | 0 | -- | 0.0% | -- |

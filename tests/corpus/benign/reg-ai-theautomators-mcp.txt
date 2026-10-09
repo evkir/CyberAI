@@ -1,0 +1,1 @@
+Read-only MCP server for The Automators: services, pricing, industries, case studies, calculators.

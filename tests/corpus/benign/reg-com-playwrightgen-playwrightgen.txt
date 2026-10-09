@@ -1,0 +1,1 @@
+Approved test intent, reviewed Playwright automation and run evidence, inside your editor.

@@ -1,0 +1,1 @@
+Family calendar MCP server: read the family's week and propose changes a parent approves.

@@ -1,0 +1,1 @@
+238+ dev tools via MCP: JSON, QR, PDF, DNS, hash, UUID, code review, JWT, SSL, WHOIS, and more
