@@ -153,11 +153,12 @@ CyberAI is an actively developed platform, not a scaffold. Shipped and tagged:
 |---|---|---|
 | **v1.0** | Core platform | typed 4-phase pipeline, OOB exploitation, Web3 (Slither/Immunefi), MCP server, LLM-as-judge, scope import, async, cost tracking |
 | **v1.1** | Proof & benchmarks | reproducible bench harness + local vuln suite, honest scorecard, per-phase model router, air-gapped path (egress guard) |
-| **v1.2** | MCP/LLM offensive red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
+| **v1.2** | MCP audit and LLM red-team | MCP probe + scan CLI, tool-poisoning & over-privilege detectors, live injection fuzzer, attestation checks, MST bridge |
 | **v1.3** | Web3 discovery | aderyn cross-validation, halmos symbolic runner, Foundry on-chain PoC, access-control agent, EVMBench adapter, Immunefi export |
 | **v1.4** | Autonomy & unified reporting | graph planner driving exploit order, exploit-memory recall, unified OOB confirmation, behavioral fingerprinting, findings grouped by attack surface |
 | **v1.5** | The HTTP surface | API-spec and JS-bundle route discovery, authenticated walks, object-level authorization checks, out-of-band confirmation on the product path |
 | **v1.6** | Honest release | one trust boundary in front of the model with three policies, decontaminated proofs, the agent score published, Apache-2.0 |
+| **v1.7** | Refusal by default | an unscoped run refuses the exploit phase (breaking), the regression gate reads the toolchain it recorded, a benchmark record no longer pulls the probe that fills it |
 
 **Next:** wider public proof — benchmark re-runs published as a tracked delta, sample reports for each attack surface, and reproducible live runs.
 
