@@ -53,6 +53,21 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **A mail server advertising webhook support no longer carries the same
+  severity as a tool naming an attacker's collector.** The exfiltration
+  matcher treated the preposition as optional and accepted a bare "webhook"
+  as the place data goes, so it read a list of a server's own capabilities as
+  an instruction to send something somewhere. It now requires an explicit
+  destination. Measured over the 13 525 active server descriptions published
+  in the MCP registry, the old form fired twice and both were false; the
+  benign half of the corpus held a third, an access log line where the verb
+  POST stood beside a scheme. All three were CRITICAL, which this scanner
+  assigns by label membership without consulting the detector score, so this
+  matcher was the only path to the highest tier on legitimate text and every
+  instance of it was wrong. After the change the registry yields no hit, the
+  benign corpus none, and the fifty-five injections in the corpus keep their
+  severities unchanged.
+
 - **A collection that stopped early can no longer write the test badge.**
   `scripts/tests_badge.py` read the count pytest prints and ignored the exit
   status, and a collection interrupted by one unimportable module prints the
