@@ -32,8 +32,18 @@ MCP_POISONING_PATTERNS: list[tuple[str, str]] = [
     (r"before (using|calling|invoking) this tool", "line_jumping"),
     (r"when (using|calling) (any |the )?other tool", "tool_shadowing"),
     (r"instead of (the |calling )?\w+ tool", "tool_shadowing"),
+    # Exfiltration is a verb plus a DESTINATION, and the destination is what
+    # this matcher requires. The earlier form accepted the preposition as
+    # optional and let "webhook" satisfy it as a bare word, so a mail server
+    # advertising "send email, manage mailboxes, domains and webhooks" matched
+    # on a list of its own capabilities, and an access log line reading
+    # "POST / HTTP/1.1" matched on the verb standing next to the scheme.
+    # Measured 10.10 over 13 525 active registry descriptions: the old form
+    # fired twice, both false; this one fires zero times and still carries
+    # every true case in the fixtures.
     (
-        r"(send|forward|leak|exfiltrate|post) .{0,40}(to )?(http|https|attacker|webhook)",
+        r"(send|forward|leak|exfiltrate|post)\b[^.\n]{0,60}?\bto\s+"
+        r"[^.\n]{0,30}?(https?://|attacker|webhook\.|/webhook|endpoint|server)",
         "exfil_instruction",
     ),
     (r"include .{0,30}(api[_ ]?key|token|secret|password|credential)", "credential_harvest"),
