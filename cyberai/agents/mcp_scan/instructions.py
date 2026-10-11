@@ -40,7 +40,11 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from cyberai.agents.mcp_scan.poisoning import _scan_mcp_patterns, _severity_for
+from cyberai.agents.mcp_scan.poisoning import (
+    _scan_mcp_patterns,
+    _severity_for,
+    carries_more_than_a_term,
+)
 from cyberai.core.scan_session import Severity
 from cyberai.core.security.injection_detector import detect_injection
 
@@ -95,6 +99,7 @@ def analyze_instructions(instructions: str | None, tools: list[dict[str, Any]]) 
 
     detected = detect_injection(instructions)
     mcp_matches = _scan_mcp_patterns(instructions)
+    informative = carries_more_than_a_term(detected["matches"])
     unconditional = _unconditional_hits(instructions)
     unadvertised = _unadvertised(instructions, tools)
 
@@ -105,14 +110,14 @@ def analyze_instructions(instructions: str | None, tools: list[dict[str, Any]]) 
             "The instructions issue an unconditional directive naming "
             f"{', '.join(unadvertised)}, which this server does not advertise."
         )
-    if detected["is_injection"] or mcp_matches:
+    if (detected["is_injection"] and informative) or mcp_matches:
         labels = sorted(
             {str(m.get("type", "?")) for m in detected["matches"]}
             | {str(m.get("type", "?")) for m in mcp_matches}
         )
         reasons.append(f"Session-level text carries {', '.join(labels)}.")
 
-    severity = _severity_for(detected["risk_score"], mcp_matches).value
+    severity = _severity_for(detected["risk_score"] if informative else 0, mcp_matches).value
     if summons and severity in (Severity.INFO.value, Severity.LOW.value, Severity.MEDIUM.value):
         severity = Severity.HIGH.value
 

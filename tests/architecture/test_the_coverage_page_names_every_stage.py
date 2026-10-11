@@ -34,6 +34,17 @@ _PAGE = _ROOT / "docs" / "redteam" / "mcp-scanning.md"
 # ``**summary`` and never appear as keys of the assigned dict.
 _NOT_A_STAGE = frozenset({"probe"})
 
+# The severity section names the three matchers that stopped being evidence on
+# their own. The page spells them for a reader; the module spells them as the
+# regexes it subtracts. Neither is derived from the other, so a term added to
+# or dropped from the code without a word on the page is caught here rather
+# than discovered by someone acting on a report.
+_TERM_PROSE = {
+    "jailbreak": "jailbreak",
+    "system prompt": "system prompt",
+    "new (role|persona|personality|instructions?)": "new\nrole / persona / instructions",
+}
+
 # How the page spells the stages, against how run() keys them.
 _PAGE_NAME = {
     "poisoning": "tool-poisoning",
@@ -187,3 +198,25 @@ def test_the_walker_reads_the_result_and_not_a_list() -> None:
         if isinstance(k, ast.Constant) and isinstance(k.value, str)
     } - _NOT_A_STAGE
     assert found != everywhere, "walking every dict agrees here -- the control is dead"
+
+
+def test_the_page_names_every_term_the_scanner_stopped_trusting() -> None:
+    """Both directions: the prose and TERM_ONLY_PATTERNS describe one set."""
+    from cyberai.agents.mcp_scan.poisoning import TERM_ONLY_PATTERNS
+
+    assert set(_TERM_PROSE) == set(TERM_ONLY_PATTERNS), sorted(
+        set(_TERM_PROSE) ^ set(TERM_ONLY_PATTERNS)
+    )
+    page = _PAGE.read_text(encoding="utf-8")
+    # The sentence that enumerates them, not the whole page: the paragraph
+    # also quotes "no jailbreak" as an example of a false match, and a search
+    # over the file was satisfied by that quote with the enumeration deleted
+    # -- measured by mutation, which survived until this was narrowed.
+    start = page.index("## How to read a severity")
+    end = page.index("## Coverage against the MCP Security Top 25")
+    section = page[start:end]
+    sentence = section[section.index("bare subject-matter nouns") :]
+    opening = sentence.index("--")
+    sentence = sentence[opening + 2 : sentence.index("--", opening + 2)]
+    for pattern, spelling in _TERM_PROSE.items():
+        assert spelling in sentence, pattern
