@@ -14,6 +14,9 @@ not the pattern table.
 
 from __future__ import annotations
 
+import json
+import pathlib
+
 from cyberai.agents.mcp_scan.instructions import analyze_instructions
 from cyberai.agents.mcp_scan.poisoning import (
     TERM_ONLY_PATTERNS,
@@ -95,3 +98,35 @@ def test_a_poisoned_tool_is_still_suspicious() -> None:
         }
     )
     assert scan.is_suspicious is True
+
+
+_FIXTURE = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "mcp_registry_term_only_2026-10-11.json"
+)
+
+
+def test_the_published_texts_that_drove_the_rule_are_clean_and_were_not() -> None:
+    """Paired control over the real material, so the number is re-measurable.
+
+    Absolute cleanliness would also hold for a scanner that scores nothing, so
+    each sample is checked twice: it must be quiet now, and it must have been
+    a finding under the rule this replaced -- a single generic match counting
+    on its own. A sample that fails the second half no longer belongs here.
+    """
+    doc = json.loads(_FIXTURE.read_text(encoding="utf-8"))
+    samples = doc["samples"]
+    assert len(samples) == 11, len(samples)
+
+    for sample in samples:
+        text = sample["text"]
+        if sample["field"] == "tool":
+            tool_scan = analyze_tool({"name": text, "title": text, "description": ""})
+            quiet, matches = not tool_scan.is_suspicious, tool_scan.matches
+        else:
+            text_scan = analyze_instructions(text, [])
+            quiet, matches = not text_scan.is_finding, text_scan.matches
+        assert quiet, sample["name"]
+        assert detect_injection(text)["is_injection"], sample["name"]
+        assert carries_more_than_a_term(matches) is False, sample["name"]

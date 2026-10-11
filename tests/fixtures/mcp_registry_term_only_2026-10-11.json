@@ -1,0 +1,62 @@
+{
+  "source": "modelcontextprotocol.io registry, active servers, captured 2026-10-10",
+  "captured": "2026-10-11",
+  "why": "Every published text that the scanner reported on a single bare subject-matter noun and nothing else. Kept so the rule can be re-measured in CI without the 40k-row dump.",
+  "samples": [
+    {
+      "name": "app.icemoon/automation-studio",
+      "field": "description",
+      "text": "Control real, physical iPhones with AI: screen reading, human-like touch, no jailbreak."
+    },
+    {
+      "name": "app.web.mindset-502113/mindset",
+      "field": "description",
+      "text": "Semantic search over MINDSET's brand strategy topic database, plus its system prompt."
+    },
+    {
+      "name": "com.runningunattended/agent-lint",
+      "field": "description",
+      "text": "Checks CLAUDE.md, AGENTS.md or a system prompt for 12 safeguards unattended agents need."
+    },
+    {
+      "name": "dev.safeprompt/mcp",
+      "field": "description",
+      "text": "Detect prompt injection, jailbreaks, and code injection in untrusted text before it reaches an LLM."
+    },
+    {
+      "name": "dev.workers.manhliemcn4euwlu.llmrt-companion/llm-red-team-scanner",
+      "field": "description",
+      "text": "35-probe LLM/agent security red-team scan (injection, jailbreak, MCP abuse) with report."
+    },
+    {
+      "name": "io.gildara/mcp-server",
+      "field": "description",
+      "text": "Operating contracts for AI agents. Structured instructions compiled into system prompts."
+    },
+    {
+      "name": "io.github.4hmetuyar/llm-redteam",
+      "field": "description",
+      "text": "Active jailbreak/extraction/obfuscation red-teaming for live LLM endpoints"
+    },
+    {
+      "name": "io.github.Akhilucky/ai-firewall-mcp",
+      "field": "description",
+      "text": "Multi-agent LLM security layer detecting prompt injection and jailbreaks."
+    },
+    {
+      "name": "io.github.CyberMax-tools/hiring-signals",
+      "field": "description",
+      "text": "HireHeat: who's hiring? Open and new roles per company domain by function, seniority, location."
+    },
+    {
+      "name": "com.fronesislabs/dcl-trust-oracle",
+      "field": "tool",
+      "text": "dcl_evaluate_jailbreak"
+    },
+    {
+      "name": "com.fronesislabs/dcl-trust-oracle",
+      "field": "tool",
+      "text": "dcl_evaluate_jailbreak_crypto"
+    }
+  ]
+}
