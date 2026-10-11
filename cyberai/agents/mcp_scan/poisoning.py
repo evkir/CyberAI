@@ -145,6 +145,36 @@ def _collect_text(tool: dict[str, Any]) -> tuple[str, list[str]]:
     return "\n".join(parts), fields
 
 
+# Three generic matchers are bare subject-matter nouns: the word names the
+# attack rather than performing it. On the MCP metadata channel the text is a
+# product description, so these fire on every server that defends against the
+# thing, and on a tool whose own name carries the word. Measured 11.10 over
+# 13 525 active registry descriptions and 345 published tools: nine findings
+# and two suspicious tools, all of them texts ABOUT security -- injection
+# detectors, red-team scanners, an agent-lint server, plus "no jailbreak" said
+# of an iPhone and "new roles" said of job openings. Against the 55 corpus
+# injections through this same channel the rule costs one finding,
+# inj-direct-newrole, whose only evidence is "New instructions" and which the
+# generic detector still scores on its own path.
+#
+# This does not weaken the matchers themselves: INJECTION_PATTERNS is shared
+# with the guard and the orchestrator and is not touched. A term still counts
+# here when it arrives beside anything else -- a second label, an MCP pattern,
+# or the unconditional-summons pair.
+TERM_ONLY_PATTERNS: frozenset[str] = frozenset(
+    {
+        "jailbreak",
+        "system prompt",
+        "new (role|persona|personality|instructions?)",
+    }
+)
+
+
+def carries_more_than_a_term(matches: list[dict[str, Any]]) -> bool:
+    """True when the generic matches are not all bare subject-matter nouns."""
+    return bool({str(m.get("pattern", "")) for m in matches} - TERM_ONLY_PATTERNS)
+
+
 def _scan_mcp_patterns(text: str) -> list[dict[str, Any]]:
     """Match MCP-specific poisoning patterns the generic detector misses."""
     out: list[dict[str, Any]] = []
@@ -180,11 +210,12 @@ def analyze_tool(tool: dict[str, Any]) -> MetadataScan:
     text, scanned_fields = _collect_text(tool)
     result = detect_injection(text)
     mcp_matches = _scan_mcp_patterns(text)
-    severity = _severity_for(result["risk_score"], mcp_matches)
+    informative = carries_more_than_a_term(result["matches"])
+    severity = _severity_for(result["risk_score"] if informative else 0, mcp_matches)
     return MetadataScan(
         tool_name=tool.get("name", "<unnamed>"),
         risk_score=result["risk_score"],
-        is_suspicious=result["is_injection"] or bool(mcp_matches),
+        is_suspicious=(result["is_injection"] and informative) or bool(mcp_matches),
         matches=result["matches"],
         scanned_fields=scanned_fields,
         mcp_matches=mcp_matches,
