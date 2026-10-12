@@ -49,8 +49,10 @@ from cyberai.core.scan_session import Severity
 from cyberai.core.security.injection_detector import detect_injection
 
 # A directive that applies to every exchange rather than describing when a
-# tool is appropriate. Measured against the 45 benign capture files in
-# tests/corpus/benign: zero matches.
+# tool is appropriate. Measured against the whole benign half of the corpus,
+# 105 files -- the 45 captured tool outputs these four phrasings were first
+# read against, and the 60 published server descriptions added beside them:
+# zero matches.
 UNCONDITIONAL_DIRECTIVES: list[str] = [
     r"before (?:answering|responding|replying|any answer|any response|each)",
     r"(?:on|with) every (?:request|query|question|message|call)",
