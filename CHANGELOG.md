@@ -6,6 +6,26 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **Exfiltration that names its target is read, and a human is not a target.**
+  The gap class between the verb and the preposition excluded the period, so a
+  directive naming what it moved went unseen whenever the name carried one: an
+  instruction to send the contents of a dotted key path to an audit endpoint
+  was reported INFO, while the same sentence over an unnamed key was CRITICAL.
+  A period followed by a non-space is now read as part of a token -- a path, a
+  filename, a hostname -- and a period that ends a sentence still stops the
+  match. That recovers a true finding inside our own corpus,
+  `inj-mcp-important`, which the scanner had been reporting as INFO. The
+  destination also has to be a place rather than a person: a fallback telling
+  the assistant to send the user to a support URL routes a human rather than
+  data, and under the earlier form it reached CRITICAL on a payment-QR server
+  whose instructions are careful about handling. Both corrections were priced
+  over four channels before they were made -- the 13 537 registry samples and
+  the 105 benign corpus files unchanged at zero findings, the instructions
+  prose down one, the 55 corpus injections up one. The prose channel is new:
+  server instructions pulled from published sources are a longer class of text
+  than the registry's 100-character showcase line, and this matcher had never
+  been measured against it.
+
 - **A bare subject-matter noun is no longer evidence on the MCP metadata
   channel.** Three of the generic matchers name an attack rather than perform
   it -- `jailbreak`, `system prompt`, and `new role / persona / instructions`
