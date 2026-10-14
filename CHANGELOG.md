@@ -6,6 +6,25 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **A server that documents its own tools is no longer summoning them.** The
+  instructions stage flags an unconditional directive standing beside a tool
+  the server does not advertise, and it read the pair over the whole text. A
+  server whose instructions say when its tools apply -- "for any question about
+  billing, use these tools" -- and then name them in the sentences that follow
+  carries both halves without summoning anything, and was reported HIGH with a
+  risk score of zero and no matcher behind it. The two halves must now meet
+  inside one sentence, which is where an attacking directive puts the name it
+  is for. The empty advertised set was what made the second half vacuous: a
+  probe whose `tools/list` fails still carries the instructions it read a
+  moment earlier, so every underscore-bearing name in the text reads as
+  unadvertised. Gating on a non-empty tool list was priced and rejected -- it
+  drops a summons from a server that advertises nothing at all, which is a
+  shape the suite pins. Priced over four channels: the registry descriptions
+  and the 105 benign corpus files unchanged at zero, the 55 corpus injections
+  unchanged at 32, the instructions prose down one. Every finding on the
+  injection corpus stands on a text matcher, so the structural pair had nothing
+  to lose there.
+
 - **Exfiltration that names its target is read, and a human is not a target.**
   The gap class between the verb and the preposition excluded the period, so a
   directive naming what it moved went unseen whenever the name carried one: an
