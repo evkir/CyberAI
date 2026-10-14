@@ -13,11 +13,21 @@ Two signals are read, and a finding needs both:
   question", "on every request") that names a tool the server does not
   advertise.
 
-The conjunction is what separates an attack from documentation. A server
-whose instructions name a stale tool is wrong, not hostile, and a server that
-says "always call authenticate_user before other tools" is describing its own
-advertised surface. Measured against both shapes before this module existed:
-each signal alone flags one of them, the pair flags neither.
+The conjunction is what separates an attack from documentation, and it holds
+within one sentence. A server whose instructions name a stale tool is wrong,
+not hostile, and a server that says "always call authenticate_user before
+other tools" is describing its own advertised surface. Measured against both
+shapes before this module existed: each signal alone flags one of them, the
+pair flags neither.
+
+Sentence scope was measured, not assumed. The shape it rejects came from the
+instructions prose of published servers, a class this module had never been
+read against: the pair taken over the whole text convicted a server at HIGH
+for documenting its own billing tools, because the directive said when the
+tools applied and the names stood in the sentences after it. That corpus is
+not in this tree, so the figure is not quoted here; what is checked in the
+suite is the shape itself, kept beside the two true summons controls that
+reach this with an empty advertised set.
 
 Boundaries this does not hold. A referenced tool is recognised only when its
 name carries an underscore, so a server inviting ``fetch`` rather than
@@ -25,13 +35,19 @@ name carries an underscore, so a server inviting ``fetch`` rather than
 The advertised set is the one this scan probed: a tool a server reveals only
 after a later ``tools/list`` reads as unadvertised here.
 
-Two further limits, both measured rather than supposed. A path in the text --
+Three further limits, all measured rather than supposed. A path in the text --
 ``~/.ssh/id_rsa`` -- matches the identifier shape, so it is listed among the
 unadvertised names even though no such tool was invited; the verdict is right
 for another reason (the shared matchers score the read) but the list beside it
-names something that is not a tool. And the directive half reads four phrasings:
+names something that is not a tool. The directive half reads four phrasings:
 a summons worded outside them, such as a tool said to appear after
-authentication, is not structural evidence here.
+authentication, is not structural evidence here. And an empty advertised set
+is not evidence of concealment: a probe whose ``tools/list`` fails still
+carries the instructions it read a moment earlier, which leaves every
+snake_case name in the text unadvertised. The sentence rule is what keeps
+that state from convicting a server of documenting itself; gating the pair on
+a non-empty tool list was measured instead and rejected, because it drops a
+summons from a server that advertises nothing at all.
 """
 
 from __future__ import annotations
