@@ -6,6 +6,41 @@ All notable changes to CyberAI are documented here.
 
 ### Fixed
 
+- **An empty capability list now says which of its three causes produced it.**
+  `_dump` returned a bare `[]` whether the server answered METHOD_NOT_FOUND
+  and has no such capability, the read failed on a server that may well have a
+  surface, or this client's pagination call did not match the SDK signature.
+  Only the first is a measurement. The connection error is recorded by the
+  probe's own handler, which a failure inside the dump never reaches, so all
+  three arrived at the caller as connected, no error, no tools. The dump now
+  returns the items and the cause together, branching on the JSON-RPC code
+  rather than the exception class, and the probe records the failures on a
+  `surface_errors` field beside `error`.
+
+- **A surface that was never read is no longer scored as a clean one.** Six
+  places read the probed tool list, and five treated an empty one as the
+  surface the server advertises: a `tools/list` that timed out produced zero
+  suspicious tools, zero over-privileged tools, no shadowing, and a STRIDE
+  scorecard whose rows read INFO with no signals -- the shape of a clean
+  server. Those stages now report the surface as unmeasured, and the
+  scorecard and the OWASP/ATLAS table print `n/a` where a count would assert a
+  measurement. Exposure keeps running: a non-loopback HTTP bind is a
+  rebinding target whatever it serves, and the tool list only escalates the
+  severity, so that stage is marked rather than withheld. The instructions
+  stage is unchanged -- its sentence scope already reads an empty advertised
+  set correctly, and gating it on a non-empty list was priced and rejected
+  when that scope was introduced.
+
+  The architecture guard written alongside this defect did not catch the fix
+  it was built for: it asserted the ambiguity persisted by checking that the
+  handler assigned nothing, and a handler can report a cause by returning one.
+  Rewritten to assert the distinction exists and reaches the result. Two
+  further consumers surfaced only under test -- the scan log reads three count
+  keys off every stage summary and the scorecard does arithmetic on one of
+  them -- so an unmeasured summary keeps those keys present and null: dropping
+  them ends a scan in a KeyError, and zero states the measurement being
+  withheld.
+
 - **A server that documents its own tools is no longer summoning them.** The
   instructions stage flags an unconditional directive standing beside a tool
   the server does not advertise, and it read the pair over the whole text. A
