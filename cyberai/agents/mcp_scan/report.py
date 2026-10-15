@@ -50,12 +50,28 @@ class RiskRow:
     atlas_id: str
     atlas_name: str
     severity: str
-    signals: int
+    signals: int | None
+    """Count of flagged items, or None when the stage never read its input.
+
+    None and 0 both keep the row out of ``active``: neither is an OWASP hit.
+    They differ in the table, where 0 says the stage looked and found nothing
+    and None says it never looked.
+    """
     tools: List[str] = field(default_factory=list)
 
 
-def _tool_stage(summary: Dict[str, Any], count_key: str) -> Tuple[str, int, List[str], List[str]]:
-    """Extract (worst_severity, signal_count, tool_names, severities) for a per-tool stage."""
+def _tool_stage(
+    summary: Dict[str, Any], count_key: str
+) -> Tuple[str, int | None, List[str], List[str]]:
+    """Extract (worst_severity, signal_count, tool_names, severities) for a per-tool stage.
+
+    A stage whose tool list never arrived carries ``measured: False`` and no
+    counts. It yields None signals and an INFO severity that the table shows
+    as not applicable -- scoring it as zero would publish a clean OWASP row
+    for an analysis that never ran.
+    """
+    if summary.get("measured") is False:
+        return Severity.INFO.value, None, [], []
     tools = summary.get("tools", []) or []
     sevs = [str(t.get("severity", Severity.INFO.value)) for t in tools]
     names = [str(t.get("tool_name", "?")) for t in tools]
@@ -263,7 +279,8 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     summary = _severity_summary(result, rows)
     endpoint = result.get("endpoint", "?")
 
-    active = [r for r in rows if r.signals > 0]
+    # None is not an OWASP hit any more than 0 is: nothing was evidenced.
+    active = [r for r in rows if r.signals is not None and r.signals > 0]
     owasp_hit = sorted({r.owasp_id for r in active})
     atlas_hit = sorted({r.atlas_id for r in active if r.atlas_id != "-"})
 
@@ -273,7 +290,11 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     lines.append(f"- transport: {result.get('transport', '?')}")
     lines.append(f"- connected: {result.get('connected', False)}")
     lines.append(f"- protocol revision: {_revision(result)}")
-    lines.append(f"- tools probed: {result.get('tools', 0)}")
+    surface_errors: Dict[str, Any] = result.get("surface_errors") or {}
+    if "tools" in surface_errors:
+        lines.append(f"- tools probed: not read ({surface_errors['tools']})")
+    else:
+        lines.append(f"- tools probed: {result.get('tools', 0)}")
     if result.get("error"):
         lines.append(f"- error: {result.get('error')}")
     lines.append("")
@@ -290,7 +311,9 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     for r in rows:
         owasp = f"{r.owasp_id} {r.owasp_name}"
         atlas = f"{r.atlas_id} {r.atlas_name}" if r.atlas_id != "-" else "-"
-        lines.append(f"| {r.stage} | {owasp} | {atlas} | {r.severity} | {r.signals} |")
+        severity = "n/a" if r.signals is None else r.severity
+        signals = "n/a" if r.signals is None else str(r.signals)
+        lines.append(f"| {r.stage} | {owasp} | {atlas} | {severity} | {signals} |")
     lines.append("")
     flagged_rows = [r for r in active if r.tools]
     if flagged_rows:
@@ -313,7 +336,12 @@ def build_mcp_report(result: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         "connected": result.get("connected", False),
         "protocol_version": result.get("protocol_version"),
         "auth_metadata": result.get("auth_metadata"),
-        "tools_probed": result.get("tools", 0),
+        # None, not 0: a capability whose read failed never produced a count,
+        # and a zero here is read downstream as a server with no tools.
+        "tools_probed": (
+            None if "tools" in (result.get("surface_errors") or {}) else result.get("tools", 0)
+        ),
+        "surface_errors": result.get("surface_errors") or {},
         "severity_summary": summary,
         "owasp_categories": owasp_hit,
         "atlas_techniques": atlas_hit,

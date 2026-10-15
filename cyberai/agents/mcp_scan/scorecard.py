@@ -43,8 +43,25 @@ def _worst(severities: list[str]) -> str:
     return min(ranked, key=lambda s: _RANK[s])
 
 
-def _row(category: str, severity: str, signals: int, source: str) -> str:
-    return f"| {category} | {severity} | {signals} | {source} |"
+def _row(category: str, severity: str, signals: int | None, source: str) -> str:
+    """One STRIDE row. ``signals`` is None when the stage never read its input.
+
+    A row reading INFO / 0 is a measurement: nothing was found. A stage whose
+    tool list failed to arrive found nothing because it looked at nothing, and
+    printing the same row states a clean result the scan cannot support.
+    """
+    count = "n/a" if signals is None else str(signals)
+    return f"| {category} | {severity} | {count} | {source} |"
+
+
+def _unmeasured_stage(stage: dict[str, Any]) -> bool:
+    """Whether a stage summary says its surface was never read."""
+    return stage.get("measured") is False
+
+
+def _either(stage: dict[str, Any], severity: str) -> str:
+    """The severity to print: an unread stage asserts nothing, not INFO."""
+    return "n/a" if _unmeasured_stage(stage) else severity
 
 
 def build_mcp_scorecard(result: dict[str, Any]) -> str:
@@ -75,7 +92,11 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
 
     # Info-disclosure and elevation draw on more than one stage.
     info_sevs = list(overpriv_sevs) + ([exp_sev] if dangerous else [])
-    info_signals = overpriv.get("overprivileged", 0) + (1 if dangerous else 0)
+    # None propagates: an unread over-privilege stage makes the whole row
+    # unmeasured rather than contributing a zero to a sum that then reads as
+    # a clean count.
+    overpriv_count = overpriv.get("overprivileged")
+    info_signals = None if overpriv_count is None else overpriv_count + (1 if dangerous else 0)
     inst_scan = instructions.get("scan", {})
     steering = bool(instructions.get("is_finding"))
     inst_sev = str(inst_scan.get("severity", Severity.INFO.value))
@@ -85,8 +106,11 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
         + ([exp_sev] if dangerous else [])
         + ([inst_sev] if steering else [])
     )
+    shadowing_count = trust.get("shadowing")
     elev_signals = (
-        trust.get("shadowing", 0)
+        None
+        if shadowing_count is None
+        else shadowing_count
         + (1 if unauth else 0)
         + (1 if dangerous else 0)
         + (1 if steering else 0)
@@ -97,7 +121,12 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"- transport: {result.get('transport', '?')}")
     lines.append(f"- connected: {result.get('connected', False)}")
-    lines.append(f"- tools probed: {result.get('tools', 0)}")
+    surface_errors: dict[str, Any] = result.get("surface_errors") or {}
+    if "tools" in surface_errors:
+        # The count is the length of a list that never arrived.
+        lines.append(f"- tools probed: not read ({surface_errors['tools']})")
+    else:
+        lines.append(f"- tools probed: {result.get('tools', 0)}")
     lines.append("")
     lines.append("## STRIDE")
     lines.append("")
@@ -114,8 +143,8 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     lines.append(
         _row(
             "Tampering",
-            _worst(poison_sevs),
-            poisoning.get("suspicious", 0),
+            _either(poisoning, _worst(poison_sevs)),
+            poisoning.get("suspicious"),
             "poisoned / mutable tool metadata (poisoning)",
         )
     )
@@ -130,7 +159,7 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     lines.append(
         _row(
             "Information disclosure",
-            _worst(info_sevs),
+            _either(overpriv, _worst(info_sevs)),
             info_signals,
             "over-privileged exfil capability combinations (over-privilege/exposure)",
         )
@@ -146,11 +175,15 @@ def build_mcp_scorecard(result: dict[str, Any]) -> str:
     lines.append(
         _row(
             "Elevation of privilege",
-            _worst(elev_sevs),
+            # Mixed row: attestation and instructions are read whatever the
+            # tool list did, so their severities stand. Only when trust is the
+            # sole possible contributor does the row assert nothing.
+            "n/a" if _unmeasured_stage(trust) and not elev_sevs else _worst(elev_sevs),
             elev_signals,
             "cross-server shadowing / confused-deputy + unauth invoke, "
             "server instructions summoning an unadvertised tool "
-            "(trust/attestation/instructions)",
+            "(trust/attestation/instructions)"
+            + (" -- tool surface not read" if _unmeasured_stage(trust) else ""),
         )
     )
     lines.append("")
