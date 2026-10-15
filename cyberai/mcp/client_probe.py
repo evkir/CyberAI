@@ -29,6 +29,9 @@ except ImportError:  # pragma: no cover - exercised only on mcp 1.x
 
 Transport = Literal["stdio", "sse", "http"]
 
+# JSON-RPC: the server understood the request and does not implement the method.
+_METHOD_NOT_FOUND = -32601
+
 
 @dataclass
 class MCPProbeResult:
@@ -46,6 +49,13 @@ class MCPProbeResult:
     capabilities: dict[str, Any] = field(default_factory=dict)
     instructions: str | None = None
     error: str | None = None
+    surface_errors: dict[str, str] = field(default_factory=dict)
+    """Capability -> why its list is empty. Absent key means the server answered.
+
+    ``error`` is written only when the connection itself failed, which a failed
+    capability read does not reach: without this field a server whose
+    tools/list timed out is indistinguishable from a server with no tools.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -114,11 +124,21 @@ async def _list_page(list_fn: Callable[..., Awaitable[Any]], cursor: str | None)
 async def _dump(
     list_fn: Callable[..., Awaitable[Any]],
     attr: str,
-) -> list[dict[str, Any]]:
-    """Page through a list_* call and serialize every item to a JSON-safe dict.
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Page through a list_* call, returning the items and why they are missing.
 
-    A server that does not implement a given capability raises rather than
-    returning an empty list, so failures here are swallowed and yield ``[]``.
+    An empty list has three causes and they are not the same finding. A server
+    that does not implement the capability answers METHOD_NOT_FOUND: nothing is
+    there to inspect and nothing is wrong. Any other error means the read
+    failed on a server that may well have a surface -- a timeout, a transport
+    fault, a reply the SDK rejected -- and an analysis stage that reads the
+    empty list as a clean server is scoring a measurement that never happened.
+    The third cause is this client: _list_page swallows a TypeError to stay
+    compatible across SDK pagination signatures, so a signature change reads as
+    a server that answered nothing.
+
+    The second element names the cause and is None only when the list is the
+    server's own answer. Callers that score the surface must check it.
     """
     items: list[Any] = []
     cursor: str | None = None
@@ -129,25 +149,51 @@ async def _dump(
             cursor = getattr(result, "next_cursor", None) or getattr(result, "nextCursor", None)
             if not cursor:
                 break
-    except Exception:  # noqa: BLE001 — capability simply unsupported by target
-        return []
+    except Exception as exc:  # noqa: BLE001 — three causes, told apart by code
+        # MCPError only exists on mcp 2.x and the pin admits 1.x, so the code is
+        # read off the exception rather than imported as a symbol.
+        if getattr(exc, "code", None) == _METHOD_NOT_FOUND:
+            return [], None
+        return [], _describe(exc)
     # by_alias keeps the wire names (inputSchema, not input_schema): every
     # consumer downstream -- poisoning, overprivilege -- keys off the protocol
     # spelling, and mcp 2.0 renamed the python attributes underneath them.
-    return [item.model_dump(mode="json", by_alias=True, exclude_none=True) for item in items]
+    return [item.model_dump(mode="json", by_alias=True, exclude_none=True) for item in items], None
 
 
 async def inventory(session: ClientSession) -> dict[str, list[dict[str, Any]]]:
     """Dump tools/prompts/resources from an already-initialized session.
 
     Split out from :func:`probe` so the capability dump can be exercised against
-    an in-memory server without spawning a transport.
+    an in-memory server without spawning a transport. The surface alone cannot
+    say whether an empty list was answered or failed; :func:`inventory_with_causes`
+    returns both and is what :func:`probe` calls.
     """
-    return {
-        "tools": await _dump(session.list_tools, "tools"),
-        "prompts": await _dump(session.list_prompts, "prompts"),
-        "resources": await _dump(session.list_resources, "resources"),
-    }
+    surface, _causes = await inventory_with_causes(session)
+    return surface
+
+
+async def inventory_with_causes(
+    session: ClientSession,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
+    """Dump the surface and name every capability whose read did not complete.
+
+    The second element is keyed by capability and holds only the ones that
+    failed, so an empty mapping means every list below is the server's own
+    answer.
+    """
+    surface: dict[str, list[dict[str, Any]]] = {}
+    causes: dict[str, str] = {}
+    for key, list_fn in (
+        ("tools", session.list_tools),
+        ("prompts", session.list_prompts),
+        ("resources", session.list_resources),
+    ):
+        items, failure = await _dump(list_fn, key)
+        surface[key] = items
+        if failure is not None:
+            causes[key] = failure
+    return surface, causes
 
 
 def _describe(exc: BaseException) -> str:
@@ -191,10 +237,11 @@ async def probe(endpoint: str, transport: Transport | None = None) -> MCPProbeRe
                 result.protocol_version = data["protocolVersion"]
                 result.capabilities = data["capabilities"]
                 result.instructions = data.get("instructions")
-                surface = await inventory(session)
+                surface, causes = await inventory_with_causes(session)
                 result.tools = surface["tools"]
                 result.prompts = surface["prompts"]
                 result.resources = surface["resources"]
+                result.surface_errors = causes
     except Exception as exc:  # noqa: BLE001 — surface connection errors on result
         result.error = _describe(exc)
     return result
