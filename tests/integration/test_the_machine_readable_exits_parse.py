@@ -119,4 +119,5 @@ def test_the_inventory_of_machine_readable_exits_is_the_one_measured():
         ("detector eval", "--json"),
         ("mcp-scan", "--json"),
         ("mcp-scan", "--report-json"),
+        ("registry-targets", "--json"),
     }
