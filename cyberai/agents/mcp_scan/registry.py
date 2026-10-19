@@ -123,7 +123,7 @@ def probe_repository(url: str) -> Reachability:
 
 def select_targets(
     rows: Iterable[dict[str, Any]],
-    probe: Callable[[str], Reachability] = probe_repository,
+    probe: Callable[[str], Reachability] | None = None,
     limit: int | None = None,
 ) -> Selection:
     """Choose auditable targets, checking each repository before choosing it.
@@ -132,6 +132,11 @@ def select_targets(
     name one repository, so probing per entry would ask the same question many
     times and report a population larger than the one that exists.
     """
+    # Resolved here rather than bound as a default: a default is captured when
+    # this module is imported, which makes the only network call on the path
+    # impossible to substitute from outside and lets a test reach the network
+    # while appearing to measure the decision.
+    ask = probe if probe is not None else probe_repository
     selection = Selection()
     seen: dict[str, Reachability] = {}
     for candidate in iter_candidates(rows):
@@ -140,7 +145,7 @@ def select_targets(
         selection.candidates += 1
         key = candidate.url.rstrip("/").lower()
         if key not in seen:
-            seen[key] = probe(candidate.url)
+            seen[key] = ask(candidate.url)
             selection.distinct_urls += 1
         state = seen[key]
         if state is Reachability.ALIVE:

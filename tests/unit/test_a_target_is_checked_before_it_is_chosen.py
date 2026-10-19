@@ -7,16 +7,20 @@ reached the network would measure GitHub's availability on the day it ran.
 
 from __future__ import annotations
 
+import subprocess
 from typing import Any
+from unittest.mock import patch
 
 from cyberai.agents.mcp_scan.registry import (
     Candidate,
     Reachability,
     iter_candidates,
+    probe_repository,
     select_targets,
 )
 
 _OFFICIAL = "io.modelcontextprotocol.registry/official"
+_SEALED = "cyberai.agents.mcp_scan.registry.run_sealed"
 
 
 def _row(
@@ -124,3 +128,64 @@ def test_the_summary_states_every_count_including_the_empty_ones() -> None:
     assert "1 unreachable" in summary
     assert "0 unknown" in summary
     assert selection.dropped == 1
+
+
+class _Done:
+    """The shape run_sealed returns, reduced to what the probe reads."""
+
+    def __init__(self, returncode: int, stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stderr = stderr
+
+
+def _answers(done: object) -> Any:
+    return lambda *args, **kwargs: done
+
+
+def test_refs_that_come_back_mean_the_repository_answered() -> None:
+    with patch(_SEALED, _answers(_Done(0))):
+        assert probe_repository("https://github.com/o/r") is Reachability.ALIVE
+
+
+def test_a_host_saying_it_has_no_such_repository_is_unreachable() -> None:
+    stderr = "fatal: repository 'https://github.com/o/r/' not found\n"
+    with patch(_SEALED, _answers(_Done(128, stderr))):
+        assert probe_repository("https://github.com/o/r") is Reachability.NOT_FOUND
+
+
+def test_a_refusal_to_answer_is_not_an_answer() -> None:
+    """Auth failures and rate limits say nothing about whether the repo exists."""
+    stderr = "fatal: Authentication failed for 'https://github.com/o/r/'\n"
+    with patch(_SEALED, _answers(_Done(128, stderr))):
+        assert probe_repository("https://github.com/o/r") is Reachability.UNKNOWN
+
+
+def test_a_probe_that_times_out_is_unknown_not_unreachable() -> None:
+    def raise_timeout(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd="git", timeout=60)
+
+    with patch(_SEALED, raise_timeout):
+        assert probe_repository("https://github.com/o/r") is Reachability.UNKNOWN
+
+
+def test_a_git_that_cannot_be_run_at_all_is_unknown() -> None:
+    def raise_oserror(*args: Any, **kwargs: Any) -> Any:
+        raise OSError("git not on PATH")
+
+    with patch(_SEALED, raise_oserror):
+        assert probe_repository("https://github.com/o/r") is Reachability.UNKNOWN
+
+
+def test_the_probe_is_given_the_operator_home_and_runs_sealed() -> None:
+    """Without the home, git misreads every miss and the states collapse."""
+    seen: dict[str, Any] = {}
+
+    def record(argv: Any, **kwargs: Any) -> Any:
+        seen["argv"] = list(argv)
+        seen.update(kwargs)
+        return _Done(0)
+
+    with patch(_SEALED, record):
+        probe_repository("https://github.com/o/r")
+    assert seen["argv"][:2] == ["git", "ls-remote"]
+    assert seen["home"] is not None
