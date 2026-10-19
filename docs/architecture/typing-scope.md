@@ -1,6 +1,6 @@
 # Typing scope
 
-`mypy --strict` reads 115 of 173 modules in the package. The other 58 hold 254
+`mypy --strict` reads 117 of 175 modules in the package. The other 58 hold 254
 errors, measured 2026-10-05 with mypy 1.19.1 over the whole package. That count
 moves with the checker and with the tree, so it is dated here rather than gated
 by a test; the 115 and the 173 beside it are gated, and a test below says so.

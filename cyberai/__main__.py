@@ -14,6 +14,7 @@ from .bench.environment import STATUS_VERSION_TIMEOUT, TOOL_PROBES, probe_toolch
 from .cli.bench import bench
 from .cli.detector_eval import detector
 from .cli.mcp_scan import mcp_scan
+from .cli.registry_targets import registry_targets
 from .cli.web3_audit import web3
 from .core.config import _PROVIDER_KEY_ENV, _PROVIDERS, CyberAIConfig, LLMConfig, Provider
 from .core.llm_client import LLMClient
@@ -666,6 +667,7 @@ def status(versions: bool) -> None:
 cli.add_command(bench)
 cli.add_command(detector)
 cli.add_command(mcp_scan)
+cli.add_command(registry_targets)
 cli.add_command(web3)
 
 if __name__ == "__main__":
