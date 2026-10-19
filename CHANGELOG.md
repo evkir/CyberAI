@@ -4,6 +4,29 @@ All notable changes to CyberAI are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Target selection checks a repository before it chooses it.** `cyberai
+  registry-targets` reads a dump of the published MCP server registry, keeps
+  the active and latest entries naming a GitHub repository, and asks each
+  distinct repository whether it answers before putting it on the list. An
+  entry that survives filtering and cannot be reached is printed rather than
+  dropped: the gap between what a registry lists and what it can serve is the
+  finding, and a list that hides it carries entries nothing can audit.
+  Reachability is three states, not two. A private repository and a deleted
+  one answer identically, so an unreachable entry is reported as unreachable
+  and never as deleted. A host that declines to answer because too many
+  questions were asked has not answered at all: that is counted apart,
+  excluded from the chosen set, and asking harder is not a remedy offered
+  here. The probe runs sealed with the operator's home -- sealed so a child
+  on a network call cannot inherit the operator's environment, with the home
+  because a git that cannot read its own configuration reports every miss as
+  an authentication failure and collapses the three states into one.
+  Selection never connects to the servers the entries describe: auditing
+  published source is one act, reaching somebody's running instance is
+  another that needs their authorization, and an architectural guard reading
+  the call graph holds that line.
+
 ### Fixed
 
 - **An empty capability list now says which of its three causes produced it.**
