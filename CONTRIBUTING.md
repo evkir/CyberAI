@@ -44,6 +44,18 @@ scan, so regenerate it in the same branch that changes what the scanner reads:
 
 python3 scripts/mcp_audit_artifact.py examples/mcp-audit/own-servers.md
 
+Checking whether a test fails without its fix means writing the broken version
+back, running the suite, and restoring the file. Both writes can land in one
+granule of the filesystem's mtime, and a bytecode cache is invalidated by mtime
+and size: a replacement the same length as the line it replaced leaves a cache
+entry the source no longer matches, and the suite imports a value that is
+nowhere in the tree. The isolated run stays green and the full gate fails on a
+number that cannot be grepped. Sweep the caches from the same `finally` that
+restores the file, and again before trusting a tree you did not just clean:
+
+python3 scripts/pycache_sweep.py
+python3 scripts/pycache_sweep.py --check
+
 ## Lint
 ruff check cyberai/ --fix
 
