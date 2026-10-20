@@ -36,34 +36,31 @@
 
 ## What is CyberAI?
 
-CyberAI is a multi-agent orchestration layer for offensive security. Eight
-specialized agents run a typed, auditable pipeline that turns a target into
-actionable attack paths and a validated report. Four of them — **Recon,
-Intel, Exploit, Report** — form the network chain; **Web3**, **MCP Scan** and
-**Redteam** take their own kinds of target, and **Planner** orders the work
-the others do. The table below says what each one takes and produces.
+**The target is the AI supply chain.** An MCP server, an LLM endpoint, a RAG
+pipeline, a smart contract — surfaces where the attack is carried by text a
+model trusts, and where a port scanner has nothing to say. CyberAI reads what
+an MCP server declares and names which risk classes it checks and which it
+does not; it sends live payloads at agent endpoints; it audits contracts
+on-chain. Hosts and ports are one surface it also covers, not the premise.
 
-Two things set it apart from "LLM wrapper over nmap":
+Two commitments hold the rest up:
 
-- **OOB-driven exploitation.** Blind vulns (SSRF, XXE, blind injection) are
-  confirmed through out-of-band callbacks captured by
-  [phantom-grid](https://github.com/evkir/phantom-grid), not guessed from
-  response diffs.
-- **Agent-trust-aware design.** Every message on its way to a model passes one
-  guard, which labels or blocks what scores as an injection before the
-  provider is contacted; each phase's output is separately scanned and a hit
-  becomes a MEDIUM finding. Adversarial thinking is a design input, not a
-  disclaimer — the gaps are named in
+- **Nothing is reported on a hunch.** Blind vulnerabilities — SSRF, XXE, blind
+  injection — count as found when an out-of-band callback reaches a collector
+  we control, captured by
+  [phantom-grid](https://github.com/evkir/phantom-grid). A response diff that
+  looks suggestive is not a finding.
+- **The model is treated as attackable.** Every message on its way to a model
+  passes one guard, which labels or blocks what scores as an injection before
+  the provider is contacted; each phase's output is separately scanned and a
+  hit becomes a MEDIUM finding. The gaps are named rather than implied, in
   [docs/security/adversarial-robustness.md](docs/security/adversarial-robustness.md).
 
-Reach beyond the network: the **Web3 agent** runs Slither static analysis and
-maps detectors to Immunefi severity tiers for smart-contract audits.
-
-**In one sentence:** an offensive AI-supply-chain red-team platform — it reads
-MCP servers from their published metadata and says what the surface allows,
-attacks LLM/RAG endpoints with live payloads, proves blind vulnerabilities
-out-of-band, audits Web3 contracts on-chain, and publishes reproducible
-benchmarks, with a fully air-gapped path on local models (Ollama/vLLM).
+The machinery underneath. Eight specialized agents run a typed, auditable
+pipeline. **MCP Scan**, **Redteam** and **Web3** take their own kinds of
+target; **Recon, Intel, Exploit, Report** form the network chain; **Planner**
+orders the work the others do. The table below says what each one takes and
+produces.
 
 Real orchestrator output (trust-aware pipeline in action):
 
