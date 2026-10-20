@@ -6,6 +6,19 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **A mutation run leaves no bytecode cache behind.** `scripts/pycache_sweep.py`
+  removes every `__pycache__` under the tree and says how many it removed;
+  `--check` reports them instead, for a harness that wants to know the tree was
+  clean before it started. A harness writes a mutant, runs the suite and writes
+  the original back, and both writes can land inside one granule of the
+  filesystem's mtime. A cache is invalidated by mtime and size, so a
+  replacement the same length as the line it replaced leaves an entry the
+  source no longer matches: the suite imports a value that exists nowhere in
+  the tree, the isolated run stays green, and the full gate fails on a number
+  grep cannot find. The sweep is one tool rather than a step copied into each
+  harness, because harnesses are written for one mutant and deleted the same
+  day, and a missing cleanup step looks exactly like a passing run.
+
 - **Target selection checks a repository before it chooses it.** `cyberai
   registry-targets` reads a dump of the published MCP server registry, keeps
   the active and latest entries naming a GitHub repository, and asks each
