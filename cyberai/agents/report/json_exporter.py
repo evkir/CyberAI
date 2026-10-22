@@ -1,3 +1,14 @@
+"""The session as a record another program can read.
+
+The markdown report is for a reader; this is for a pipeline -- a ticket
+tracker, a diff against last week's run, a client's own tooling. The full
+export holds the session as it was; the summary is the subset a dashboard
+needs without parsing the rest.
+
+The shape is part of the contract. A consumer parsing these files is not in
+this repository and will not be fixed along with it.
+"""
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path

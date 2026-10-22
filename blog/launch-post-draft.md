@@ -38,7 +38,7 @@ not a comparison.
 The second is the coverage page. It names the classes we do *not* check, with
 a vendor ranking (Adversa AI's MCP Top 25) as the list to answer to, and a
 test fails if a stage exists without a row in it:
-[docs/redteam/mcp-scanning.md](docs/redteam/mcp-scanning.md).
+[docs/redteam/mcp-scanning.md](../docs/redteam/mcp-scanning.md).
 
 Reading what a server declares (metadata):
 

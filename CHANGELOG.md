@@ -6,6 +6,32 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **A link in a reader-facing document resolves from where it sits.** The link
+  gate was widened from README to every document written for an outside
+  reader, and it now resolves each target against the directory of the
+  document that carries it rather than against the repository root. The two
+  are the same thing for README, which sits at the root, and are not for the
+  launch post: a path written from the root resolved to `blog/docs/...` and
+  returned a 404 on the one page meant to earn trust. Resolving against the
+  root would have agreed with the broken link. The gate was widened rather
+  than copied, because a second derivation of the same rule agrees with the
+  first until the day one of them changes, which is the class of defect these
+  tests exist to stop. The post's own gate did not catch it: it scans paths
+  written in backticks, not markdown link targets.
+
+- **Every module in the package says what it is for.** The fifteen modules
+  that carried no docstring now carry one, and what each states is its limit
+  rather than its filename. The sanitizer does not decide whether text is
+  hostile; the pattern detector answers about text in isolation and knows
+  nothing of the conversation around it; the four exploit modules reach no
+  target at all, deriving routes and orderings from records while scope and
+  execution stay in the agent. One docstring was written claiming the report
+  renderer makes truncation visible and corrected against the code, which
+  only holds for lists -- a shortened block is cut with no marker, recorded as
+  a defect rather than fixed in a documentation change. No behaviour changes:
+  the modules outside the declared typing scope report the same counts before
+  and after, confirmed per file against a stashed tree.
+
 - **A mutation run leaves no bytecode cache behind.** `scripts/pycache_sweep.py`
   removes every `__pycache__` under the tree and says how many it removed;
   `--check` reports them instead, for a harness that wants to know the tree was

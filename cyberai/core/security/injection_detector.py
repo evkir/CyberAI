@@ -1,3 +1,16 @@
+"""The pattern layer: what a piece of text reads as, scored.
+
+This is L1. It matches a normalised copy of the text, so a payload built from
+Cyrillic look-alikes, fullwidth Latin or zero-width separators is judged by
+what a model would read rather than by its bytes. Scoring is per category and
+weighted: adding a second pattern for a technique already covered changes no
+score, which keeps the corpus from inflating the number it measures.
+
+L1 answers about text in isolation. It does not know the conversation, the
+tool that produced the text, or what the agent intends to do next; those are
+questions for the layer above and for TrustGuard's policy.
+"""
+
 import base64
 import binascii
 import re

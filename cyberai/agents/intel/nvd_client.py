@@ -1,3 +1,15 @@
+"""The NVD CVE feed, called the way NVD asks to be called.
+
+Every request goes through a shared rate limiter and carries an API key when
+one is in the environment, because the published limits differ by a factor of
+ten between keyed and unkeyed callers and the unkeyed one is reached quickly
+by an agent enumerating services. 429 and 503 are retried; they are how NVD
+says "slower", not that the lookup failed.
+
+Parsing lives here too: the 2.0 schema nests CPE configurations deep enough
+that callers would each walk it slightly differently.
+"""
+
 import os
 from typing import Any, Dict, List, Optional
 

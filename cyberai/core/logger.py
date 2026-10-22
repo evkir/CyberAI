@@ -1,3 +1,15 @@
+"""Logging for a run that has to be defensible after it finishes.
+
+Two things share this module because they share a file on disk. Ordinary
+package logging is a convenience; the audit trail is evidence, and a pentest
+report is only worth what its trail can show. Every audit event is signed and
+appended to JSONL, and optionally mirrored into an append-only SQLite table so
+a session can be queried and replayed rather than read line by line.
+
+The signer lives with the writer on purpose. A trail signed somewhere else is
+a trail whose gap nobody notices.
+"""
+
 import json
 import logging
 import os

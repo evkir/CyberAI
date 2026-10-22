@@ -1,3 +1,16 @@
+"""Bounds and redaction for text that arrived from somewhere untrusted.
+
+Scan output, banners and model replies all cross into this process from
+outside it. Two failures matter here: a field large enough to push the rest of
+a prompt out of the window, and a secret that reaches a log the operator
+intends to share. Lengths are capped per field rather than globally, and keys,
+bearer tokens and passwords are redacted on the way out.
+
+Sanitising is not detection. Nothing here decides whether text is hostile --
+that is injection_detector's question; this module only limits what hostile
+text can cost.
+"""
+
 import json
 import re
 from typing import Any, Dict, List, Optional, Tuple

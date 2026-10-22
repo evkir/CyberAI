@@ -1,3 +1,16 @@
+"""nmap, called with a flag set the caller cannot widen.
+
+A scanner driven by a model is a command line assembled from text, and the
+flags are the dangerous part: nmap will run scripts, write files and reach
+hosts nobody authorised if asked. Flags arrive as a string, are split with
+shlex and checked against a whitelist, and anything unlisted is dropped rather
+than passed through. The target is parsed separately and never concatenated
+into a shell line.
+
+Results are cached per target and flag set, because recon is re-run far more
+often than the network changes.
+"""
+
 import os
 import shlex
 import shutil
