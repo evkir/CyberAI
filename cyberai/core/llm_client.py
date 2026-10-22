@@ -1,3 +1,15 @@
+"""One call path to every provider, with the trust boundary inside it.
+
+OpenAI, Anthropic and Ollama differ in message shape, tool schema and cost
+accounting, and the agents above this module should not know which one is
+configured. The provider branch, the schema translation and the per-run spend
+cap all live here.
+
+The guard is not a decorator a caller may forget. Every entry point consults
+TrustGuard before the provider branch, so text that reached an agent from a
+scanned target cannot leave for a model without being scored first.
+"""
+
 import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
