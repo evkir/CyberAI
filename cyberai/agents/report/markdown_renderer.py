@@ -1,3 +1,16 @@
+"""The session, rendered for someone who has to read all of it.
+
+A pentest session produces more text than fits in a report: banners, response
+bodies, parameter lists. The limits here are the substance of the module --
+inline values, blocks and list lengths are each capped, because an unbounded
+dump of one finding's evidence pushes the other findings out of the reader's
+attention entirely.
+
+A shortened list says how many entries it dropped. A shortened block does
+not: it is cut to _BLOCK_LIMIT with no marker, so a reader cannot tell a long
+value from a complete one. The full copy is in the JSON export either way.
+"""
+
 from collections.abc import Callable
 from datetime import datetime, timezone
 
