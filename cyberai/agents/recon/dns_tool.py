@@ -1,3 +1,15 @@
+"""Name and registration lookups for a target, sync and async.
+
+The sync pair is what a single-target run uses; the async path exists for a
+sweep, where the cost is waiting on a resolver rather than computing anything.
+Both answer the same questions and return the same shape, so a caller can
+switch on breadth alone.
+
+A failed lookup is an answer here, not an error. A target with no PTR and no
+whois record is a fact about the target, and raising would make the agent
+above treat it as a broken tool.
+"""
+
 import asyncio
 from typing import Any, Dict, List
 

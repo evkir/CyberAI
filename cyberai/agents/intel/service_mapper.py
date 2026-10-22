@@ -1,3 +1,15 @@
+"""From open ports to the questions worth asking the CVE feed.
+
+A port and a version banner are not a product name, and the CVE feed answers
+about product names. This module holds the guesswork between them: which
+keywords a service suggests, which tokens a banner yields, and whether a
+returned CVE description is talking about the service that was actually found.
+
+The relevance check is here for a reason. A query built from a banner returns
+plausible and wrong matches, and a report that lists them has cost the reader
+more than it gave.
+"""
+
 import re
 from typing import Dict, List
 
