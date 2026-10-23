@@ -1,5 +1,4 @@
-"""
-TLS analysis tool for ReconAgent.
+"""TLS analysis tool for ReconAgent.
 
 Surfaces cert expiry, weak ciphers, and TLS version issues from a real
 handshake against the target.
@@ -42,8 +41,7 @@ class TLSFinding:
 
 
 def _split_target(target: str) -> tuple[str, int]:
-    """
-    Split a pipeline target into host and TLS port.
+    """Split a pipeline target into host and TLS port.
 
     Targets arrive as whole URLs ("http://localhost:3000"), as host:port,
     or as a bare hostname. Handing any of the first two to the resolver

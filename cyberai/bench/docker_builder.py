@@ -1,5 +1,4 @@
-"""
-Ephemeral Docker builder for the local vulnerable-target suite.
+"""Ephemeral Docker builder for the local vulnerable-target suite.
 
 Builds and runs our own bench apps (cyberai/bench/apps/) in throwaway
 containers so the engine can be measured against live targets. Degrades

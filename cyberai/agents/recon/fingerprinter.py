@@ -1,5 +1,4 @@
-"""
-Port service fingerprinter — enriches nmap port data
+"""Port service fingerprinter — enriches nmap port data
 with banner grabbing and service version hints.
 """
 
@@ -69,8 +68,7 @@ def fingerprint_port(
     port: int,
     service_hint: str = "",
 ) -> Dict[str, Any]:
-    """
-    Attempt banner grab on host:port.
+    """Attempt banner grab on host:port.
     Returns enriched port info dict.
     """
     banner = _grab_banner(host, port, service_hint)

@@ -32,8 +32,7 @@ OLLAMA_TIMEOUT = 120
 
 
 class LLMClient:
-    """
-    Unified LLM interface — OpenAI / Anthropic / Ollama
+    """Unified LLM interface — OpenAI / Anthropic / Ollama
     One call() method regardless of provider.
     """
 
@@ -92,7 +91,8 @@ class LLMClient:
 
     def _record_attempt(self) -> None:
         """Count the question. _record_usage counts the answer, and only a
-        provider that replied reaches it -- a refusal has to be visible too."""
+        provider that replied reaches it -- a refusal has to be visible too.
+        """
         if self.cost_tracker is not None:
             self.cost_tracker.record_attempt()
 
@@ -618,8 +618,7 @@ class LLMClient:
 
 
 def _wrap_cacheable(system_text: str) -> list[dict]:
-    """
-    Wrap a system prompt in Anthropic's cache_control format.
+    """Wrap a system prompt in Anthropic's cache_control format.
 
     The minimum cacheable block is 1024 tokens (Sonnet/Opus) or 2048 (Haiku);
     smaller blocks are silently ignored by the API and billed at full rate.

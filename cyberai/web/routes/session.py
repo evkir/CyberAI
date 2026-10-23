@@ -1,5 +1,4 @@
-"""
-/api/sessions — list and inspect scan sessions read from disk.
+"""/api/sessions — list and inspect scan sessions read from disk.
 
 Sessions live as session_<id>.json in config.output_dir, written by the
 CLI scan flow (cyberai.cli.replay.save_session). This router never mutates
@@ -70,8 +69,7 @@ def get_session(session_id: str, request: Request) -> dict:
 
 @router.get("/sessions/{session_id}/stream")
 async def stream_session(session_id: str, request: Request) -> StreamingResponse:
-    """
-    SSE: poll the session file and emit phase deltas until terminal state.
+    """SSE: poll the session file and emit phase deltas until terminal state.
 
     Emits `event: phase` for each newly-seen phase and `event: done` when
     the session reaches a terminal state or after a bounded number of polls.

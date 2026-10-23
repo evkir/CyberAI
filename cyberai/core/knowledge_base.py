@@ -1,5 +1,4 @@
-"""
-KnowledgeBase — shared memory store for all agents in a session.
+"""KnowledgeBase — shared memory store for all agents in a session.
 
 `agent` is optional (defaults to "unknown") so
 agents can write quick entries without always naming themselves; the
@@ -27,8 +26,7 @@ class KBEntry:
 
 
 class KnowledgeBase:
-    """
-    Shared memory store for all agents in a session.
+    """Shared memory store for all agents in a session.
     Agents read/write through trust-validated keys.
     """
 

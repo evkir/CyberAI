@@ -1,5 +1,4 @@
-"""
-Sealed subprocess execution.
+"""Sealed subprocess execution.
 
 Threat model: CyberAI runs analysis tooling (forge, slither, aderyn, halmos,
 anvil) over target-controlled source trees. Build systems execute code from the

@@ -1,5 +1,4 @@
-"""
-Egress guard for air-gapped mode.
+"""Egress guard for air-gapped mode.
 
 Air-gapped red-team work (NDA, isolated client networks) must not leak target
 infrastructure into cloud LLM APIs. This module is the single source of truth

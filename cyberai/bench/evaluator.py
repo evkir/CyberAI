@@ -1,5 +1,4 @@
-"""
-Success-criteria evaluator for the local target suite.
+"""Success-criteria evaluator for the local target suite.
 
 Given a running target and the exploitation *evidence* the engine produced
 (HTTP responses, command output, file contents), decide whether the target was
@@ -78,7 +77,8 @@ def evaluate(target: VulnTarget, evidence: str, marker: str = "") -> bool:
     """Dispatch to the per-class check. `evidence` is whatever the engine got
     back; `marker` is the unique token for classes that need one (CMDi,
     traversal, SSRF). Unknown classes return False (never a false-positive
-    solve)."""
+    solve).
+    """
     vc = target.vuln_class
     if vc is VulnClass.SQLI:
         return sqli_solved_from_evidence(evidence)

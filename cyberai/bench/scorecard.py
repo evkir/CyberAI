@@ -1,5 +1,4 @@
-"""
-Scorecard generator — turns a SuiteReport into reproducible Markdown.
+"""Scorecard generator — turns a SuiteReport into reproducible Markdown.
 
 The scorecard is CyberAI's public honesty artifact: a deterministic, diffable
 record of how the engine performed on a suite. It records the headline pass@1,
@@ -52,7 +51,7 @@ def _utc_now_iso() -> str:
 
 
 def _per_class(report: SuiteReport) -> dict[str, tuple[int, int]]:
-    """class -> (solved, total) from per-result details."""
+    """Class -> (solved, total) from per-result details."""
     agg: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for r in report.results:
         vc = str(r.details.get("vuln_class", "unknown"))

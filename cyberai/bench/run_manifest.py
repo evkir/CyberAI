@@ -1,5 +1,4 @@
-"""
-Run manifest — provenance + determinism lock for a benchmark run.
+"""Run manifest — provenance + determinism lock for a benchmark run.
 
 A scorecard says *what score* we got; the manifest says *exactly what produced
 it* so the number is reproducible and tamper-evident:
@@ -42,7 +41,8 @@ DEFAULT_SEED = 1337
 
 def set_global_seed(seed: int = DEFAULT_SEED) -> int:
     """Pin process-wide randomness. Returns the seed used (for the manifest).
-    PYTHONHASHSEED only affects child processes spawned after this call."""
+    PYTHONHASHSEED only affects child processes spawned after this call.
+    """
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     return seed
@@ -50,7 +50,8 @@ def set_global_seed(seed: int = DEFAULT_SEED) -> int:
 
 def hash_tasks(tasks: list[BenchTask]) -> str:
     """Stable SHA-256 over the identifying fields of a suite's tasks. Order is
-    normalized by task id so re-ordering does not change the hash."""
+    normalized by task id so re-ordering does not change the hash.
+    """
     payload = sorted(
         ({"id": t.id, "name": t.name, "criteria": t.success_criteria} for t in tasks),
         key=lambda d: d["id"],
@@ -134,7 +135,8 @@ def build_manifest(
 
     The manifest hash deliberately excludes the timestamp so two identical runs
     at different times produce the same fingerprint (timestamp is recorded but
-    not part of the identity)."""
+    not part of the identity).
+    """
     config = config or RunConfig()
     suite_hash = hash_tasks(tasks)
     identity = {

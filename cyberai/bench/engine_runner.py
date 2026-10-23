@@ -1,5 +1,4 @@
-"""
-Real engine runner for the local suite.
+"""Real engine runner for the local suite.
 
 Replaces the placeholder runner with an honest, reproducible measurement: for
 each local task we bring the target up (Docker, when available), run our live

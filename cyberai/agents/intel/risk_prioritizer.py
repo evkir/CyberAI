@@ -1,5 +1,4 @@
-"""
-Risk Prioritizer — sorts and filters CVE findings by composite score.
+"""Risk Prioritizer — sorts and filters CVE findings by composite score.
 Produces ranked list with threshold filtering and tier grouping.
 """
 
@@ -16,8 +15,7 @@ def prioritize(
     top_n: Optional[int] = None,
     tiers: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Score, filter, and rank CVEs.
+    """Score, filter, and rank CVEs.
 
     Args:
         cves:      raw CVE dicts from IntelAgent
@@ -27,6 +25,7 @@ def prioritize(
 
     Returns:
         List of enriched CVE dicts sorted by composite_score desc
+
     """
     scored = score_all(cves)
 

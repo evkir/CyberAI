@@ -1,5 +1,4 @@
-"""
-HTTP attack-surface discovery.
+"""HTTP attack-surface discovery.
 
 Exploitation needs somewhere to inject: a URL, a parameter name, a method.
 Port scanning gives us "80/tcp open http" and nothing to act on, so this module

@@ -1,5 +1,4 @@
-"""
-ScanSession — single source of truth for a pentest scan lifecycle.
+"""ScanSession — single source of truth for a pentest scan lifecycle.
 
 This module holds:
   * ScanSession — the lifecycle object (created → running → completed/failed)
@@ -63,8 +62,7 @@ class Severity(str, Enum):
 
 @dataclass
 class Finding:
-    """
-    A single vulnerability finding.
+    """A single vulnerability finding.
 
     Fields target/evidence/cve_ids are present so agents
     were already passing these but the dataclass didn't accept them.

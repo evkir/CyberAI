@@ -1,5 +1,4 @@
-"""
-Maps TLS misconfigurations to known CVEs.
+"""Maps TLS misconfigurations to known CVEs.
 Gives IntelAgent context: "this TLS issue → these CVEs → this risk".
 """
 
@@ -50,17 +49,13 @@ TLS_CVE_MAP: list[TLSCVEEntry] = [
 
 
 class TLSCVEMapper:
-    """
-    Given TLS findings from TLSTool, enrich with CVE context.
-    """
+    """Given TLS findings from TLSTool, enrich with CVE context."""
 
     def __init__(self):
         self._index = {e.issue_key: e for e in TLS_CVE_MAP}
 
     def enrich(self, findings: list[dict]) -> list[dict]:
-        """
-        Takes TLSTool findings list, adds CVE context to each.
-        """
+        """Takes TLSTool findings list, adds CVE context to each."""
         enriched = []
         for finding in findings:
             entry = self._match(finding)

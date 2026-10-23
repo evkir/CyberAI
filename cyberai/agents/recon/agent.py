@@ -19,8 +19,7 @@ from .web_surface import discover_surface
 
 
 class ReconAgent(BaseAgent):
-    """
-    Reconnaissance agent.
+    """Reconnaissance agent.
     Runs nmap → whois → DNS → subdomain enum, stores results in the KB.
     """
 

@@ -1,5 +1,4 @@
-"""
-Regression gate — guards a suite's solve-rate against silent regressions.
+"""Regression gate — guards a suite's solve-rate against silent regressions.
 
 Compares a fresh RunManifest against a stored baseline manifest and decides
 whether the run is acceptable. Two independent checks:
@@ -75,7 +74,8 @@ def _read_toolchain(data: dict[str, Any]) -> tuple[ToolVersion, ...]:
 
 def load_baseline(path: str | Path) -> RunManifest | None:
     """Load a baseline manifest from JSON. None if absent/malformed (first run
-    has no baseline — caller treats None as 'nothing to regress against')."""
+    has no baseline — caller treats None as 'nothing to regress against').
+    """
     p = Path(path)
     if not p.is_file():
         return None

@@ -1,5 +1,4 @@
-"""
-Simple file-based JSON cache for NVD API responses.
+"""Simple file-based JSON cache for NVD API responses.
 Avoids hammering the API and respects rate limits.
 """
 

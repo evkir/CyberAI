@@ -1,5 +1,4 @@
-"""
-Parallel agent pipeline executor.
+"""Parallel agent pipeline executor.
 Runs independent phases concurrently, enforces ordering for dependent phases.
 
 Pipeline topology:
@@ -42,8 +41,7 @@ class PipelineResult:
 
 
 class AsyncPipeline:
-    """
-    Orchestrates the full recon→intel→exploit pipeline asynchronously.
+    """Orchestrates the full recon→intel→exploit pipeline asynchronously.
     Recon tools run in parallel; subsequent stages are sequential.
     """
 

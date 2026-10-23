@@ -1,5 +1,4 @@
-"""
-/api/lab — read-only view over local practice-lab machines.
+"""/api/lab — read-only view over local practice-lab machines.
 
 Machine folders live under config.lab_machines_dir (each subdirectory is one
 machine). This router lists them and renders a Markdown writeup per machine by

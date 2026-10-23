@@ -60,7 +60,8 @@ def _match_paren(src: str, open_idx: int) -> int:
 
 def _match_brace(src: str, open_idx: int) -> int:
     """Index of the '}' matching the '{' at open_idx (or -1). Balanced nesting
-    (e.g. `call{value: x}`) is handled by counting."""
+    (e.g. `call{value: x}`) is handled by counting.
+    """
     depth = 0
     for i in range(open_idx, len(src)):
         c = src[i]

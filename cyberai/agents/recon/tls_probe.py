@@ -1,5 +1,4 @@
-"""
-Native TLS probe.
+"""Native TLS probe.
 
 Opens a real TLS handshake against the target and reports what the server
 actually presented: protocol version, negotiated cipher, ALPN, and the

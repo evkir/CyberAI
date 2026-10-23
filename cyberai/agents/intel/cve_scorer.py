@@ -1,5 +1,4 @@
-"""
-CVE Scoring Engine — composite risk score from multiple signals.
+"""CVE Scoring Engine — composite risk score from multiple signals.
 Score = CVSS weight + exploit availability + recency + epss
 """
 
@@ -102,7 +101,8 @@ def _recency_bonus(cve: Dict) -> float:
 
 def _epss_bonus(cve: Dict) -> float:
     """EPSS as a multiplier-like signal: high probability gets a nonlinear
-    boost so weaponized vulnerabilities float to the top."""
+    boost so weaponized vulnerabilities float to the top.
+    """
     epss = float(cve.get("epss") or 0.0)
     boost = 2.0 if epss > 0.5 else 1.0
     return min(epss * EPSS_WEIGHT * boost, EPSS_WEIGHT)

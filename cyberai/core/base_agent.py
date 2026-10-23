@@ -1,5 +1,4 @@
-"""
-BaseAgent — abstract base for all CyberAI agents.
+"""BaseAgent — abstract base for all CyberAI agents.
 
 This redesign gives agents an explicit dependency on the session.
 
@@ -33,8 +32,7 @@ console = Console(stderr=True)
 
 @dataclass
 class Tool:
-    """
-    A callable capability an agent can invoke.
+    """A callable capability an agent can invoke.
 
     `params` is the canonical field. `parameters` is accepted as an
     alias for backward compatibility — all existing agents register
@@ -63,8 +61,7 @@ class Tool:
 
 
 class AgentMemory:
-    """
-    Minimal multi-turn conversation memory for agents that talk to an LLM
+    """Minimal multi-turn conversation memory for agents that talk to an LLM
     across several steps (ExploitAgent in particular — KI-4).
     """
 
@@ -103,8 +100,7 @@ class AgentIterationLimitError(RuntimeError):
 
 
 class BaseAgent(ABC):
-    """
-    Abstract base class for all CyberAI agents.
+    """Abstract base class for all CyberAI agents.
 
     Agents are constructed with explicit dependencies so they are easy
     to test (everything is injectable / mockable):
@@ -161,8 +157,7 @@ class BaseAgent(ABC):
     # ── iteration safety ──────────────────────────────────────────────
 
     def _check_iteration_limit(self) -> None:
-        """
-        Increment the step counter and raise if the agent has exceeded
+        """Increment the step counter and raise if the agent has exceeded
         config.max_agent_iterations. Called by agents before each major
         step to prevent runaway loops (KI-4).
         """
@@ -179,8 +174,7 @@ class BaseAgent(ABC):
         console.print(f"[cyan]\\[{self.AGENT_NAME}][/cyan] {msg}")
 
     def _log(self, msg: str, data: Any = None) -> None:
-        """
-        Alias for log(). Several agents call self._log(...) (KI-4).
+        """Alias for log(). Several agents call self._log(...) (KI-4).
         Some legacy call sites pass (event, data) — both forms work
         since the first arg is just the message string.
         """

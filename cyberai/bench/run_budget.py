@@ -1,5 +1,4 @@
-"""
-Per-run cost/token accounting for benchmarks.
+"""Per-run cost/token accounting for benchmarks.
 
 Reuses the existing CostTracker (cyberai/core/cost_tracker.py) — the same one
 the scan pipeline feeds — so a benchmark run is costed with identical logic.
@@ -39,7 +38,8 @@ def summarize_budget(tracker: CostTracker, tasks: int) -> RunBudget:
     """Roll a populated CostTracker up into a RunBudget for `tasks` tasks.
 
     `total_cost` (pricing.py) maps usage to USD via the per-model price table;
-    unknown/local models price at 0 (graceful, e.g. Ollama)."""
+    unknown/local models price at 0 (graceful, e.g. Ollama).
+    """
     return RunBudget(
         total_cost_usd=round(total_cost(tracker), 6),
         total_tokens=tracker.total_tokens,

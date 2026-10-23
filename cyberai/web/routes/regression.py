@@ -1,5 +1,4 @@
-"""
-/api/bench/regression — compare a suite's current run against its baseline.
+"""/api/bench/regression — compare a suite's current run against its baseline.
 
 Both manifests are read from config.output_dir: manifest_<suite>.json is the
 current run, baseline_<suite>.json is the stored baseline. The gate logic is

@@ -152,7 +152,8 @@ def _exec_nmap(
     safe_target: str, safe_flags: List[str], timeout: int, target: str
 ) -> Dict[str, Any]:
     """Run one nmap invocation. Error dicts always carry an empty ``ports``
-    list so downstream consumers get a consistent shape."""
+    list so downstream consumers get a consistent shape.
+    """
     # --noninteractive: nmap's runtime keypress reader opens /dev/tty directly
     # (independent of stdin) and can leave the terminal in no-echo/raw mode.
     # This flag disables it outright. stdin=DEVNULL is kept as belt-and-braces.
@@ -200,13 +201,15 @@ def _open_port_nums(parsed: Dict[str, Any]) -> List[int]:
 def _has_products(parsed: Dict[str, Any]) -> bool:
     """True when -sV captured at least one product string. Mirrors the intel
     layer's ``version_known`` check so the degraded marker and the severity
-    gate agree on what counts as a known version."""
+    gate agree on what counts as a known version.
+    """
     return any((p.get("product") or "").strip() for p in parsed.get("ports", []))
 
 
 def _strip_sv(flags: List[str]) -> List[str]:
     """Return the validated flag list without the ``-sV`` token, for a fast
-    version-less discovery pass. Port scope and timing flags are preserved."""
+    version-less discovery pass. Port scope and timing flags are preserved.
+    """
     return [t for t in flags if t != "-sV"]
 
 
@@ -216,7 +219,8 @@ def _mark_mass_open(parsed: Dict[str, Any]) -> bool:
     Real hosts do not hold hundreds of the top-1000 ports open, so such a
     result is treated as untrustworthy: the intel layer skips a meaningless
     CVE spray over noise ports rather than gambling query budget on garbage
-    service names. Returns True when the scan was flagged."""
+    service names. Returns True when the scan was flagged.
+    """
     open_count = len(_open_port_nums(parsed))
     if open_count > _MASS_OPEN_THRESHOLD:
         parsed["mass_open"] = True
@@ -253,8 +257,7 @@ def run_nmap(
     flags: str = "-sV -T4 --top-ports 1000",
     timeout: int = DEFAULT_NMAP_TIMEOUT,
 ) -> Dict[str, Any]:
-    """
-    Run nmap against target, return parsed results.
+    """Run nmap against target, return parsed results.
     Requires nmap installed on system.
 
     When ``-sV`` is requested a fast version-less discovery pass runs first; an

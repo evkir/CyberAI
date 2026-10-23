@@ -1,5 +1,4 @@
-"""
-Rate limiter for NVD API and other external APIs.
+"""Rate limiter for NVD API and other external APIs.
 NVD allows 5 req/30s without API key, 50 req/30s with key.
 """
 
@@ -21,8 +20,7 @@ class RateLimiterConfig:
 
 
 class RateLimiter:
-    """
-    Token bucket rate limiter — thread safe.
+    """Token bucket rate limiter — thread safe.
     Tracks request timestamps in a sliding window.
     """
 
@@ -35,8 +33,7 @@ class RateLimiter:
         self._total_wait_time = 0.0
 
     def acquire(self) -> float:
-        """
-        Block until a request slot is available.
+        """Block until a request slot is available.
         Returns wait time in seconds.
         """
         with self._lock:

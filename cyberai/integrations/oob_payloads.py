@@ -1,5 +1,4 @@
-"""
-OOB payload generator — SSRF / XXE / SSTI / RCE / CRLF / SQLi / CMDi templates.
+"""OOB payload generator — SSRF / XXE / SSTI / RCE / CRLF / SQLi / CMDi templates.
 
 Each payload embeds a unique interaction_id (phantom-grid token) for tracking.
 HTTP callbacks target the v2.0 capture endpoint: http://<host>/c/<token>.

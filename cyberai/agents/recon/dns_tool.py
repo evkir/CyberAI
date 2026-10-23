@@ -60,8 +60,7 @@ async def _query_one(resolver: "dns.asyncresolver.Resolver", target: str, rtype:
 
 
 async def run_dns_async(target: str) -> Dict[str, Any]:
-    """
-    Async DNS enumeration — resolves A/AAAA/MX/NS/TXT/CNAME/SOA concurrently.
+    """Async DNS enumeration — resolves A/AAAA/MX/NS/TXT/CNAME/SOA concurrently.
 
     Drop-in async equivalent of `run_dns`; same return shape.
     """

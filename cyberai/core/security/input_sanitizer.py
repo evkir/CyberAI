@@ -50,8 +50,7 @@ def parse_target(target: str) -> Tuple[str, Optional[int]]:
 
 
 def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
-    """
-    Sanitize free-form text input.
+    """Sanitize free-form text input.
     Removes control chars, limits length.
     """
     # Remove null bytes and control characters
@@ -63,8 +62,7 @@ def sanitize_text(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
 
 
 def sanitize_banner(banner: str) -> str:
-    """
-    Neutralise a service banner before it enters LLM context.
+    """Neutralise a service banner before it enters LLM context.
 
     Service banners are attacker-controllable (a host can put anything in
     its SSH/HTTP banner). Truncate to MAX_BANNER_LENGTH, strip ANSI escape
@@ -131,8 +129,7 @@ def _sanitize_blocks(content: List[Any]) -> List[Any]:
 
 
 def sanitize_llm_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Sanitize messages before sending to LLM.
+    """Sanitize messages before sending to LLM.
     Strips dangerous patterns from user-controlled content.
     """
     sanitized = []
@@ -158,8 +155,7 @@ def sanitize_llm_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def validate_json_output(raw: str, expected_keys: Optional[List[str]] = None) -> Dict[str, Any]:
-    """
-    Validate and parse LLM JSON output.
+    """Validate and parse LLM JSON output.
     Prevents malformed JSON from crashing the pipeline.
     """
     try:

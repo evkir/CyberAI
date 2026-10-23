@@ -44,7 +44,8 @@ class FlagHit:
 
 def _compile_patterns(extra: list[str] | None) -> list[tuple[str, re.Pattern[str]]]:
     """Compile built-in plus extra patterns. A malformed extra regex is logged
-    and skipped rather than aborting the whole scan."""
+    and skipped rather than aborting the whole scan.
+    """
     compiled: list[tuple[str, re.Pattern[str]]] = [
         (name, re.compile(rx)) for name, rx in _BUILTIN_PATTERNS
     ]
@@ -58,7 +59,8 @@ def _compile_patterns(extra: list[str] | None) -> list[tuple[str, re.Pattern[str
 
 def _scan_file(path: Path, patterns: list[tuple[str, re.Pattern[str]]]) -> list[FlagHit]:
     """Scan one file's text content for every pattern. Unreadable or oversized
-    files yield nothing."""
+    files yield nothing.
+    """
     try:
         if path.stat().st_size > _MAX_CONTENT_BYTES:
             return []

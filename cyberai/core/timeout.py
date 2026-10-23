@@ -8,8 +8,7 @@ read by core/async_base_agent.py, which is the whole of this module now.
 
 
 class AgentTimeoutManager:
-    """
-    Context manager for agent operation timeouts.
+    """Context manager for agent operation timeouts.
     Cleaner alternative to decorator for async contexts.
     """
 

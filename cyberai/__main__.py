@@ -41,7 +41,8 @@ _TOOLCHAIN = {probe.name: probe.resolver for probe in TOOL_PROBES}
 def _detach_stdin_from_tty() -> None:
     """Point fd 0 at /dev/null so scan subprocesses (nmap runtime
     interaction, whois, etc.) can never leave the controlling terminal in
-    a raw/no-echo state. The scan pipeline never reads stdin."""
+    a raw/no-echo state. The scan pipeline never reads stdin.
+    """
     try:
         devnull = os.open(os.devnull, os.O_RDONLY)
         os.dup2(devnull, 0)
@@ -475,6 +476,7 @@ def scope_import(platform: str, scope_file: str) -> None:
     Examples:
         cyberai scope import h1 acme_scope.json
         cyberai scope import bugcrowd acme_bc.json
+
     """
     from cyberai.cli.scope import import_bugcrowd_scope, import_h1_scope
 
@@ -565,7 +567,8 @@ def _toolchain_lines(*, versions: bool = False) -> tuple[str, str]:
 def _budget_line(config: CyberAIConfig) -> str:
     """The LLM spend ceiling. Zero disables the check rather than forbidding
     spend, so it is spelled out: a panel that printed "0.0" would read as a
-    budget of nothing."""
+    budget of nothing.
+    """
     if config.max_cost_usd <= 0:
         return "disabled"
     return f"{config.max_cost_usd} USD"
