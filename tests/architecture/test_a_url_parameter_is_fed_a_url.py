@@ -142,7 +142,7 @@ def test_a_planted_bare_host_is_caught_and_a_real_url_is_not(tmp_path: pathlib.P
 
 
 def test_the_planted_form_is_the_one_the_body_detector_misses(tmp_path: pathlib.Path) -> None:
-    """This detector exists only for what the day-40 one cannot see."""
+    """A detector for what the earlier one cannot see."""
     _plant(tmp_path)
     from_body, resolved = _day40().scan(tmp_path)
     assert resolved == 2, resolved
