@@ -1,5 +1,4 @@
-"""
-DEPRECATED: backward-compatibility shim.
+"""DEPRECATED: backward-compatibility shim.
 
 All session-related models now live in cyberai.core.scan_session.
 This module re-exports them so existing imports keep working:
@@ -37,8 +36,7 @@ from cyberai.core.scan_session import (
 
 
 class SessionState(str, Enum):
-    """
-    Legacy enum. Mirrors ScanState values exactly so equality checks
+    """Legacy enum. Mirrors ScanState values exactly so equality checks
     against ScanState still work (both are str-enums), plus exposes
     IDLE as an alias for the initial state.
 
@@ -68,8 +66,7 @@ class SessionState(str, Enum):
 
 
 class PentestSession(ScanSession):
-    """
-    Legacy alias for ScanSession.
+    """Legacy alias for ScanSession.
 
     Differences from plain ScanSession (all for backward compat):
 

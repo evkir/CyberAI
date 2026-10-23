@@ -1,6 +1,4 @@
-"""
-Full pipeline integration tests with mock targets.
-"""
+"""Full pipeline integration tests with mock targets."""
 
 import asyncio
 from unittest.mock import AsyncMock

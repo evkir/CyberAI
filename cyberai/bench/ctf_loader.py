@@ -1,5 +1,4 @@
-"""
-CTFAdapter — loads CyberAI's own CTF-style challenges from a directory of
+"""CTFAdapter — loads CyberAI's own CTF-style challenges from a directory of
 manifests into the BenchTask contract.
 
 Manifest schema (our own JSON, one `manifest.json` per challenge dir):
@@ -33,7 +32,8 @@ _REQUIRED = ("id", "name", "category", "difficulty", "flag")
 
 def _load_manifest(manifest_path: Path) -> CTFTask | None:
     """Parse one manifest.json into a CTFTask. Returns None (and logs) on any
-    malformed/incomplete manifest — one bad challenge never breaks the suite."""
+    malformed/incomplete manifest — one bad challenge never breaks the suite.
+    """
     try:
         data = json.loads(manifest_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:

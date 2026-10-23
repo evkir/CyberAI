@@ -203,7 +203,8 @@ def analyze_source(source: str) -> List[AccessFinding]:
 @dataclass
 class EscalationPath:
     """A concrete privilege-escalation path: an unguarded entry that grants
-    authority, and the guarded privileged functions it then unlocks."""
+    authority, and the guarded privileged functions it then unlocks.
+    """
 
     entry: str
     grants: str

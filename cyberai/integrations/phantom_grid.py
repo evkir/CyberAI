@@ -1,5 +1,4 @@
-"""
-phantom-grid client — OOB callback tracking (v2.0 API).
+"""phantom-grid client — OOB callback tracking (v2.0 API).
 https://github.com/evkir/phantom-grid
 
 Real phantom-grid v2.0 contract:

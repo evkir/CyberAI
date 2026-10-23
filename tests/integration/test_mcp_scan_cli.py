@@ -173,7 +173,7 @@ def test_a_refused_session_still_reports_the_published_posture():
 
 
 def test_a_stdio_target_gets_no_authorization_line_at_all():
-    """stdio has no network origin; a posture line there would be invented."""
+    """Stdio has no network origin; a posture line there would be invented."""
     with patch("cyberai.cli.mcp_scan.MCPScanAgent") as agent:
         agent.return_value.run.return_value = {
             **_result(),

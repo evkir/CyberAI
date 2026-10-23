@@ -1,5 +1,4 @@
-"""
-Prompt caching: verify LLMClient sends the correct cache_control payload,
+"""Prompt caching: verify LLMClient sends the correct cache_control payload,
 extracts cache_creation_input_tokens / cache_read_input_tokens, and that
 the billed cost on cache hits is materially lower than on cache writes.
 """

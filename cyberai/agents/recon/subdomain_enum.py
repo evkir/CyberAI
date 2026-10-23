@@ -1,5 +1,4 @@
-"""
-Subdomain enumerator — DNS brute force via wordlist.
+"""Subdomain enumerator — DNS brute force via wordlist.
 Uses concurrent resolution for speed.
 """
 
@@ -86,8 +85,7 @@ def enumerate_subdomains(
     max_workers: int = 20,
     timeout: float = 2.0,
 ) -> Dict[str, Any]:
-    """
-    Brute-force subdomains via DNS resolution.
+    """Brute-force subdomains via DNS resolution.
 
     Args:
         domain:      base domain e.g. "example.com"
@@ -103,6 +101,7 @@ def enumerate_subdomains(
     call left the process default at 1.5 where it had been None, and every
     later raw socket in the run — banner grabs, TLS probes, client probes —
     silently inherited a recon setting none of them asked for.
+
     """
     words = wordlist or DEFAULT_WORDLIST
     targets = [f"{w}.{domain}" for w in words]
@@ -246,8 +245,7 @@ async def enumerate_subdomains_async(
     max_concurrent: int = 20,
     timeout: float = 2.0,
 ) -> Dict[str, Any]:
-    """
-    Async subdomain brute force. Same return shape as enumerate_subdomains.
+    """Async subdomain brute force. Same return shape as enumerate_subdomains.
 
     Not a drop-in equivalent, despite the shape. This path asks dnspython for
     A records; the sync path calls getaddrinfo, which follows nsswitch and

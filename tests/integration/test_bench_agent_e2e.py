@@ -1,5 +1,4 @@
-"""
-End-to-end for the agent bench engine, with nothing faked but the container.
+"""End-to-end for the agent bench engine, with nothing faked but the container.
 
 Every part that decides the number is real here: the vulnerable apps, the agent
 web path, the per-class probes. Only the Docker layer is stood in for, because

@@ -1,5 +1,4 @@
-"""
-Shared type aliases across all agent modules.
+"""Shared type aliases across all agent modules.
 Centralises type hints — import from here, not redefine everywhere.
 """
 

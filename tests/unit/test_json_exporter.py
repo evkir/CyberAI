@@ -67,7 +67,8 @@ def test_web_exploitation_reaches_the_json_file(tmp_path: Path) -> None:
 
 def test_web_exploitation_key_is_present_without_a_web_phase(tmp_path: Path) -> None:
     """A network-only run has no exploit.web; the key still has to exist, or a
-    consumer cannot tell a missing key from a target that was never walked."""
+    consumer cannot tell a missing key from a target that was never walked.
+    """
     session = ScanSession(target="scanme.nmap.org")
     out = export_json(session, str(tmp_path))
     data = json.loads(Path(out).read_text())
@@ -134,7 +135,8 @@ def test_redteam_reaches_the_json_file(tmp_path: Path) -> None:
 
 def test_redteam_key_is_present_without_a_redteam_run(tmp_path: Path) -> None:
     """A run without --planned-redteam still has to carry the key, or a parser
-    cannot tell "no channels found" from "this build cannot fuzz channels"."""
+    cannot tell "no channels found" from "this build cannot fuzz channels".
+    """
     session = ScanSession(target="scanme.nmap.org")
     out = export_json(session, str(tmp_path))
     assert json.loads(Path(out).read_text())["redteam"] == {}

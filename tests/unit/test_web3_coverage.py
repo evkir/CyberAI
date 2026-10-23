@@ -69,7 +69,7 @@ def test_analyze_runs_and_parses(tmp_path):
 
 
 def test_analyze_sol_file_passes_directory_and_bare_include(tmp_path):
-    """aderyn 0.1.9 panics on a .sol ROOT; the include must be a bare name."""
+    """Aderyn 0.1.9 panics on a .sol ROOT; the include must be a bare name."""
     tool = _tool(tmp_path)
     sol = _sol(tmp_path)
 

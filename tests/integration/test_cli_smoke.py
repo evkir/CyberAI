@@ -1,5 +1,4 @@
-"""
-End-to-end smoke tests for the cyberai CLI.
+"""End-to-end smoke tests for the cyberai CLI.
 
 These tests verify that the entire pipeline runs without crashing,
 even in dry-run mode where no real network calls are made.
@@ -19,8 +18,7 @@ pytestmark = pytest.mark.smoke
 
 
 def test_cli_scan_dry_run_exits_cleanly():
-    """
-    `cyberai scan <target> --dry-run` should complete with exit code 0
+    """`cyberai scan <target> --dry-run` should complete with exit code 0
     without making any real network calls.
 
     Currently fails because __main__.py calls Orchestrator(config) but
@@ -47,8 +45,7 @@ def test_cli_scan_dry_run_produces_output():
 
 
 def test_cli_help_works():
-    """
-    Sanity check: `cyberai --help` must always work.
+    """Sanity check: `cyberai --help` must always work.
     If this breaks, something is very wrong with imports.
     """
     runner = CliRunner()

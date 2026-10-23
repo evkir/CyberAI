@@ -1,5 +1,4 @@
-"""
-CyberAI FastAPI server.
+"""CyberAI FastAPI server.
 
 REST + SSE interface for listing scan sessions and serving reports.
 Sessions are read from disk (config.output_dir / session_<id>.json),

@@ -1,5 +1,4 @@
-"""
-Tests for the CVE-Bench task loader.
+"""Tests for the CVE-Bench task loader.
 
 The suite is an optional local dependency measured in gigabytes, so the loader
 has to answer honestly when it is absent: an empty suite and a reason someone

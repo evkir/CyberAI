@@ -1,5 +1,4 @@
-"""
-End-to-end reproducibility chain: manifest -> budget -> regression gate.
+"""End-to-end reproducibility chain: manifest -> budget -> regression gate.
 
 Proves the Day-5 honesty lock holds together:
   - two identical runs produce the SAME manifest fingerprint (reproducible),

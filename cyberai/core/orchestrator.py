@@ -1,5 +1,4 @@
-"""
-Orchestrator — coordinates the full multi-agent pipeline.
+"""Orchestrator — coordinates the full multi-agent pipeline.
 ReconAgent → IntelAgent → ExploitAgent → ReportAgent
 
 Closes the agent-construction contract (KI-1).
@@ -57,8 +56,7 @@ def _describe(exc: BaseException) -> str:
 
 
 class Orchestrator:
-    """
-    Runs the full CyberAI pipeline for a given target.
+    """Runs the full CyberAI pipeline for a given target.
     Phases are configurable — skip any by omitting from the phases list.
     """
 
@@ -116,7 +114,8 @@ class Orchestrator:
 
     def _client_for(self, phase: ScanPhase):
         """Phase-appropriate LLM client. Falls back to the shared client when
-        routing is disabled (default) — no behavioural change."""
+        routing is disabled (default) — no behavioural change.
+        """
         if self.dry_run:
             return self._with_audit(self.llm)
         if not self.config.routing.enable_model_routing:
@@ -186,8 +185,7 @@ class Orchestrator:
         target: str,
         authorized_scope: Optional[List[str]] = None,
     ) -> ScanSession:
-        """
-        Execute the full pipeline for `target`.
+        """Execute the full pipeline for `target`.
         Returns the completed ScanSession with all results in its KB.
         """
         session = ScanSession(
@@ -451,8 +449,7 @@ def _now() -> str:
 
 
 class AsyncOrchestrator(Orchestrator):
-    """
-    Async variant of Orchestrator.
+    """Async variant of Orchestrator.
 
     Phases run sequentially (each depends on the previous), but recon
     runs its tools concurrently via AsyncReconAgent. Intel/exploit/report

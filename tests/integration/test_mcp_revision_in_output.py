@@ -42,7 +42,7 @@ def test_the_terminal_names_the_revision_the_probe_negotiated():
 
 
 def test_the_revision_stays_one_token_when_the_terminal_has_colour(monkeypatch):
-    """rich colourises digit runs, which would split the date into fragments.
+    """Rich colourises digit runs, which would split the date into fragments.
 
     Whether colour is on depends on the environment, and the module console is
     built at import time, so setting an environment variable inside the test

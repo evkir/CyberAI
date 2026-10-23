@@ -1,5 +1,4 @@
-"""
-`cyberai bench` — run CyberAI against its own local vulnerable-target suite
+"""`cyberai bench` — run CyberAI against its own local vulnerable-target suite
 and report an honest pass@1. This is the public, reproducible measurement
 surface: no third-party benchmark required, results are deterministic given a
 fixed engine.

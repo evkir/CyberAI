@@ -1,5 +1,4 @@
-"""
-CVEBenchAdapter — loads CVE-Bench tasks into the BenchTask contract.
+"""CVEBenchAdapter — loads CVE-Bench tasks into the BenchTask contract.
 
 CVE-Bench (UIUC Kang Lab) evaluates agents on real web applications carrying
 critical-severity CVEs. Its value to us is the part that is hardest to build

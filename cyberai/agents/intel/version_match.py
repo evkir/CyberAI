@@ -80,6 +80,7 @@ def version_applies(detected_version: str, cpe_rules: List[Dict], tokens: set) -
         None  - no usable detected version, or the CVE constrains only other
                 products (cannot be version-confirmed; the caller falls back to
                 conservative handling rather than asserting the CVE applies)
+
     """
     detected = _vtuple(detected_version)
     if detected is None:

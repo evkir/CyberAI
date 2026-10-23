@@ -27,7 +27,8 @@ def test_parse_cves_empty():
 
 def test_parse_cves_falls_back_to_cvss_v2():
     """Legacy CVEs with only CVSS v2 metrics must still yield score+vector so
-    the exploit agent renders real Vector/Complexity (regression: v2 dropped)."""
+    the exploit agent renders real Vector/Complexity (regression: v2 dropped).
+    """
     from cyberai.agents.exploit.cvss_analyzer import analyze_attack_vector
     from cyberai.agents.intel.agent import _normalize
 
@@ -94,7 +95,8 @@ def test_parse_cves_prefers_v3_over_v2():
 
 def test_parse_cpe_exact_version_pins():
     """CVEs pinned to concrete versions (no range fields) expose those
-    versions so out-of-range detections can be dropped later."""
+    versions so out-of-range detections can be dropped later.
+    """
     vuln = {
         "cve": {
             "id": "CVE-2000-0525",
@@ -132,7 +134,8 @@ def test_parse_cpe_exact_version_pins():
 def test_parse_cpe_version_ranges_multi_node():
     """Range-based CVEs expose start/end bounds; only vulnerable cpeMatch
     entries across all nodes are flattened, other-product nodes included so
-    the version matcher can filter by product token."""
+    the version matcher can filter by product token.
+    """
     vuln = {
         "cve": {
             "id": "CVE-2009-2629",
@@ -182,7 +185,7 @@ def test_parse_cpe_version_ranges_multi_node():
 
 
 def test_parse_cpe_skips_non_vulnerable_matches():
-    """cpeMatch entries flagged vulnerable=False are ignored."""
+    """CpeMatch entries flagged vulnerable=False are ignored."""
     vuln = {
         "cve": {
             "id": "CVE-2024-9999",
@@ -209,7 +212,8 @@ def test_parse_cpe_skips_non_vulnerable_matches():
 
 def test_parse_cpe_absent_yields_empty_list():
     """Placeholder CVEs with no configurations key are version-unconfirmable
-    and must yield an empty cpe list (not raise)."""
+    and must yield an empty cpe list (not raise).
+    """
     vuln = {
         "cve": {
             "id": "CVE-1999-0661",
@@ -261,7 +265,8 @@ def test_cve_relevant_when_no_tokens_no_regression():
 
 def test_ports_to_queries_deterministic_priority():
     """Mapped product queries come first and order is stable, so a truncated
-    query budget covers real services (openssh) over raw noise services."""
+    query budget covers real services (openssh) over raw noise services.
+    """
     ports = [
         {"port": 7, "service": "echo", "state": "open"},
         {"port": 22, "service": "ssh", "state": "open"},

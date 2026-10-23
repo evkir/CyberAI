@@ -22,8 +22,7 @@ from .version_match import classify_cve
 
 
 class IntelAgent(BaseAgent):
-    """
-    CVE Intelligence Agent.
+    """CVE Intelligence Agent.
     Reads recon results → queries NVD → surfaces critical findings.
 
     Set score_cves=True to also run the risk-prioritizer and produce

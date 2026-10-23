@@ -1,6 +1,4 @@
-"""
-Async ReconAgent — parallel nmap + DNS + subdomains + TLS via asyncio.
-"""
+"""Async ReconAgent — parallel nmap + DNS + subdomains + TLS via asyncio."""
 
 import asyncio
 import logging
@@ -22,8 +20,7 @@ class AsyncReconAgent(AsyncBaseAgent):
         self.tls = TLSTool()
 
     async def run(self, target: str, **kwargs) -> dict:
-        """
-        Run all recon tools concurrently.
+        """Run all recon tools concurrently.
 
         nmap & tls remain executor-wrapped (subprocess / blocking HTTPS),
         but DNS and subdomain enumeration are natively async — no thread

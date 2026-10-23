@@ -1,5 +1,4 @@
-"""
-Benchmark harness — contract layer.
+"""Benchmark harness — contract layer.
 
 Defines the framework-agnostic types every benchmark suite (CVE-Bench,
 CyBench, EVMBench, local) plugs into. No attack logic lives here: an adapter

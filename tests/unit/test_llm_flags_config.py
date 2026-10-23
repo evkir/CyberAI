@@ -38,7 +38,7 @@ def test_env_var_absent_leaves_the_flag_off(attr, env, monkeypatch):
 
 
 def test_sampling_settings_are_reachable_from_the_environment(monkeypatch):
-    """temperature and seed must be settable without editing code.
+    """Temperature and seed must be settable without editing code.
 
     temperature had lived as a dataclass default no caller could change:
     from_env did not read it and the CLI assigns only provider and model.

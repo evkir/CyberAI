@@ -35,7 +35,8 @@ def test_parse_ports_filters_closed():
 
 def test_recon_logs_nmap_failure_visibly(monkeypatch):
     """A nmap error must be surfaced as a FAILED log line, never masked
-    as 'nmap_scan complete'."""
+    as 'nmap_scan complete'.
+    """
     from unittest.mock import MagicMock, patch
 
     from cyberai.agents.recon.agent import ReconAgent
@@ -64,7 +65,8 @@ def test_recon_logs_nmap_failure_visibly(monkeypatch):
 
 def test_recon_logs_nmap_success(monkeypatch):
     """The success branch must log 'nmap_scan complete' (coverage for the
-    else-arm of the failure-visibility guard)."""
+    else-arm of the failure-visibility guard).
+    """
     from unittest.mock import MagicMock, patch
 
     from cyberai.agents.recon.agent import ReconAgent
@@ -99,7 +101,8 @@ class TestSubdomainShapeParity:
     """The sync ReconAgent and AsyncOrchestrator must write the same shape
     under recon.subdomains and derive ReconResult.subdomains identically.
     They used to call different enumerators returning different keys, so a
-    consumer of the KB key was only ever correct for one of the two paths."""
+    consumer of the KB key was only ever correct for one of the two paths.
+    """
 
     _ENUM_RESULT = {
         "domain": "t.local",
@@ -206,7 +209,8 @@ class TestMassOpenFinding:
     published as "Open ports on <target>". A live run against a VPN'd host had
     recon assert 781 open ports as real attack surface; the model then wrote
     "indicative of a proxy or tunnel" and recommended closing unused ports —
-    a recommendation built entirely on phantom data."""
+    a recommendation built entirely on phantom data.
+    """
 
     @staticmethod
     def _run(nmap_result):

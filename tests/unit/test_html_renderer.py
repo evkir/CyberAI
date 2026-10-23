@@ -237,7 +237,8 @@ def test_a_reachable_collector_is_stated_on_the_page(tmp_path):
     """The page has to carry what the markdown file carries. The markdown
     section grew this line first and the page did not, which is the exact
     split that left twelve web contract tests green while the page was
-    missing the section entirely."""
+    missing the section entirely.
+    """
     output = str(tmp_path / "oob_live.html")
     render_html_report(
         SESSION, _live_kb({**_WEB_REPORT, "oob_channel": "live"}), output_path=output
@@ -248,7 +249,8 @@ def test_a_reachable_collector_is_stated_on_the_page(tmp_path):
 def test_an_unreachable_collector_is_stated_on_the_page(tmp_path):
     """Zero confirmations read as a clean target unless the page says the
     collector was never there. Measured on Juice Shop: a foreign app holding
-    the grid port produced findings byte-identical to the live-grid run."""
+    the grid port produced findings byte-identical to the live-grid run.
+    """
     output = str(tmp_path / "oob_dead.html")
     render_html_report(
         SESSION, _live_kb({**_WEB_REPORT, "oob_channel": "unavailable"}), output_path=output
@@ -261,7 +263,8 @@ def test_an_unreachable_collector_is_stated_on_the_page(tmp_path):
 def test_a_page_for_a_run_without_a_collector_says_nothing(tmp_path):
     """_WEB_REPORT has no oob_channel key at all -- the shape of every run
     without a collector, and of every report written before the field
-    existed. A line on the common path is how a real line stops being read."""
+    existed. A line on the common path is how a real line stops being read.
+    """
     output = str(tmp_path / "oob_off.html")
     render_html_report(SESSION, _live_kb(_WEB_REPORT), output_path=output)
     assert "Out-of-band collector" not in Path(output).read_text()
@@ -422,7 +425,8 @@ def test_data_wins_over_evidence_so_the_proof_prints_once(tmp_path):
 @pytest.mark.parametrize("empty", [None, [], {}, ""])
 def test_finding_without_details_renders_no_table(tmp_path, empty):
     """add_finding stores `evidence or []`, so a finding with no structured
-    data is the common case and must not print an empty table."""
+    data is the common case and must not print an empty table.
+    """
     output = str(tmp_path / f"bare_{type(empty).__name__}.html")
     render_html_report(
         SESSION, KB, output_path=output, findings=[_finding(data=empty, evidence=empty or [])]
@@ -533,7 +537,8 @@ def test_the_channel_section_reaches_the_html_file(tmp_path):
 
 def test_undelivered_payloads_reach_the_page(tmp_path):
     """Three payloads never left. A page showing only "0 confirmed" reads as a
-    channel that took every payload and stayed clean."""
+    channel that took every payload and stayed clean.
+    """
     output = str(tmp_path / "rt_skipped.html")
     render_html_report(SESSION, _redteam_kb(_REDTEAM), output_path=output)
     content = Path(output).read_text()

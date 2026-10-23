@@ -1,6 +1,7 @@
 def test_call_ollama_includes_system_and_num_ctx(monkeypatch):
     """Ollama payload must carry the system prompt and a raised num_ctx so
-    large exploit prompts don't overflow the default 2048-token context."""
+    large exploit prompts don't overflow the default 2048-token context.
+    """
     from cyberai.core import llm_client as lc
 
     captured = {}
@@ -27,7 +28,8 @@ def test_call_ollama_includes_system_and_num_ctx(monkeypatch):
 
 def test_call_ollama_surfaces_http_error(monkeypatch):
     """A non-200 from ollama must raise with the real status + body so the
-    cause is diagnosable (not a bare HTTPStatusError)."""
+    cause is diagnosable (not a bare HTTPStatusError).
+    """
     from cyberai.core import llm_client as lc
 
     class _Resp:
@@ -145,7 +147,8 @@ def test_acall_ollama_records_usage(monkeypatch):
 def test_ollama_sync_and_async_send_identical_payloads(monkeypatch):
     """Both ollama entry points must build the same request body. The async
     one used to construct its own, dropping the system prompt and the raised
-    num_ctx, so the same prompt behaved differently depending on the path."""
+    num_ctx, so the same prompt behaved differently depending on the path.
+    """
     import asyncio
 
     from cyberai.core import llm_client as lc

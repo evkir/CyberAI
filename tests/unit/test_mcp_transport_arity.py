@@ -64,7 +64,7 @@ def test_the_error_names_the_cause_and_not_the_task_group():
 
 @pytest.mark.parametrize("count", [2, 3])
 def test_the_http_transport_survives_either_arity_the_sdk_has_shipped(monkeypatch, count):
-    """mcp 1.x yielded three, 2.x yields two, and the third was never used."""
+    """Mcp 1.x yielded three, 2.x yields two, and the third was never used."""
     monkeypatch.setattr(client_probe, "streamablehttp_client", _fake_client(count))
 
     read, write = _read_write(_open_streams("http://target/mcp", "http"))

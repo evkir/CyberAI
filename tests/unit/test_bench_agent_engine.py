@@ -1,5 +1,4 @@
-"""
-Tests for the agent-driven bench engine.
+"""Tests for the agent-driven bench engine.
 
 Two things must hold. First, `solved` reports the agent and nothing else: the
 judge is a second opinion, never a substitute, or the number would measure the
@@ -133,7 +132,8 @@ def test_target_that_never_starts_says_which_way_it_failed():
 def test_a_target_that_came_up_and_died_does_not_read_as_never_tried():
     """The same branch, the other end of it. Asserted as a distinct string:
     a test pinning only a shared substring stays green when both reasons
-    collapse back into one."""
+    collapse back into one.
+    """
     run, task = _runner(
         _FakeBuilder(base_url=None, failure="container started but never answered on port 8081")
     )
@@ -215,7 +215,8 @@ def test_agent_attack_drives_both_agents_through_one_session(live_sqli_app):
 def test_agent_attack_reads_flags_from_the_environment(monkeypatch):
     """Env flags must reach the bench: a config built from defaults pinned
     every new capability to off, and the run reported the pipeline missing
-    what it was never allowed to try."""
+    what it was never allowed to try.
+    """
     monkeypatch.setenv("CYBERAI_USE_API_DISCOVERY", "1")
     seen = {}
 
@@ -395,7 +396,8 @@ def test_the_real_path_reports_a_zero_it_can_prove(live_sqli_app):
     is handed a client and no model can be reached. The count is zero because
     the path cannot call one, and the reason names that rather than the
     absent API key -- the key is absent on every machine and would send a
-    reader after a knob that changes nothing here."""
+    reader after a knob that changes nothing here.
+    """
     outcome = agent_attack(live_sqli_app)
 
     assert outcome.llm_calls == 0
@@ -405,7 +407,8 @@ def test_the_real_path_reports_a_zero_it_can_prove(live_sqli_app):
 def test_a_client_on_the_path_makes_the_count_unmeasured(monkeypatch):
     """A zero is only publishable while nothing could have been called. Give
     an agent a client and there is still no tracker here to count with, so
-    the honest answer becomes absent rather than zero."""
+    the honest answer becomes absent rather than zero.
+    """
 
     class _Recon:
         def __init__(self, cfg, session, llm=None, audit=None):
@@ -432,7 +435,8 @@ def test_a_client_on_the_path_makes_the_count_unmeasured(monkeypatch):
 
 def test_the_model_fact_reaches_the_result_the_scorecard_reads():
     """A measurement that stops at the attacker is not published. The
-    scorecard is built from details, so the fact has to arrive there."""
+    scorecard is built from details, so the fact has to arrive there.
+    """
     adapter = LocalSuiteAdapter()
     run = make_agent_runner(
         adapter,

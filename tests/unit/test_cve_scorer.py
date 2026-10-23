@@ -86,7 +86,8 @@ def test_exploit_bonus_all_signals():
 
 def test_epss_bonus_high():
     """High EPSS (>0.5) triggers the day-11 multiplier boost and clamps
-    to the full EPSS_WEIGHT — strongest possible EPSS signal."""
+    to the full EPSS_WEIGHT — strongest possible EPSS signal.
+    """
     s = score_cve(CRITICAL_CVE)
     assert s.epss_bonus == pytest.approx(EPSS_WEIGHT, abs=1e-6)
 

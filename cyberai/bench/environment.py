@@ -1,5 +1,4 @@
-"""
-Toolchain probe -- which external binaries a run would actually use, and at
+"""Toolchain probe -- which external binaries a run would actually use, and at
 which version.
 
 A benchmark number is produced by a specific toolchain. Publishing the score

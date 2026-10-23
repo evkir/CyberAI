@@ -37,7 +37,8 @@ def test_a_provider_holding_its_own_key_is_not_blamed_for_missing_one(monkeypatc
     """The negative cases above set the field by hand, so none of them saw
     the resolver. Before it, an Anthropic run with ANTHROPIC_API_KEY exported
     still answered no_api_key_for_anthropic: the field read OPENAI_API_KEY,
-    while the SDK quietly found the real key and made the call anyway."""
+    while the SDK quietly found the real key and made the call anyway.
+    """
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     cfg = CyberAIConfig()
@@ -53,7 +54,8 @@ def test_local_provider_needs_no_key_and_blames_the_pipeline():
 
 def test_a_built_client_that_never_ran_is_named():
     """The branch every live web scan actually takes: each agent is handed a
-    client at construction time, so one exists even when no phase calls it."""
+    client at construction time, so one exists even when no phase calls it.
+    """
     orch = Orchestrator(_config("ollama"), dry_run=False)
     assert orch.llm is not None
     assert orch._llm_zero_reason() == "client_built_but_unused"
@@ -75,7 +77,8 @@ def test_a_path_that_uses_no_model_is_not_blamed_on_a_missing_key():
     """The bench agent path hands its agents no client at all, so a provider
     key would change nothing. The default provider is a cloud one and the
     default key is absent, so the missing-key cause answered every such run
-    and sent the reader after a knob that was never the reason."""
+    and sent the reader after a knob that was never the reason.
+    """
     cfg = _config("openai")
     reason = llm_zero_reason(cfg.llm, CostTracker(), client_built=False, engine_uses_a_model=False)
     assert reason == "engine_uses_no_model"

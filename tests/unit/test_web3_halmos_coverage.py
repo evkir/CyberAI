@@ -46,7 +46,8 @@ def _project(tmp_path):
 
 class _Proc:
     """What subprocess.run returns. A mock returning None returns a shape
-    production never sees — the same defect the argument-shape guard reports."""
+    production never sees — the same defect the argument-shape guard reports.
+    """
 
     def __init__(self, returncode=0, stderr=""):
         self.returncode = returncode

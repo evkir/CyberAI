@@ -1,5 +1,4 @@
-"""
-EVMBenchAdapter — loads EVMBench-style smart-contract audit tasks into the
+"""EVMBenchAdapter — loads EVMBench-style smart-contract audit tasks into the
 BenchTask contract.
 
 EVMBench (Paradigm/OpenAI) evaluates agents on real audited Solidity codebases
@@ -119,7 +118,8 @@ class EVMBenchVuln:
 class EVMBenchAudit:
     """A single audited codebase: its id, ground-truth vulnerabilities, and the
     optional harness metadata (framework/base_commit) needed for exploit/patch
-    modes that this detect-focused loader records but does not execute."""
+    modes that this detect-focused loader records but does not execute.
+    """
 
     id: str
     vulnerabilities: tuple[EVMBenchVuln, ...]
@@ -164,7 +164,8 @@ _REQUIRED_VULN_KEYS = ("id", "title")
 
 def _parse_vuln(raw: dict[str, Any], audit_id: str) -> EVMBenchVuln | None:
     """Build one EVMBenchVuln from a raw config entry. Returns None (and logs)
-    on a malformed entry — one bad vulnerability never breaks the audit."""
+    on a malformed entry — one bad vulnerability never breaks the audit.
+    """
     missing = [k for k in _REQUIRED_VULN_KEYS if not raw.get(k)]
     if missing:
         logger.warning("audit %s: vulnerability missing %s: %r", audit_id, missing, raw)

@@ -82,7 +82,8 @@ def test_client_http_failure_silent_zero():
 
 def test_log4shell_tops_priority_thanks_to_epss():
     """Log4Shell (EPSS 0.97) must outrank an older high-CVSS CVE with
-    no exploitation activity. This is the whole point of EPSS."""
+    no exploitation activity. This is the whole point of EPSS.
+    """
     cves = [
         {
             "cve_id": "CVE-2019-OLD",

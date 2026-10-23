@@ -39,7 +39,8 @@ def test_channel_reaches_the_markdown_report():
 
 def test_undelivered_payloads_are_named_not_swallowed():
     """Three payloads never left. Reporting only "0 confirmed" would read as a
-    channel that took every payload and stayed clean."""
+    channel that took every payload and stayed clean.
+    """
     md = render_markdown(_redteam())
 
     assert "not delivered 3" in md
@@ -61,7 +62,8 @@ def test_counts_come_from_the_report_not_the_heading():
 
 def test_no_section_when_no_channel_was_fuzzed():
     """A run that found no channel is the common case; a heading over it would
-    assert a walk of the LLM surface that never happened."""
+    assert a walk of the LLM surface that never happened.
+    """
     assert "## LLM Channel Red-Team" not in render_markdown(
         _session({"redteam": {"channels": 0, "confirmed": 0, "flagged": 0, "reports": []}})
     )

@@ -75,8 +75,16 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "PGH003", "W"]
-ignore = ["E501"]
+select = ["D200", "D202", "D209", "D212", "D403", "D404", "D413", "E", "F", "I", "PGH003", "W"]
+# D210 fires on a docstring whose first word is itself a quoted string: the
+# space after the opening quotes is what keeps them from running to four in a
+# row. D401 reads an opening article as narrative mood, but a summary naming
+# what a function yields is a noun phrase, not a sentence missing its verb.
+# Both were measured against this tree before being set aside.
+ignore = ["D210", "D401", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.cyberai.measurement]
 # The counts in README.md and docs/architecture/typing-scope.md were produced

@@ -90,7 +90,8 @@ def test_a_finding_with_no_known_cve_keeps_its_place():
 
 def test_no_tls_data_writes_no_key():
     """Negative arm: without this, an implementation that always writes an
-    empty list would pass every test above."""
+    empty list would pass every test above.
+    """
     session = ScanSession(target="example.com")
     session.kb.set("recon.nmap", {"ports": []})
 

@@ -1,5 +1,4 @@
-"""
-Local vulnerable-target suite — our own, fully autonomous benchmark targets.
+"""Local vulnerable-target suite — our own, fully autonomous benchmark targets.
 
 These are CyberAI's own deliberately-vulnerable web apps (built and served by
 cyberai/bench/apps/ + the docker builder). They give us a self-contained,

@@ -6,6 +6,18 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **The docstring shape the tree keeps is now kept by the linter.** The style
+  held across the package by hand alone: a summary pushed to the second line,
+  a lowercase first word, a missing blank line before the closing quotes. Three
+  hundred and ten such drifts were found in one survey, which is what a rule
+  nobody enforces costs. The six measured at zero after the pass join ruff's
+  select list, so the next one is caught at the gate instead of by a survey.
+  Two rules were measured and set aside, with the reason recorded beside them:
+  one fires when a summary opens on a quoted phrase, where the space after the
+  opening quotes is what keeps them from running to four in a row; the other
+  reads a leading article as narrative mood, but a summary naming what a call
+  yields is a noun phrase, not a sentence that lost its verb.
+
 - **A link in a reader-facing document resolves from where it sits.** The link
   gate was widened from README to every document written for an outside
   reader, and it now resolves each target against the directory of the

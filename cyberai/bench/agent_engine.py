@@ -1,5 +1,4 @@
-"""
-Agent-driven engine runner: measure the pipeline, judged by an independent probe.
+"""Agent-driven engine runner: measure the pipeline, judged by an independent probe.
 
 The `real` engine runs fixed exploit checks written next to the targets, so it
 answers "are these targets exploitable and is the harness sound" — a useful

@@ -1,5 +1,4 @@
-"""
-/api/bench — read saved benchmark scorecards and optionally trigger a run.
+"""/api/bench — read saved benchmark scorecards and optionally trigger a run.
 
 Scorecards are Markdown files written to config.output_dir by the bench CLI
 (`cyberai bench run --scorecard <path>`); this router only reads them. A run

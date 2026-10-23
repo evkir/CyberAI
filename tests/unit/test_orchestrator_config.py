@@ -1,5 +1,4 @@
-"""
-Tests for Orchestrator + CyberAIConfig integration.
+"""Tests for Orchestrator + CyberAIConfig integration.
 
 Covers the KI-1 fix: orchestrator accepts config, builds llm lazily,
 and the CLI wiring works in dry-run.
@@ -117,7 +116,7 @@ def test_cli_status_works():
 
 
 def test_status_reports_the_configured_trust_boundary(monkeypatch):
-    """deny at threshold 70 is a different product than annotate at 50.
+    """Deny at threshold 70 is a different product than annotate at 50.
 
     Measured before this existed: the two printed byte-identical output.
     """
@@ -139,7 +138,8 @@ def test_status_reports_the_defaults_when_nothing_is_set(monkeypatch):
 
 def test_status_prints_what_the_guard_resolved_not_what_was_asked_for(monkeypatch):
     """An unusable policy degrades inside TrustGuard. status must show the
-    value that will act, not the string the operator typed."""
+    value that will act, not the string the operator typed.
+    """
     monkeypatch.setenv("CYBERAI_INJECTION_POLICY", "aggressive")
     monkeypatch.setenv("CYBERAI_INJECTION_THRESHOLD", "soon")
     body = _status_body()
@@ -167,7 +167,8 @@ def test_status_says_an_unpinned_seed_is_not_set(monkeypatch):
 
 def test_status_says_a_seed_does_nothing_on_anthropic(monkeypatch):
     """The provider has no seed parameter. Printing the number alone would
-    promise reproducibility this path cannot deliver."""
+    promise reproducibility this path cannot deliver.
+    """
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("CYBERAI_SEED", "1337")
     body = _status_body()
@@ -188,7 +189,8 @@ def test_status_reports_air_gapped_off_by_default(monkeypatch):
 
 def test_status_names_the_variable_the_provider_needs(monkeypatch):
     """A missing key is only actionable if the reader knows which name to
-    export. Until the resolver was fixed that name was always OPENAI's."""
+    export. Until the resolver was fixed that name was always OPENAI's.
+    """
     monkeypatch.setenv("CYBERAI_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
     body = _status_body()

@@ -277,7 +277,8 @@ def test_a_service_name_nmap_probed_is_kept(silent_http_server):
 @pytest.mark.unit
 def test_a_scan_that_recorded_no_method_is_left_alone(silent_http_server):
     """Absent is not "table". Older scan output carries no method attribute,
-    and treating that as a guess would overwrite a real -sV reading."""
+    and treating that as a guess would overwrite a real -sV reading.
+    """
     ports = [{"port": silent_http_server.port, "service": "ppp", "product": "", "version": ""}]
 
     out = fingerprint_ports("127.0.0.1", ports)
@@ -360,7 +361,8 @@ def test_a_port_that_refuses_the_connection_yields_a_row_not_an_error():
 def test_a_silent_port_falls_back_to_what_the_number_usually_means():
     """With no banner there is nothing to read, so the port number is all
     there is. That is a guess, and it only ever fills a field nmap left
-    empty."""
+    empty.
+    """
     assert _detect_service(b"", 22) == "ssh"
     assert _detect_service(b"", 61234) is None
 
@@ -368,7 +370,8 @@ def test_a_silent_port_falls_back_to_what_the_number_usually_means():
 @pytest.mark.unit
 def test_an_unrecognised_banner_falls_back_the_same_way():
     """A service that answered with something no signature matches is still
-    unidentified: what it said cannot name it, so the port number is used."""
+    unidentified: what it said cannot name it, so the port number is used.
+    """
     assert _detect_service(b"\x00\x01binary garbage", 3306) == "mysql"
     assert _detect_service(b"\x00\x01binary garbage", 61234) is None
 

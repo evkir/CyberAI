@@ -77,7 +77,7 @@ def test_the_probe_does_not_run_when_the_flag_is_off(recon_patches):
 
 @pytest.mark.unit
 def test_the_enriched_list_is_the_one_stored_in_the_knowledge_base(recon_patches):
-    """intel reads recon.nmap, so enrichment after the write would be invisible."""
+    """Intel reads recon.nmap, so enrichment after the write would be invisible."""
     agent, session = _agent(use_port_fingerprint=True)
     with (
         patch("cyberai.agents.recon.agent.run_nmap", return_value=_nmap()),

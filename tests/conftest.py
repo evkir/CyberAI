@@ -1,5 +1,4 @@
-"""
-Shared pytest fixtures for CyberAI test suite.
+"""Shared pytest fixtures for CyberAI test suite.
 
 Note: The `fresh_session` fixture currently uses PentestSession.
 This will change to ScanSession in a later refactor,
@@ -63,8 +62,7 @@ def session_with_recon(fresh_session: PentestSession) -> PentestSession:
 
 @pytest.fixture
 def mock_llm_client() -> MagicMock:
-    """
-    A MagicMock that mimics the LLMClient interface.
+    """A MagicMock that mimics the LLMClient interface.
 
     Returns a deterministic response for `call()` and `acall()`,
     so tests don't need real API keys and don't hit the network.
@@ -85,8 +83,7 @@ def mock_llm_client() -> MagicMock:
 
 @pytest.fixture
 def mock_nmap_result() -> dict[str, Any]:
-    """
-    Realistic-ish nmap output structure for tests that need recon data
+    """Realistic-ish nmap output structure for tests that need recon data
     without actually running nmap.
     """
     return {

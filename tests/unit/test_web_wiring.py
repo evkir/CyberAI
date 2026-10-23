@@ -1,5 +1,4 @@
-"""
-Wiring tests for web recon and web exploitation inside the agents.
+"""Wiring tests for web recon and web exploitation inside the agents.
 
 The modules themselves are covered directly; what is untested is the seam --
 whether the recon agent stores the surface where the exploit agent looks for
@@ -250,7 +249,8 @@ def test_missing_surface_is_a_clean_no_op():
 
 def test_run_web_recon_runs_without_a_port_scan():
     """The bench agent engine calls this method directly, with no recon tools
-    patched: it must do the crawl and the KB write on its own."""
+    patched: it must do the crawl and the KB write on its own.
+    """
     agent, session = _recon_agent(use_web_recon=True)
     with patch("cyberai.agents.recon.agent.discover_surface", return_value=_SURFACE) as spy:
         returned = agent._run_web_recon("t.local")

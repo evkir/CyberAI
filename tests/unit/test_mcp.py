@@ -93,7 +93,8 @@ def test_call_tool_result_is_json_text():
 def test_subdomain_enum_tool_returns_the_shared_enumerator_shape(monkeypatch):
     """The MCP tool must return what both pipeline paths write under
     recon.subdomains. It used to wrap dns_tool.detect_subdomains, which
-    returned a different key, so an MCP client saw a third shape."""
+    returned a different key, so an MCP client saw a third shape.
+    """
     from cyberai.mcp import tools as mcp_tools
 
     enum_result = {
@@ -117,7 +118,7 @@ def test_subdomain_enum_tool_returns_the_shared_enumerator_shape(monkeypatch):
 
 
 def test_subdomain_enum_tool_forwards_an_explicit_wordlist(monkeypatch):
-    """wordlist is optional in the schema but must reach the enumerator."""
+    """Wordlist is optional in the schema but must reach the enumerator."""
     from cyberai.mcp import tools as mcp_tools
 
     captured = {}

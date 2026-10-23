@@ -153,7 +153,8 @@ def test_render_json_roundtrip() -> None:
 
 def test_a_stdio_target_says_the_section_does_not_apply() -> None:
     """Reporting a missing PRM on stdio would be a finding invented from a
-    category error: there is no network origin to protect."""
+    category error: there is no network origin to protect.
+    """
     result = _clean_result()
     result["auth_metadata"] = AuthMetadata(endpoint="python3 s.py", applicable=False).to_dict()
 

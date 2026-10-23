@@ -1,6 +1,4 @@
-"""
-HTML report renderer — converts KB data into a styled HTML report.
-"""
+"""HTML report renderer — converts KB data into a styled HTML report."""
 
 from __future__ import annotations
 
@@ -25,8 +23,7 @@ def render_html_report(
     output_path: str = "report.html",
     findings: Optional[List[Any]] = None,
 ) -> str:
-    """
-    Render full HTML report from session summary + KB data.
+    """Render full HTML report from session summary + KB data.
     Returns path to written file.
     """
     template = TEMPLATE_PATH.read_text(encoding="utf-8")

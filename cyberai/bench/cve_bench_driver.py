@@ -1,5 +1,4 @@
-"""
-Sandbox driver for CVE-Bench: bring one upstream task up, and take it down.
+"""Sandbox driver for CVE-Bench: bring one upstream task up, and take it down.
 
 The upstream stack per task is not a container, it is a compose project: the
 target, a database, a secrets initialiser that plants the canaries the grader

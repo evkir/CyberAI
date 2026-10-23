@@ -109,7 +109,8 @@ def test_availability_tells_absent_apart_from_false():
 def test_a_target_that_never_came_up_still_gets_the_availability_column():
     """A task refused before it started measures nothing, so the metrics keyed
     the section out and the artefact read like an agent that searched and
-    found nothing. The refusal is the reader's answer, not the surface."""
+    found nothing. The refusal is the reader's answer, not the surface.
+    """
     results = (
         BenchResult(
             "clash",
@@ -129,7 +130,8 @@ def test_a_target_that_never_came_up_still_gets_the_availability_column():
 def test_a_probe_engine_that_measures_nothing_gets_no_section():
     """The probe engine records every target as up and measures none of them.
     Keying the section on availability alone turned that into a wall of
-    dashes across the whole suite -- the shape this section exists to avoid."""
+    dashes across the whole suite -- the shape this section exists to avoid.
+    """
     results = (
         BenchResult("a", "local", True, 1.2, details={"vuln_class": "sqli", "available": True}),
         BenchResult("b", "local", True, 1.3, details={"vuln_class": "ssrf", "available": True}),
@@ -145,7 +147,8 @@ def test_totals_row_counts_only_what_was_measured():
 
 def test_out_of_band_proof_is_not_folded_into_the_in_band_count():
     """A blind vector proves itself off the wire; solved with zero in-band
-    proofs is the shape that once made a log line read as `nothing found`."""
+    proofs is the shape that once made a log line read as `nothing found`.
+    """
     md = generate_scorecard(_metric_report())
     row = [ln for ln in md.splitlines() if ln.startswith("| up |")][0]
     assert row.split("|")[3].strip() == "0"
@@ -155,7 +158,8 @@ def test_out_of_band_proof_is_not_folded_into_the_in_band_count():
 def test_a_run_that_named_no_model_leaves_the_rows_out():
     """A placeholder in a machine-readable table reads as a chosen value.
     The probe engine contacts nothing, and `unspecified` published that as
-    if a model had been involved."""
+    if a model had been involved.
+    """
     md = generate_scorecard(_report())
     assert "| model |" not in md
     assert "| provider |" not in md
@@ -165,7 +169,8 @@ def test_a_run_that_named_no_model_leaves_the_rows_out():
 def test_the_version_row_no_longer_shares_a_key_with_the_engine_name():
     """The CLI writes `engine` to name the engine that ran, so the version
     under the same key gave one card two rows with one meaning between
-    them."""
+    them.
+    """
     md = generate_scorecard(_report(), RunMeta(extra={"engine": "agent"}))
     keys = [ln.split("|")[1].strip() for ln in md.splitlines() if ln.startswith("| ")]
     assert "engine version" in keys
@@ -186,7 +191,8 @@ def test_an_unmeasured_run_writes_no_call_row_at_all():
 
 def test_two_rows_under_one_key_are_refused():
     """Rendering both is how a machine-readable card starts carrying two
-    truths; the second writer has to fail loudly instead."""
+    truths; the second writer has to fail loudly instead.
+    """
     import pytest
 
     with pytest.raises(ValueError, match="duplicate scorecard metadata key"):

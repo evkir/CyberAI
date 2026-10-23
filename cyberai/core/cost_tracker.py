@@ -1,5 +1,4 @@
-"""
-Per-call token usage tracking. Costing is applied separately (see pricing.py).
+"""Per-call token usage tracking. Costing is applied separately (see pricing.py).
 
 Design: tracker is created per scan (typically once at orchestrator start),
 LLMClient appends a TokenUsage entry after every provider call. The CLI

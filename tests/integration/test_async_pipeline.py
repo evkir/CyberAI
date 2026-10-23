@@ -1,5 +1,4 @@
-"""
-Async pipeline integration tests.
+"""Async pipeline integration tests.
 Uses mocked agents — no live targets needed.
 """
 
@@ -128,8 +127,7 @@ class TestAsyncPipeline:
 
 
 class TestAsyncOrchestrator:
-    """
-    Full async pipeline through ScanSession + injection check between phases.
+    """Full async pipeline through ScanSession + injection check between phases.
     All agents and the LLM are mocked — no live targets, no API keys.
     """
 
@@ -179,7 +177,8 @@ class TestAsyncOrchestrator:
 
     def test_async_recon_writes_granular_kb_keys(self):
         """Async recon must mirror sync ReconAgent's granular recon.* keys
-        so downstream sync IntelAgent (offloaded via to_thread) finds ports."""
+        so downstream sync IntelAgent (offloaded via to_thread) finds ports.
+        """
         orch = self._orchestrator()
         recon_payload = {
             "target": "t.local",
@@ -211,7 +210,8 @@ class TestAsyncOrchestrator:
 
     def test_async_recon_populates_result_and_llm_for_planner_graph(self):
         """Async recon must set recon.result and recon.llm_endpoints so the
-        planner KB graph builds port/service/subdomain/LLM nodes like sync."""
+        planner KB graph builds port/service/subdomain/LLM nodes like sync.
+        """
         orch = self._orchestrator()
         recon_payload = {
             "target": "t.local",
@@ -258,7 +258,8 @@ class TestAsyncOrchestrator:
     def test_async_recon_writes_whois_like_sync(self):
         """AsyncReconAgent runs only nmap/dns/subdomains/tls, so whois has to
         be offloaded by the orchestrator or recon.whois and ReconResult.whois
-        stay empty on the async path while the sync agent fills both."""
+        stay empty on the async path while the sync agent fills both.
+        """
         recon_payload = {"target": "t.local", "nmap": {"ports": []}, "dns": {}}
         whois_payload = {"target": "t.local", "registrar": "Example Registrar"}
         from cyberai.core.config import CyberAIConfig
@@ -288,7 +289,8 @@ class TestAsyncOrchestrator:
         """AsyncReconAgent has no web branch. Without the orchestrator running
         one, recon.web_surface is absent on the async path and build_kb_graph
         plus ExploitAgent see an empty surface — the whole web layer is dead
-        under AsyncOrchestrator while it works under the sync one."""
+        under AsyncOrchestrator while it works under the sync one.
+        """
         from cyberai.core.config import CyberAIConfig
         from cyberai.core.orchestrator import AsyncOrchestrator
         from cyberai.core.scan_session import ScanSession
@@ -315,7 +317,8 @@ class TestAsyncOrchestrator:
 
     def test_async_recon_skips_web_surface_when_flag_is_off(self):
         """Default config must not start crawling: the flag gates the async
-        path exactly as it gates the sync one."""
+        path exactly as it gates the sync one.
+        """
         from cyberai.core.config import CyberAIConfig
         from cyberai.core.orchestrator import AsyncOrchestrator
         from cyberai.core.scan_session import ScanSession

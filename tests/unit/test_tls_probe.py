@@ -1,5 +1,4 @@
-"""
-Native TLS probe tests against a real local TLS server.
+"""Native TLS probe tests against a real local TLS server.
 
 No mock stands in for the handshake here. Certificates are generated with
 controlled dates so the expired and untrusted paths are exercised for real,
@@ -60,8 +59,7 @@ def _make_cert(tmp_path, not_after_days: int, name: str = "localhost"):
 
 
 def _make_ca_signed(tmp_path, not_after_days: int, name: str = "localhost"):
-    """
-    Write a CA and a leaf it signed, plus the CA bundle to trust it with.
+    """Write a CA and a leaf it signed, plus the CA bundle to trust it with.
 
     The self-signed certificates above can never exercise the trusted path,
     so the branch that parses a verified certificate went untested. OpenSSL
@@ -238,7 +236,8 @@ class TestTrustedCertificate:
 
     def test_trusted_certificate_expiring_soon_is_flagged(self, trusted_tls_server):
         """The HIGH finding depends on this window, and only a trusted
-        certificate reaches the stdlib date parsing that measures it."""
+        certificate reaches the stdlib date parsing that measures it.
+        """
         port = trusted_tls_server(20)
         result = probe_tls("localhost", port=port, timeout=5)
 

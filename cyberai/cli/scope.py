@@ -1,5 +1,4 @@
-"""
-Bug-bounty scope file importers.
+"""Bug-bounty scope file importers.
 
 Parses HackerOne and Bugcrowd scope exports into a ScopeImport, which
 `cyberai scope import` prints. The --scope CLI flag does not pass through

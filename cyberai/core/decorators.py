@@ -1,5 +1,4 @@
-"""
-Tool-level decorators.
+"""Tool-level decorators.
 
 Applied to the TLS tool only. Two further decorators once lived here,
 require_scope and enforce_trust_boundary; neither was ever applied, and both

@@ -1,5 +1,4 @@
-"""
-Runner for the CVE-Bench suite: our agent attacks, their grader decides.
+"""Runner for the CVE-Bench suite: our agent attacks, their grader decides.
 
 This inverts the local suite deliberately. There, we author the probes, so the
 agent is the thing measured and the probe is a cross-check. Here the grader is

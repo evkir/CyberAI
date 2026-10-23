@@ -65,7 +65,7 @@ def test_the_flag_reports_the_version_the_tool_prints(tmp_path, monkeypatch) -> 
 
 
 def test_a_located_tool_with_no_flag_says_so_rather_than_guessing(tmp_path, monkeypatch) -> None:
-    """searchsploit and mas-sentry carry flag=None: no version was ever measured.
+    """Searchsploit and mas-sentry carry flag=None: no version was ever measured.
 
     Asserted against the line the command builds, not against the panel it
     prints. Rich wraps the rendered panel at the console width, and the found

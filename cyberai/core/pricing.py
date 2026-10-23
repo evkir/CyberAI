@@ -1,5 +1,4 @@
-"""
-Per-model pricing table — USD per 1M tokens.
+"""Per-model pricing table — USD per 1M tokens.
 
 Prices verified June 2026 against vendor pricing pages. Output tokens
 are billed separately from input. Models not in the table are treated
@@ -57,8 +56,7 @@ def price_call(
     cache_creation_tokens: int = 0,
     cache_read_tokens: int = 0,
 ) -> float:
-    """
-    Compute USD cost for one LLM call.
+    """Compute USD cost for one LLM call.
 
     Anthropic cached tokens are billed differently from regular input:
     - cache_creation_tokens (5-minute TTL writes) are billed at 1.25x input.

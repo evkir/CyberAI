@@ -1,5 +1,4 @@
-"""
-EVMBench loader + detect-mode grader contract tests.
+"""EVMBench loader + detect-mode grader contract tests.
 
 Proves the format adapter and the deterministic recall grader hold together
 without any external toolchain: a synthetic two-vulnerability audit fixture is

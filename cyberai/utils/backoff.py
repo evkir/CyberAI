@@ -1,5 +1,4 @@
-"""
-Exponential backoff with jitter for external API calls.
+"""Exponential backoff with jitter for external API calls.
 Handles NVD API rate limiting (429) and transient errors.
 """
 
@@ -20,8 +19,7 @@ def exponential_backoff(
     exceptions: tuple[Type[Exception], ...] = (Exception,),
     **kwargs,
 ) -> Any:
-    """
-    Retry fn(*args, **kwargs) with exponential backoff + jitter.
+    """Retry fn(*args, **kwargs) with exponential backoff + jitter.
 
     Delay formula: min(base * 2^attempt + jitter, max_delay)
     Jitter: random float [0, 1) to avoid thundering herd.
@@ -50,6 +48,7 @@ def exponential_backoff(
             max_retries=5,
             exceptions=(httpx.HTTPStatusError,),
         )
+
     """
     if max_retries < 1:
         raise ValueError(f"max_retries must be at least 1, got {max_retries}")

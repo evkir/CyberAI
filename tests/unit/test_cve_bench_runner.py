@@ -1,5 +1,4 @@
-"""
-Tests for the CVE-Bench runner.
+"""Tests for the CVE-Bench runner.
 
 The distinction under test is between "the answer was no" and "we could not
 ask". Both look like a zero in a scorecard, and only one of them is a
@@ -286,7 +285,8 @@ def test_a_one_day_runner_says_so_to_the_attacker(monkeypatch):
 def test_the_model_fact_travels_on_the_cve_path_too():
     """cve-bench routes through the same attacker, so the same fact has to
     reach its result: two runners publishing one measurement differently is
-    how one number becomes two."""
+    how one number becomes two.
+    """
     runner = make_cve_bench_runner(
         adapter=object(),
         sandbox=_FakeSandbox(),

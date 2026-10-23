@@ -1,5 +1,4 @@
-"""
-Per-phase model router (flag-gated).
+"""Per-phase model router (flag-gated).
 
 When `enable_model_routing` is False (default) the orchestrator uses a single
 shared LLMClient — no behavioural change. When enabled, each phase gets a

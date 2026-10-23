@@ -1,5 +1,4 @@
-"""
-/api/sessions/{id}/report — serve a session's generated markdown report.
+"""/api/sessions/{id}/report — serve a session's generated markdown report.
 
 The report path is resolved from the session's knowledge base
 (report.markdown_path), written by ReportAgent. Falls back to a 404-shaped

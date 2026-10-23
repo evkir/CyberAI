@@ -190,7 +190,8 @@ def test_probe_ssrf_against_the_live_blind_target():
 def test_the_blind_target_reply_carries_no_trace_of_the_outcome():
     """If the reply differed by outcome the target would not be blind, and the
     response-reading walk would confirm it -- which is the case this whole
-    target exists to exclude."""
+    target exists to exclude.
+    """
     import threading
     from http.server import HTTPServer
 
@@ -266,7 +267,8 @@ def test_probe_ssrf_ignores_a_callback_that_is_not_ours():
 def test_probe_for_routes_the_ssrf_class_to_the_live_probe():
     """The dispatch branch, not the probe: reaching probe_ssrf only by direct
     call would leave the path the engine actually takes unexercised -- the
-    shape that has silently dropped fields here before."""
+    shape that has silently dropped fields here before.
+    """
     import threading
     from http.server import HTTPServer
 

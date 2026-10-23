@@ -93,7 +93,8 @@ class LabMachine:
 
     def collect_artifacts(self) -> list[LabArtifact]:
         """Walk the machine directory and categorise every readable file.
-        A missing root yields an empty list rather than raising."""
+        A missing root yields an empty list rather than raising.
+        """
         if not self.root.is_dir():
             return []
         out: list[LabArtifact] = []

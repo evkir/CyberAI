@@ -50,8 +50,7 @@ def _nvd_request(params: Dict[str, Any]) -> Dict[str, Any]:
 def search_cves(
     keyword: str, max_results: int = 10, severity: Optional[str] = None
 ) -> Dict[str, Any]:
-    """
-    Search NVD API 2.0 for CVEs matching keyword.
+    """Search NVD API 2.0 for CVEs matching keyword.
     severity: CRITICAL | HIGH | MEDIUM | LOW
     """
     params: Dict[str, Any] = {

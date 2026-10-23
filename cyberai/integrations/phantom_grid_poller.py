@@ -1,5 +1,4 @@
-"""
-phantom-grid result poller — thin compatibility shim over PhantomGridClient.
+"""phantom-grid result poller — thin compatibility shim over PhantomGridClient.
 
 Historically this module had its own client + OOBInteraction. It now delegates
 to the single PhantomGridClient (v2.0 API) so there is one endpoint contract
