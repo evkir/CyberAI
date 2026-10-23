@@ -1,4 +1,5 @@
 """Async base agent — non-blocking tool execution via asyncio.
+
 Drop-in async companion to BaseAgent.
 """
 
@@ -13,6 +14,7 @@ logger = logging.getLogger("cyberai.core.async_agent")
 
 class AsyncBaseAgent:
     """Base class for all async agents.
+
     Wraps blocking tool calls in asyncio executor so they
     don't block the event loop.
     """
@@ -29,6 +31,7 @@ class AsyncBaseAgent:
 
     async def run_tool(self, fn, *args, **kwargs) -> Any:
         """Run a blocking tool function in a thread executor.
+
         Prevents blocking the event loop during nmap/HTTP calls.
         """
         loop = asyncio.get_event_loop()
@@ -47,6 +50,7 @@ class AsyncBaseAgent:
 
     async def run_tools_parallel(self, tasks: list[tuple]) -> list[Any]:
         """Run multiple tool calls in parallel.
+
         tasks: list of (fn, *args) tuples
         """
         coroutines = [self.run_tool(fn, *args) for fn, *args in tasks]
