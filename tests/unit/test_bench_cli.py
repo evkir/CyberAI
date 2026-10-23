@@ -87,7 +87,8 @@ def test_a_run_without_a_model_publishes_no_model(tmp_path):
 
 def test_a_filtered_run_does_not_fingerprint_as_the_whole_suite(tmp_path):
     """The suite hash describes what ran, or the regression gate would compare
-    a one-task run against a three-task baseline and call it a pass."""
+    a one-task run against a three-task baseline and call it a pass.
+    """
     full = tmp_path / "full.json"
     part = tmp_path / "part.json"
     CliRunner().invoke(bench, ["run", "--manifest", str(full)])
@@ -434,7 +435,8 @@ def test_one_day_on_a_suite_that_describes_nothing_falls_back_in_the_record_too(
 
 def test_the_scorecard_publishes_a_zero_the_run_proved(monkeypatch, tmp_path):
     """The fact has to survive the whole way to the file a reader opens,
-    so this goes through the CLI rather than building a RunMeta by hand."""
+    so this goes through the CLI rather than building a RunMeta by hand.
+    """
     import cyberai.cli.bench as mod
 
     details = {
@@ -460,7 +462,8 @@ def test_the_scorecard_publishes_a_zero_the_run_proved(monkeypatch, tmp_path):
 
 def test_a_run_where_the_tasks_disagree_publishes_the_split(monkeypatch, tmp_path):
     """Some tasks reaching a model and others not has no single answer.
-    Picking either one would publish a number the run did not produce."""
+    Picking either one would publish a number the run did not produce.
+    """
     import cyberai.cli.bench as mod
 
     details = {
@@ -483,7 +486,8 @@ def test_a_run_where_the_tasks_disagree_publishes_the_split(monkeypatch, tmp_pat
 
 def test_the_placeholder_engine_publishes_no_model_row(tmp_path):
     """It measures nothing about a model, and an absent row says exactly
-    that; a zero there would claim a count nobody took."""
+    that; a zero there would claim a count nobody took.
+    """
     out = tmp_path / "sc.md"
 
     result = CliRunner().invoke(bench, ["run", "--scorecard", str(out)])
@@ -497,7 +501,8 @@ def test_the_placeholder_engine_publishes_no_model_row(tmp_path):
 def test_a_suite_with_no_tasks_writes_a_card_and_claims_nothing(monkeypatch, tmp_path):
     """An external suite whose checkout is absent scores 0/0 and still
     writes a card. Nothing ran, so nothing can be said about a model --
-    and the rollup must answer that rather than divide by an empty run."""
+    and the rollup must answer that rather than divide by an empty run.
+    """
     monkeypatch.setenv("CVEBENCH_DIR", str(tmp_path / "nowhere"))
     out = tmp_path / "sc.md"
 
@@ -567,7 +572,8 @@ def test_the_printed_verdict_names_a_toolchain_that_moved(tmp_path, monkeypatch)
 
 def test_a_held_toolchain_is_not_announced(tmp_path, monkeypatch):
     """Silence is the report when nothing moved: a line printed on every run
-    is a line nobody reads on the run that matters."""
+    is a line nobody reads on the run that matters.
+    """
     from cyberai.bench.run_manifest import ToolVersion
 
     def _same() -> tuple[ToolVersion, ...]:

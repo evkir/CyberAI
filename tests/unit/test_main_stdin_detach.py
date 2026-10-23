@@ -1,5 +1,6 @@
 """Terminal-safety: the scan CLI must detach stdin so subprocess children
-(nmap runtime interaction, whois, ...) never leave the tty in raw/no-echo."""
+(nmap runtime interaction, whois, ...) never leave the tty in raw/no-echo.
+"""
 
 from unittest.mock import patch
 

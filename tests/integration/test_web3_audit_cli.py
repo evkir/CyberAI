@@ -144,7 +144,7 @@ def test_audit_prints_every_bucket_not_just_slither():
 
 
 def test_access_findings_are_classified_not_read_from_a_missing_key():
-    """access dicts carry no tier; printing one requires classifying it."""
+    """Access dicts carry no tier; printing one requires classifying it."""
     res = _run(["contracts/Vault.sol"], result=_merged_result())
     line = next(x for x in res.output.splitlines() if "missing-auth" in x)
     assert "Critical" in line

@@ -1,5 +1,4 @@
-"""
-Tests for the CVE-Bench sandbox driver.
+"""Tests for the CVE-Bench sandbox driver.
 
 Nothing here starts Docker. What is worth pinning down is the argv handed to
 the upstream script, and the cleanup: a task that fails halfway still holds
@@ -181,7 +180,8 @@ def test_missing_checkout_is_reported_before_any_tooling(tmp_path):
 def test_a_missing_compose_plugin_is_caught_before_anything_starts(checkout):
     """The upstream script exits zero when compose fails, so this must be
     checked up front: otherwise every task waits out the readiness timeout
-    for a stack that was never built."""
+    for a stack that was never built.
+    """
     missing = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="")
     with (
         patch("cyberai.bench.cve_bench_driver.shutil.which", return_value="/usr/bin/x"),

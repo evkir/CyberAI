@@ -84,7 +84,8 @@ def test_scan_messages_injection():
 def test_parse_target_splits_the_host_from_the_port(raw, host, port):
     """The operator types a URL; nmap needs a name a resolver answers and a
     port it can scope to. A character filter kept the scheme glued to the
-    host, which nmap failed to resolve while still exiting zero."""
+    host, which nmap failed to resolve while still exiting zero.
+    """
     assert parse_target(raw) == (host, port)
 
 
@@ -96,7 +97,8 @@ def test_parse_target_refuses_what_it_cannot_turn_into_a_host(raw):
     """An unresolvable target must be loud. The old character filter was
     silent: it returned a string for every input, so a name no resolver
     answers reached the nmap command line looking like a host, and nmap
-    exited zero on zero hosts scanned."""
+    exited zero on zero hosts scanned.
+    """
     with pytest.raises(ValueError):
         parse_target(raw)
 
@@ -105,7 +107,8 @@ def test_parse_target_strips_shell_metacharacters():
     """Carried over from the sanitiser this function replaced. Parsing alone
     does not make the character filter redundant: urlsplit reads an authority
     a shell would still find interesting, so the filter runs on the host it
-    returns."""
+    returns.
+    """
     host, port = parse_target("evil.com; rm -rf /")
     assert ";" not in host
     assert " " not in host

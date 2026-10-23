@@ -127,7 +127,7 @@ def _entries(destination: pathlib.Path) -> list[dict[str, str]]:
 def test_templates_collapse_on_the_text_a_detector_reads(
     checkout: pathlib.Path, tmp_path: pathlib.Path
 ) -> None:
-    """alpha and alpha_no_user are one shape; an attack without {goal} is none.
+    """Alpha and alpha_no_user are one shape; an attack without {goal} is none.
 
     The two carry different texts that differ only in which names they
     substitute, because a subclass that merely inherited the string would be

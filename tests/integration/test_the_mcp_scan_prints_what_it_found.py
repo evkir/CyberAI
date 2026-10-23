@@ -98,7 +98,7 @@ def test_a_clean_target_says_so_instead_of_printing_nothing():
 
 
 def test_the_counts_survive_colour(monkeypatch):
-    """rich colourises digit runs; a split count is ungreppable (rule 103).
+    """Rich colourises digit runs; a split count is ungreppable (rule 103).
 
     The module console is built at import time, so an environment variable set
     inside the test changes nothing. The console object itself is replaced.

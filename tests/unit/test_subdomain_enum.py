@@ -94,7 +94,8 @@ class TestFqdnsContract:
     """fqdns() is the single place that turns an enumerator result into bare
     hostnames. Both the sync ReconAgent and AsyncOrchestrator feed
     ReconResult.subdomains through it, so a shape change cannot make one
-    pipeline path silently disagree with the other."""
+    pipeline path silently disagree with the other.
+    """
 
     def test_extracts_hostnames_from_found(self):
         result = {"found": [{"fqdn": "api.t.local"}, {"fqdn": "dev.t.local"}]}

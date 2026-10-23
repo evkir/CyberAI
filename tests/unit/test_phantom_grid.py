@@ -57,7 +57,7 @@ def test_a_generic_status_ok_health_endpoint_is_not_a_grid(mock_httpx):
 
 @patch("cyberai.integrations.phantom_grid.httpx.Client")
 def test_a_grid_with_no_database_file_yet_is_still_a_grid(mock_httpx):
-    """db is os.path.exists(DB_PATH) server-side, false before the first write.
+    """Db is os.path.exists(DB_PATH) server-side, false before the first write.
 
     Requiring db to be true would call a freshly started grid unavailable,
     which is the cure being worse than the disease.

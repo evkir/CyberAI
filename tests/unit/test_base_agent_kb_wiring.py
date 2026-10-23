@@ -17,7 +17,8 @@ class _DummyAgent(BaseAgent):
 
 def test_first_agent_shares_empty_session_kb():
     """Empty KB is falsy (len 0); the first agent must still bind to session.kb,
-    not a throwaway created by a truthiness-based fallback."""
+    not a throwaway created by a truthiness-based fallback.
+    """
     session = ScanSession(target="scanme.nmap.org")
     assert not session.kb and len(session.kb) == 0  # falsy precondition
     agent = _DummyAgent(CyberAIConfig(), session)
@@ -26,7 +27,8 @@ def test_first_agent_shares_empty_session_kb():
 
 def test_write_by_first_agent_visible_to_second():
     """A recon-style write into an initially-empty session KB must be visible
-    to a later agent reading the same session."""
+    to a later agent reading the same session.
+    """
     session = ScanSession(target="scanme.nmap.org")
     a1 = _DummyAgent(CyberAIConfig(), session)
     a1.kb.set("recon.nmap", {"ports": [{"port": 80}]})

@@ -219,7 +219,8 @@ _ERROR_BODY = b'{"error": "model not found"}'
 def test_the_transport_refuses_a_failed_status(ollama_like: Callable[..., str]) -> None:
     """The status check is the transport's only error branch. Delete it and
     this body decodes cleanly into a dict, so nothing downstream would
-    notice the request had failed."""
+    notice the request had failed.
+    """
     transport = _default_transport(ollama_like(status=500, body=_ERROR_BODY), 5.0)
     with pytest.raises(httpx.HTTPStatusError):
         transport({"model": "x", "messages": [], "stream": False})

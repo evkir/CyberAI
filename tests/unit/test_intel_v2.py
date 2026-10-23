@@ -1,5 +1,4 @@
-"""
-Tests for IntelAgent CVE scoring (formerly IntelAgentV2) and _normalize.
+"""Tests for IntelAgent CVE scoring (formerly IntelAgentV2) and _normalize.
 
 IntelAgentV2 is an alias for IntelAgent with
 score_cves=True built in. These tests use the real BaseAgent contract.
@@ -147,7 +146,8 @@ def test_v2_stores_in_kb():
 
 def test_normalize_propagates_cvss_vector():
     """CVSS vector must survive normalization so the exploit agent renders
-    real Vector/Complexity instead of Unknown (regression: dropped vector)."""
+    real Vector/Complexity instead of Unknown (regression: dropped vector).
+    """
     from cyberai.agents.exploit.cvss_analyzer import analyze_attack_vector
 
     cve = {"id": "CVE-2024-1", "cvss": {"score": 9.8, "vector": "AV:N/AC:L/PR:N/UI:N"}}
@@ -167,7 +167,8 @@ def test_normalize_flat_cvss_has_empty_vector():
 
 def test_findings_filter_cross_product_fp():
     """A sendmail CVE returned via keyword collision must not surface as a
-    finding on an OpenSSH host, while the genuine OpenSSH CVE still does."""
+    finding on an OpenSSH host, while the genuine OpenSSH CVE still does.
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",
@@ -210,7 +211,8 @@ def test_ranked_cves_filter_cross_product_fp():
     """A sendmail CVE returned via keyword collision must not reach
     ranked_cves/attack paths on an OpenSSH host, while the genuine
     OpenSSH CVE still ranks (regression: FP leaked past findings guard
-    into risk_prioritizer scoring)."""
+    into risk_prioritizer scoring).
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",
@@ -253,9 +255,10 @@ def test_ranked_cves_filter_cross_product_fp():
 
 
 def test_degraded_no_version_caps_severity_to_info():
-    """nmap -sV degraded (service present, no product/version): a keyword-only
+    """Nmap -sV degraded (service present, no product/version): a keyword-only
     CVE match must be capped to INFO and flagged UNCONFIRMED, not surfaced as
-    HIGH — honest severity when relevance cannot be confirmed."""
+    HIGH — honest severity when relevance cannot be confirmed.
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
     agent = IntelAgent(CyberAIConfig(), session)
@@ -280,7 +283,8 @@ def test_degraded_no_version_caps_severity_to_info():
 
 def test_degraded_no_version_suppresses_ranked_cves():
     """Degraded scan must not present speculative attack paths: ranked_cves
-    empty and KB written empty for consistent downstream reads."""
+    empty and KB written empty for consistent downstream reads.
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set("recon.nmap", {"ports": [{"port": 80, "service": "http"}]})
     agent = IntelAgent(CyberAIConfig(), session, score_cves=True)
@@ -304,7 +308,8 @@ def test_degraded_no_version_suppresses_ranked_cves():
 
 def test_version_known_keeps_high_and_ranks():
     """When -sV captured a product, a relevant CVE keeps full severity and is
-    ranked (no-regression against the degraded gate)."""
+    ranked (no-regression against the degraded gate).
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",
@@ -343,7 +348,8 @@ def test_version_known_keeps_high_and_ranks():
 
 def test_out_of_range_cve_dropped_entirely():
     """A CVE whose CPE range excludes the detected version is dropped from
-    findings and ranking — not even surfaced as INFO (definitively N/A)."""
+    findings and ranking — not even surfaced as INFO (definitively N/A).
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",
@@ -380,7 +386,8 @@ def test_out_of_range_cve_dropped_entirely():
 def test_v2_mass_open_skips_cve_lookup_with_info_finding():
     """A mass-open recon result (proxy/tunnel/tarpit) must skip the CVE spray
     and report the skip through its return value only — recon already owns
-    the user-facing finding about the untrustworthy port data."""
+    the user-facing finding about the untrustworthy port data.
+    """
     session = ScanSession(target="10.0.0.1")
     session.kb.set(
         "recon.nmap",

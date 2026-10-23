@@ -1,5 +1,4 @@
-"""
-Real-world e2e tests against scanme.nmap.org — the official nmap test target.
+"""Real-world e2e tests against scanme.nmap.org — the official nmap test target.
 
 These tests perform live network calls and are marked @slow + @network so they
 run only on the nightly CI workflow (and locally with `pytest -m slow`).
@@ -18,8 +17,7 @@ SCANME_TARGET = "scanme.nmap.org"
 
 @pytest.mark.skipif(shutil.which("nmap") is None, reason="nmap binary not installed")
 def test_real_nmap_finds_ssh_on_scanme():
-    """
-    scanme.nmap.org publicly advertises 22/tcp ssh as open.
+    """scanme.nmap.org publicly advertises 22/tcp ssh as open.
     Light scan: top 100 ports, no version probes — minimal load on the target.
     """
     result = run_nmap(SCANME_TARGET, flags="-T4 --top-ports 100")

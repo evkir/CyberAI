@@ -74,7 +74,7 @@ def test_every_mapped_swc_detector_also_has_a_tier():
 
 
 def test_reentrancy_is_unreachable_from_aderyn(registry):
-    """aderyn 0.1.9 ships no reentrancy detector — SWC-107 is slither-only."""
+    """Aderyn 0.1.9 ships no reentrancy detector — SWC-107 is slither-only."""
     assert [d for d in registry if d.startswith("reentrancy")] == []
     swc_107 = {k for k, v in ADERYN_DETECTOR_SWC.items() if v == "SWC-107"}
     assert swc_107 == {"non-reentrant-before-others"}

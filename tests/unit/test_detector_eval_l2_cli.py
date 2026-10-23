@@ -47,7 +47,8 @@ def test_replay_scores_the_corpus_without_a_model(tmp_path):
 @pytest.mark.unit
 def test_the_report_names_the_model_the_verdicts_came_from(tmp_path):
     """Not the mechanism that replayed them: a replayed run and the live run
-    it came from describe one measurement and must render identically."""
+    it came from describe one measurement and must render identically.
+    """
     path = _recording(tmp_path, lambda s: "benign")
     report = tmp_path / "report.md"
     result = CliRunner().invoke(

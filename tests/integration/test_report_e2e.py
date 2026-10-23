@@ -1,6 +1,4 @@
-"""
-Report generation end-to-end test.
-"""
+"""Report generation end-to-end test."""
 
 import asyncio
 from unittest.mock import AsyncMock

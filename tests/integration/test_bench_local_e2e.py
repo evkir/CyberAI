@@ -1,5 +1,4 @@
-"""
-End-to-end wiring of the local bench suite: adapter -> runner -> evaluator.
+"""End-to-end wiring of the local bench suite: adapter -> runner -> evaluator.
 
 Proves the Day-2 contract holds together without touching Docker or an LLM:
 a mocked engine "exploits" a target, the evaluator confirms via the success
@@ -32,7 +31,8 @@ _FAKE_EVIDENCE = {
 
 def _mock_engine_runner(adapter: LocalSuiteAdapter):
     """Build a TaskRunner that resolves each task to its VulnTarget, pulls the
-    canned evidence, and runs it through the real evaluator."""
+    canned evidence, and runs it through the real evaluator.
+    """
 
     def runner(task) -> BenchResult:
         target = adapter.get_target(task.id)

@@ -143,7 +143,8 @@ def test_deny_blocks_what_only_the_model_saw():
 def test_quarantine_wraps_a_model_only_flag_without_a_placeholder():
     """Nothing in COMPILED_PATTERNS produced this flag, so nothing is
     substituted. The message is still wrapped and capped, which is the
-    behaviour a reader of the quarantine branch has to expect."""
+    behaviour a reader of the quarantine branch has to expect.
+    """
     guard = _guard(_CountingModel("injection"), policy="quarantine")
     verdict = guard.inspect([{"role": "user", "content": PARAPHRASED}])
     sent = verdict.messages[0]["content"]

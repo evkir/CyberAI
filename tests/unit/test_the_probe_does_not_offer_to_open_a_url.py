@@ -32,7 +32,6 @@ from mcp import ClientSession
 
 def _advertised(**session_kwargs: Any) -> dict[str, Any]:
     """The capability ad a session of this shape would send."""
-
     result: dict[str, Any] = {}
 
     async def build() -> None:

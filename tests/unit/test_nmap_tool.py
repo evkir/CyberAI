@@ -134,7 +134,8 @@ _XML_ONE_PORT_SV = (
 
 def test_timeout_returns_consistent_ports_shape():
     """A timeout must still yield a dict carrying an empty ports list so
-    downstream consumers never hit a missing key."""
+    downstream consumers never hit a missing key.
+    """
     with patch.object(
         nmap_tool,
         "run_sealed",
@@ -149,7 +150,8 @@ def test_timeout_returns_consistent_ports_shape():
 
 def test_sV_discovery_then_scoped_recovers_versions():
     """discovery-first: a fast version-less pass finds the open ports, then a
-    scoped -sV re-probe recovers product/version. No degraded marker."""
+    scoped -sV re-probe recovers product/version. No degraded marker.
+    """
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     targeted = _fake_proc(stdout=_XML_ONE_PORT_SV, rc=0)  # port 80 with product
     with patch.object(
@@ -172,7 +174,8 @@ def test_sV_discovery_then_scoped_recovers_versions():
 def test_sV_scoped_reprobe_fails_marks_degraded():
     """If the scoped -sV re-probe fails (filtering net, no banners) the
     version-less discovery result is returned marked degraded — ports kept,
-    versions not."""
+    versions not.
+    """
     disco = _fake_proc(stdout=_XML_ONE_PORT, rc=0)  # port 80, no product
     scoped_timeout = subprocess.TimeoutExpired(cmd="nmap", timeout=90)
     with patch.object(
@@ -189,7 +192,8 @@ def test_sV_scoped_reprobe_fails_marks_degraded():
 
 def test_sV_no_open_ports_skips_scoped_scan():
     """When discovery finds no open ports, run_nmap does not attempt a scoped
-    -sV and returns the version-less discovery result marked degraded."""
+    -sV and returns the version-less discovery result marked degraded.
+    """
     empty = _fake_proc(stdout=_XML_ONE_HOST, rc=0)  # no open ports
     with patch.object(
         nmap_tool,
@@ -203,8 +207,9 @@ def test_sV_no_open_ports_skips_scoped_scan():
 
 
 def test_nmap_detaches_stdin_to_protect_terminal():
-    """nmap must run with stdin detached so its runtime keypress interaction
-    never leaves the analyst's terminal in no-echo/raw mode."""
+    """Nmap must run with stdin detached so its runtime keypress interaction
+    never leaves the analyst's terminal in no-echo/raw mode.
+    """
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
@@ -213,7 +218,7 @@ def test_nmap_detaches_stdin_to_protect_terminal():
 
 
 def test_nmap_uses_sealed_exec():
-    """nmap talks to the scan target; the child must not inherit our env."""
+    """Nmap talks to the scan target; the child must not inherit our env."""
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
@@ -223,8 +228,9 @@ def test_nmap_uses_sealed_exec():
 
 
 def test_nmap_runs_noninteractive():
-    """nmap must be invoked with --noninteractive so its keypress reader never
-    opens /dev/tty and corrupts the analyst's terminal echo."""
+    """Nmap must be invoked with --noninteractive so its keypress reader never
+    opens /dev/tty and corrupts the analyst's terminal echo.
+    """
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("scanme.test", flags="-sV")
@@ -246,7 +252,8 @@ def test_nmap_receives_a_bare_host_for_a_url_target(target, host):
     """Asserted on the command line rather than on the sanitiser's return
     value: the defect was that a URL reached argv, and only argv proves it
     no longer does. nmap exits zero on a name it cannot resolve, so a
-    green return value proved nothing."""
+    green return value proved nothing.
+    """
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap(target)
@@ -256,7 +263,8 @@ def test_nmap_receives_a_bare_host_for_a_url_target(target, host):
 def test_a_target_that_names_a_port_scopes_the_scan_to_it():
     """--top-ports 1000 does not contain 8804. Honouring the host while
     dropping the port the operator named returns the same empty result the
-    unparsed target returned."""
+    unparsed target returned.
+    """
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("http://127.0.0.1:8804")
@@ -281,7 +289,8 @@ def test_a_target_without_a_port_keeps_the_default_sweep():
 def test_two_ports_on_one_host_do_not_share_a_cache_entry():
     """The cache is keyed by sanitised target plus flags. Parsing collapses
     both URLs onto one host, so without the port reaching the flag string
-    the second target would be served the first one's result for an hour."""
+    the second target would be served the first one's result for an hour.
+    """
     fake = _fake_proc(stdout=_XML_ONE_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("http://127.0.0.1:8804")
@@ -299,9 +308,10 @@ def test_an_unscannable_target_never_reaches_subprocess():
 
 
 def test_a_scan_that_reached_no_host_is_an_error_not_a_clean_result():
-    """nmap exits zero on a target it could not resolve: zero hosts scanned,
+    """Nmap exits zero on a target it could not resolve: zero hosts scanned,
     well-formed XML, no host element. Return code was the only criterion, so
-    the pipeline read that as a target with nothing open."""
+    the pipeline read that as a target with nothing open.
+    """
     fake = _fake_proc(stdout=_XML_NO_HOST, rc=0)
     fake.stderr = 'Failed to resolve "nowhere.invalid".\nWARNING: No targets\n'
     with patch.object(nmap_tool, "run_sealed", return_value=fake):
@@ -313,7 +323,8 @@ def test_a_scan_that_reached_no_host_is_an_error_not_a_clean_result():
 
 def test_a_scan_that_reached_no_host_is_not_cached():
     """The empty answer used to be cached for an hour, so one run against a
-    URL kept handing the same clean report back."""
+    URL kept handing the same clean report back.
+    """
     fake = _fake_proc(stdout=_XML_NO_HOST, rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake) as m:
         run_nmap("nowhere.invalid", flags="-T4 -p 22")
@@ -323,7 +334,8 @@ def test_a_scan_that_reached_no_host_is_not_cached():
 
 def test_output_nmap_could_not_have_written_counts_as_nothing_scanned():
     """A run that produced no parseable XML did not look. Treating unparseable
-    output as a clean scan is the same defect one layer down."""
+    output as a clean scan is the same defect one layer down.
+    """
     fake = _fake_proc(stdout="", rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake):
         result = run_nmap("nowhere.invalid", flags="-T4 -p 22")
@@ -331,13 +343,14 @@ def test_output_nmap_could_not_have_written_counts_as_nothing_scanned():
 
 
 def test_a_run_cut_short_before_runstats_did_not_look():
-    """nmap closes every completed run with runstats. A document that parses
+    """Nmap closes every completed run with runstats. A document that parses
     but carries none came from a run that died mid-scan -- killed on a
     wrapper timeout, or out of memory -- and reporting no open ports for it
     is the same lie as reporting none for a name that never resolved.
 
     Written because the mutant that made this branch return False survived
-    the first harness: nothing fed the tool this shape."""
+    the first harness: nothing fed the tool this shape.
+    """
     fake = _fake_proc(stdout="<nmaprun><scaninfo/></nmaprun>", rc=0)
     with patch.object(nmap_tool, "run_sealed", return_value=fake):
         result = run_nmap("target.htb", flags="-T4 -p 22")
@@ -403,7 +416,8 @@ def test_parse_ports_leaves_the_method_empty_when_nmap_omits_it():
 
 def test_parse_ports_missing_product_version_defaults_empty():
     """Self-closing <service name=.../> (no -sV data) yields empty strings,
-    never missing keys, so downstream consumers stay total."""
+    never missing keys, so downstream consumers stay total.
+    """
     ports = nmap_tool._parse_ports(_XML_ONE_PORT)
     assert len(ports) == 1
     assert ports[0]["service"] == "http"
@@ -416,7 +430,8 @@ def test_parse_ports_missing_product_version_defaults_empty():
 
 def test_mass_open_flags_untrusted_scan():
     """A scan with implausibly many open ports (fake-ip proxy / tarpit) is
-    flagged mass_open so intel can skip a meaningless CVE spray."""
+    flagged mass_open so intel can skip a meaningless CVE spray.
+    """
     many = "".join(
         f'<port protocol="tcp" portid="{i}">'
         '<state state="open" reason="syn-ack"/>'
@@ -485,7 +500,8 @@ def test_mark_mass_open_below_threshold_returns_false():
 def test_mass_open_skips_sV_entirely():
     """On a mass-open discovery result (fake-ip / tunnel / tarpit) run_nmap must
     NOT run -sV at all: exactly one version-less scan, no version spray. A
-    single-element side_effect makes any second nmap call raise loudly."""
+    single-element side_effect makes any second nmap call raise loudly.
+    """
     many = "".join(
         f'<port protocol="tcp" portid="{i}">'
         '<state state="open" reason="syn-ack"/>'
@@ -539,7 +555,7 @@ def test_a_finder_told_a_path_that_does_not_exist_keeps_looking(tmp_path, monkey
 
 
 def test_the_finder_checks_package_directories_when_path_is_silent(monkeypatch):
-    """nmap arrives from a system package, so PATH is not the last word."""
+    """Nmap arrives from a system package, so PATH is not the last word."""
     monkeypatch.delenv("NMAP_PATH", raising=False)
     target = nmap_tool._FALLBACK_PATHS[0]
     with (

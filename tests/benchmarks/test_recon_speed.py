@@ -1,5 +1,4 @@
-"""
-Benchmark: sync vs async recon paths.
+"""Benchmark: sync vs async recon paths.
 
 Measures real wall-clock time on live network calls. Marked @slow + @network
 so it only runs in the nightly workflow or with explicit `pytest -m slow`.

@@ -1,6 +1,4 @@
-"""
-ReconAgent → IntelAgent handoff tests.
-"""
+"""ReconAgent → IntelAgent handoff tests."""
 
 import asyncio
 from unittest.mock import AsyncMock

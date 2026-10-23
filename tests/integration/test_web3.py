@@ -38,7 +38,7 @@ def test_fixture_exists():
 
 
 def test_classification_pipeline_mocked():
-    """slither JSON (canned) -> classify -> Critical reentrancy."""
+    """Slither JSON (canned) -> classify -> Critical reentrancy."""
     canned = (
         '{"success":true,"error":null,"results":{"detectors":['
         '{"check":"reentrancy-eth","impact":"High","confidence":"Medium",'

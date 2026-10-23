@@ -122,7 +122,8 @@ def test_wildcard_no_bounds_applies_any_version():
 
 def test_no_product_matching_rule_returns_none():
     """A CVE whose only rules constrain other products cannot be version-judged
-    for our service -> None (caller decides conservatively)."""
+    for our service -> None (caller decides conservatively).
+    """
     rules = [_pin("debian_linux", "5.0", vendor="debian")]
     assert version_applies("9.6p1", rules, {"openssh"}) is None
 
@@ -134,7 +135,8 @@ def test_unparseable_detected_version_returns_none():
 
 def test_product_match_via_vendor_token():
     """Apache's CPE product is 'http_server'; the match comes off the vendor
-    'apache' token, not the product string."""
+    'apache' token, not the product string.
+    """
     rules = [_range("http_server", vee="2.4.50", vendor="apache")]
     assert version_applies("2.4.7", rules, {"apache", "httpd"}) is True
 
@@ -202,7 +204,8 @@ def test_classify_unconfirmed_when_no_cpe_rules():
 
 def test_classify_unconfirmed_when_product_has_empty_version():
     """The nginx empty-version hole: product detected but -sV captured no
-    version -> cannot version-confirm -> unconfirmed (surfaces as INFO)."""
+    version -> cannot version-confirm -> unconfirmed (surfaces as INFO).
+    """
     ports = [{"port": 443, "service": "http", "product": "nginx", "version": ""}]
     cve = _cve([_range("nginx", vee="0.8.15")])
     assert classify_cve(cve, ports) == "unconfirmed"
@@ -210,7 +213,8 @@ def test_classify_unconfirmed_when_product_has_empty_version():
 
 def test_classify_skips_ports_without_product():
     """A port with no product (degraded) is skipped; if nothing else confirms,
-    the CVE is unconfirmed rather than crashing."""
+    the CVE is unconfirmed rather than crashing.
+    """
     ports = [{"port": 80, "service": "http"}]
     cve = _cve([_range("nginx", vee="0.8.15")])
     assert classify_cve(cve, ports) == "unconfirmed"

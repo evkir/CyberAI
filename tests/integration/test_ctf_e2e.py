@@ -1,5 +1,4 @@
-"""
-End-to-end wiring of the CTF suite: adapter -> runner -> flag grading.
+"""End-to-end wiring of the CTF suite: adapter -> runner -> flag grading.
 
 Proves the flag-submission contract holds together without an LLM. A mocked
 engine "submits" a flag per task; the CTFAdapter resolves the real flag and

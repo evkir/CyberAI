@@ -275,7 +275,7 @@ def test_run_nuclei_collects_findings(monkeypatch):
 
 
 def test_find_nuclei_checks_the_go_bin_directory_when_path_is_silent(monkeypatch):
-    """nuclei installs into ~/go/bin, which is not on every operator's PATH.
+    """Nuclei installs into ~/go/bin, which is not on every operator's PATH.
 
     The branch was dark because the machine answered earlier: which finds
     the binary here, so the loop never ran locally, and the runner has no

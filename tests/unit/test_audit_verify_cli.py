@@ -51,7 +51,7 @@ def test_a_tampered_trail_exits_nonzero_and_names_the_line(trail: Path):
 
 
 def test_a_null_signature_is_a_mismatch_not_a_crash(trail: Path):
-    """sig present but not a string reaches compare_digest, which rejects bytes.
+    """Sig present but not a string reaches compare_digest, which rejects bytes.
 
     verify_trail only checks that the key exists, so a forged line carrying
     `"sig": null` gets past that check. Without the isinstance guard in

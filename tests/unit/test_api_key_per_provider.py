@@ -69,7 +69,8 @@ def test_the_anthropic_sdk_is_handed_the_anthropic_key(monkeypatch):
 
 def test_an_air_gapped_route_does_not_carry_a_cloud_key(monkeypatch):
     """The router swaps the provider for a local one. Carrying the base
-    credential over is the same defect in a second place."""
+    credential over is the same defect in a second place.
+    """
     _both_keys(monkeypatch)
     routing = RoutingConfig()
     router = ModelRouter(

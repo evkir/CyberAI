@@ -53,7 +53,8 @@ def test_recon_only_states_port_data_is_unreliable():
 
 def test_full_pipeline_states_it_once_not_twice():
     """Recon and intel both used to publish it, so the report said the same
-    thing twice on every flagged scan."""
+    thing twice on every flagged scan.
+    """
     session, mock_search = _run([ScanPhase.RECON, ScanPhase.INTEL])
 
     findings = _port_findings(session)

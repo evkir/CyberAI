@@ -71,7 +71,7 @@ def test_the_trail_carries_no_message_bodies(tmp_path, monkeypatch):
 
 
 def test_a_client_without_a_logger_still_works(monkeypatch):
-    """audit is optional; the guard must not depend on having somewhere to write."""
+    """Audit is optional; the guard must not depend on having somewhere to write."""
     client = LLMClient(LLMConfig(provider="openai", model="test-model"))
     monkeypatch.setattr(LLMClient, "_call_openai", lambda self, m, s, a="unknown": "ok")
     assert client.call([{"role": "user", "content": HOSTILE}]) == "ok"
