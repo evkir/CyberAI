@@ -6,6 +6,26 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **A finding carries its data to the machine-readable export.** The JSON
+  export listed its finding fields by hand and the one holding the finding's
+  own structure was not among them. Five places in the pipeline write it --
+  an out-of-band workflow, a fuzzed channel, a selected endpoint -- and each
+  arrives as a whole record, so a consumer reading the export saw the
+  evidence and nothing of the run that produced it. The replay serialisation
+  was never affected: it walks the dataclass rather than a hand-written list,
+  which is why this went unnoticed for as long as it did.
+
+- **A shortened block says how much it left out.** A shortened list already
+  named the entries it dropped; a block was cut at the character limit with
+  nothing to show for it, so a reader could not tell a long value from a
+  complete one. Both call sites held their own copy of the cut, which is the
+  second place to forget a marker, and now go through one helper. The marker
+  sits outside the fence, so the block stays copy-pasteable. The module
+  docstring had claimed the opposite for the whole of the module's life and
+  is now checked against the export it points the reader to: the fields it
+  names are read out of the prose and looked for in the export's syntax tree,
+  so rewording the promise moves the check with it.
+
 - **The docstring shape the tree keeps is now kept by the linter.** The style
   held across the package by hand alone: a summary pushed to the second line,
   a lowercase first word, a missing blank line before the closing quotes. Three
