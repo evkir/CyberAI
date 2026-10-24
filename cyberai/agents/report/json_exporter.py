@@ -50,6 +50,12 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
                 "target": f.target,
                 "cve_ids": f.cve_ids,
                 "evidence": f.evidence,
+                # The workflow a finding carries -- an oob run, a fuzzed
+                # channel, a selected endpoint -- lives here and nowhere
+                # else in this file. The Markdown report cuts it at a
+                # character limit; this export is the only place a
+                # machine consumer can read the whole of it.
+                "data": f.data,
                 "agent": f.agent,
                 "domain": domain_for(f),
                 "timestamp": f.timestamp,

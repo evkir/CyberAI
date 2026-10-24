@@ -6,9 +6,9 @@ inline values, blocks and list lengths are each capped, because an unbounded
 dump of one finding's evidence pushes the other findings out of the reader's
 attention entirely.
 
-A shortened list says how many entries it dropped. A shortened block does
-not: it is cut to _BLOCK_LIMIT with no marker, so a reader cannot tell a long
-value from a complete one. The full copy is in the JSON export either way.
+A shortened list says how many entries it dropped and so does a shortened
+block: both name the count they left out. The full copy is in the JSON
+export, which carries evidence and data alike.
 """
 
 from collections.abc import Callable
@@ -35,12 +35,26 @@ _BLOCK_LIMIT = 1200
 _LIST_LIMIT = 15
 
 
+def _fenced(text: str) -> list[str]:
+    """A fenced block, cut to the limit, saying how much it left out.
+
+    A shortened list says how many entries it dropped and a shortened block
+    said nothing: the reader could not tell a long value from a complete one.
+    The marker sits outside the fence so the block stays copy-pasteable, and
+    counts characters because that is what was cut.
+    """
+    if len(text) <= _BLOCK_LIMIT:
+        return ["```", text, "```", ""]
+    dropped = len(text) - _BLOCK_LIMIT
+    return ["```", text[:_BLOCK_LIMIT], "```", f"*... and {dropped} more characters*", ""]
+
+
 def _render_value(key: str, value: object) -> list[str]:
     """One field of structured data: inline when short, fenced when not."""
     text = str(value)
     if len(text) <= _INLINE_LIMIT and "\n" not in text:
         return [f"**{key}:** `{text}`  "]
-    return ["", f"**{key}:**", "", "```", text[:_BLOCK_LIMIT], "```", ""]
+    return ["", f"**{key}:**", ""] + _fenced(text)
 
 
 def _render_data(data: object) -> list[str]:
@@ -67,7 +81,7 @@ def _render_data(data: object) -> list[str]:
                 # list is in the JSON export, which is where a tool reads it.
                 rendered.append(f"- *… and {len(items) - _LIST_LIMIT} more*")
             return rendered + [""]
-        return ["", "```", "\n".join(items)[:_BLOCK_LIMIT], "```", ""]
+        return [""] + _fenced("\n".join(items))
     if not isinstance(data, dict):
         return _render_value("Data", data)
     lines: list[str] = []

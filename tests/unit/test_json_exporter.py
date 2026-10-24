@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from cyberai.agents.report.json_exporter import export_json
-from cyberai.core.scan_session import ScanSession
+from cyberai.core.scan_session import ScanSession, Severity
 
 
 def test_export_json_uses_session_id(tmp_path: Path) -> None:
@@ -140,3 +140,21 @@ def test_redteam_key_is_present_without_a_redteam_run(tmp_path: Path) -> None:
     session = ScanSession(target="scanme.nmap.org")
     out = export_json(session, str(tmp_path))
     assert json.loads(Path(out).read_text())["redteam"] == {}
+
+
+def test_a_findings_data_reaches_the_json_file(tmp_path: Path) -> None:
+    """The Markdown report cuts a long value; this file is where the rest is."""
+    session = ScanSession(target="10.0.0.1")
+    payload = {"request": "A" * 3000, "step": "oob"}
+    session.add_finding(
+        severity=Severity.HIGH,
+        title="Out-of-band interaction",
+        description="DNS callback received",
+        agent="exploit",
+        data=payload,
+    )
+    out = export_json(session, str(tmp_path))
+    exported = json.loads(Path(out).read_text())
+    finding = exported["findings"][0]
+    assert finding["data"] == payload
+    assert len(finding["data"]["request"]) == 3000
