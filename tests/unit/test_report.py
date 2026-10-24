@@ -155,3 +155,23 @@ def test_render_data_tolerates_an_empty_value():
     assert _render_data(None) == []
     assert _render_data({}) == []
     assert _render_data("") == []
+
+
+def test_a_long_block_says_how_much_it_left_out():
+    """A list names the entries it dropped; a block named nothing at all."""
+    from cyberai.agents.report.markdown_renderer import _BLOCK_LIMIT, render_markdown
+
+    md = render_markdown(_finding_with(data={"request": "A" * (_BLOCK_LIMIT + 300)}))
+    assert "*... and 300 more characters*" in md
+    assert "A" * _BLOCK_LIMIT in md
+    assert "A" * (_BLOCK_LIMIT + 1) not in md
+
+
+def test_a_block_within_the_limit_carries_no_marker():
+    """The marker must separate a cut value from a complete one, not decorate both."""
+    from cyberai.agents.report.markdown_renderer import _BLOCK_LIMIT, render_markdown
+
+    whole = "B" * _BLOCK_LIMIT
+    md = render_markdown(_finding_with(data={"request": whole}))
+    assert whole in md
+    assert "more characters" not in md
