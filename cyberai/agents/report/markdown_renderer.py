@@ -455,7 +455,9 @@ def render_markdown(session: PentestSession) -> str:
             if finding.data:
                 lines += _render_data(finding.data)
             # Evidence is what makes a finding checkable, and it was reaching
-            # the JSON export but never the page a human opens.
+            # the JSON export but never the page a human opens. The branch is
+            # exclusive on purpose: the writers that set both set one payload
+            # twice, so data standing in for evidence loses nothing today.
             elif finding.evidence:
                 lines += _render_data(finding.evidence)
             lines += ["---", ""]

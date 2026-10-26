@@ -6,6 +6,26 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **A finding's confidence reaches the machine-readable export.** The field
+  carries what the agents did not fully evidence: an out-of-band attempt with
+  no callback, a redteam report the pipeline could not confirm. Both renderers
+  a human reads print it; the JSON export did not list it, so a program
+  consuming the export read every finding as fully confirmed. The field is
+  written by assignment after the finding is built rather than passed to the
+  constructor, which is why a reader of the factory signature would not have
+  noticed it existed.
+
+- **The export accounts for every field a finding has.** Two paths serialise a
+  finding and only one tracks the dataclass: the replay walks it, the export
+  lists its keys by hand. A field added to the model therefore reached one
+  output and not the other with nothing going red -- twice now, which is what
+  made it a mechanism rather than an incident. The guard does not demand the
+  two agree, because the export is a contract read by a program outside this
+  repository and widening it is a decision. It demands the decision be written
+  down: a field is exported, or it is named with the reason it is derivable
+  from one that is. The single exclusion today is the legacy single-CVE field,
+  a duplicate of the first element of the list beside it.
+
 - **A finding carries its data to the machine-readable export.** The JSON
   export listed its finding fields by hand and the one holding the finding's
   own structure was not among them. Five places in the pipeline write it --
@@ -25,6 +45,16 @@ All notable changes to CyberAI are documented here.
   is now checked against the export it points the reader to: the fields it
   names are read out of the prose and looked for in the export's syntax tree,
   so rewording the promise moves the check with it.
+
+- **Both report renderers say why they print one of two fields, not both.** A
+  finding may carry its structure and its evidence separately, and each
+  renderer prints whichever is there, preferring the first. Only one of them
+  said so, and what it said was narrower than the truth: it named web findings
+  where in fact every call in the tree that fills both fills them with one
+  payload twice. Neither comment had been checked against the writers. Both
+  now name the measurement and the thing that would overturn it -- a writer
+  that ever fills the two differently, which is the point at which a reader
+  starts losing half the proof.
 
 - **The docstring shape the tree keeps is now kept by the linter.** The style
   held across the package by hand alone: a summary pushed to the second line,

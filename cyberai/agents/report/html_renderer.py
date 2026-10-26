@@ -317,8 +317,12 @@ def _render_findings(findings: List[Any]) -> str:
             f"<span class='{cls}'>[{sev}]</span></h3>"
             f"<p>{_escape(getattr(finding, 'description', ''))}</p>"
             f"<p><small>{' | '.join(meta)}</small></p>"
-            # data and evidence hold the same dict on a web finding; rendering
-            # both prints the proof twice.
+            # Either, not both: every writer in the tree that sets both sets
+            # one payload twice -- evidence=[X] beside data=X (four calls, in
+            # the oob, exploit and redteam writers; measured, not assumed).
+            # Rendering both would print the same proof twice. A writer that
+            # ever gives them different content loses half of it here and in
+            # the Markdown renderer, which branches the same way.
             f"{_detail_rows(getattr(finding, 'data', None) or getattr(finding, 'evidence', None))}"
             f"</div>"
         )
