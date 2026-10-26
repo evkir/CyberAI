@@ -158,3 +158,22 @@ def test_a_findings_data_reaches_the_json_file(tmp_path: Path) -> None:
     finding = exported["findings"][0]
     assert finding["data"] == payload
     assert len(finding["data"]["request"]) == 3000
+
+
+def test_a_findings_confidence_reaches_the_json_file(tmp_path: Path) -> None:
+    """A finding the agents did not fully evidence says so to a machine reader.
+
+    The field is assigned after construction because add_finding does not
+    take it -- the shape the redteam and oob writers use.
+    """
+    session = ScanSession(target="10.0.0.1")
+    finding = session.add_finding(
+        severity=Severity.HIGH,
+        title="Reflected parameter",
+        description="No out-of-band callback was received",
+        agent="redteam",
+    )
+    finding.confidence = 0.6
+    out = export_json(session, str(tmp_path))
+    exported = json.loads(Path(out).read_text())
+    assert exported["findings"][0]["confidence"] == 0.6

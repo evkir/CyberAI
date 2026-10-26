@@ -57,6 +57,11 @@ def export_json(session: PentestSession, output_dir: str = "reports/") -> str:
                 # machine consumer can read the whole of it.
                 "data": f.data,
                 "agent": f.agent,
+                # Lowered from 1.0 by the agents when a finding is not fully
+                # evidenced -- an unconfirmed OOB attempt is 0.0, a redteam
+                # report without a callback is 0.6. Absent from here, every
+                # finding read as fully confirmed to a machine consumer.
+                "confidence": f.confidence,
                 "domain": domain_for(f),
                 "timestamp": f.timestamp,
             }
