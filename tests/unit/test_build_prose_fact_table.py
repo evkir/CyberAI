@@ -136,7 +136,13 @@ def test_a_missing_checkout_yields_no_commit(
 
     checkout = tmp_path / "live"
     checkout.mkdir()
-    for argv in (["init", "-q"], ["commit", "-q", "--allow-empty", "-m", "x"]):
+    runs = (
+        ["init", "-q"],
+        ["config", "user.email", "test@example.invalid"],
+        ["config", "user.name", "test"],
+        ["commit", "-q", "--allow-empty", "-m", "x"],
+    )
+    for argv in runs:
         subprocess.run(["git", "-C", str(checkout), *argv], check=True, capture_output=True)
 
     assert len(builder.head_commit(checkout)) == 40
