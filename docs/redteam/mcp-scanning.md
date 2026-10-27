@@ -91,6 +91,23 @@ findings, the instructions prose lost its one finding, and the 55 corpus
 injections gained one -- a true exfiltration directive the scanner had been
 reporting as INFO.
 
+That prose channel is worth naming, because it is the only material here on
+which this scanner has been shown legitimate instructions at length. The
+registry description is capped at a hundred characters and carries no
+directives, so a figure taken on it describes shop windows. The prose is 191
+distinct instruction texts from 64 servers, pulled from the sources those
+servers publish, and the scanner reports INFO on every one of them with no
+finding anywhere. Three of them carry a label -- one encoded payload, two
+template injections -- which reached no tier on its own, and that is the
+arrangement the term-alone rule above was built to produce.
+
+The texts are not in this tree and will not be: they are other people's
+source files under other people's licences. What is committed is
+tests/fixtures/mcp_prose_facts_2026-10-12.jsonl, one row per text carrying
+the repository, the commit, the path, a digest and the verdict. Fetch them
+yourself at the commits named there and the digest says whether you read what
+we read.
+
 So the tier states which matcher fired, not how serious the instruction is.
 Read the evidence beside it before ranking anything, and do not read a low
 tier as the absence of a directive.
