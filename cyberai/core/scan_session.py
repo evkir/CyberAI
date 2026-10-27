@@ -86,7 +86,10 @@ class Finding:
     # Free-form structured data
     data: Any = None
     # Confidence this finding is real, 0..1. 1.0 = fully evidenced (default).
-    # Lowered by the LLM-as-Judge / agents when evidence is weak.
+    # Lowered by the LLM-as-Judge / agents when evidence is weak. Writers
+    # therefore assign it only to lower it: two callers once set it to 1.0
+    # after add_finding returned, which no test could tell from the default
+    # and no renderer printed, since both print confidence below 1.0 only.
     confidence: float = 1.0
 
     def __post_init__(self) -> None:

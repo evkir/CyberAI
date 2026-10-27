@@ -28,10 +28,11 @@ All notable changes to CyberAI are documented here.
 
 - **A finding carries its data to the machine-readable export.** The JSON
   export listed its finding fields by hand and the one holding the finding's
-  own structure was not among them. Five places in the pipeline write it --
-  an out-of-band workflow, a fuzzed channel, a selected endpoint -- and each
-  arrives as a whole record, so a consumer reading the export saw the
-  evidence and nothing of the run that produced it. The replay serialisation
+  own structure was not among them. Four calls in the pipeline write it --
+  an exploitable parameter, a blind vector confirmed out of band, the
+  out-of-band workflow itself, and a prompt injection against an LLM endpoint
+  -- and each arrives as a whole record, so a consumer reading the export saw
+  the evidence and nothing of the run that produced it. The replay serialisation
   was never affected: it walks the dataclass rather than a hand-written list,
   which is why this went unnoticed for as long as it did.
 
