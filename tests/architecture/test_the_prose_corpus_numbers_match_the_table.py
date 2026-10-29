@@ -30,6 +30,11 @@ _PAGE = _ROOT / "docs" / "redteam" / "mcp-scanning.md"
 _SHA256 = re.compile(r"\A[0-9a-f]{64}\Z")
 _COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 
+_COLLECTED = _TABLE.stem.rsplit("_", 1)[-1]
+_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+
+_PROBE = "scripts/probe_fact_table_reachability.py"
+
 _COUNTED_PROSE = (
     "CONTRIBUTING.md",
     "scripts/build_prose_fact_table.py",
@@ -164,3 +169,30 @@ def test_the_licence_argument_counts_repositories_not_servers() -> None:
 
     here = {spelled for spelled in _SPELLED.values() if spelled in (__doc__ or "")}
     assert here == {word}, f"this module: {sorted(here)}, want {word}"
+
+
+def test_the_page_dates_the_commits_and_says_they_may_have_moved() -> None:
+    """The table is a record of a day, and the page has to say which day.
+
+    Every row invites a reader to fetch a text at a commit. The commits were
+    heads on the day the corpus was read, and the only place that day appeared
+    was inside the fixture's filename -- a path, not a claim about time. A
+    reader following the table a year later would have had nothing on the page
+    telling them the addresses had aged.
+
+    The date is read off the fixture rather than written here, so renaming the
+    table to a new collection date and leaving the page behind fails rather
+    than passing against a constant nobody updated.
+
+    The clause is found by what it asserts rather than by the date it carries.
+    The date appears on the page twice, once inside the fixture's path, and a
+    search for it alone finds a sentence that names a file and claims nothing
+    about when its rows were read.
+    """
+    page = _PAGE.read_text(encoding="utf-8")
+    claim = _sentence_about("heads of those checkouts")
+
+    assert _DATE.match(_COLLECTED), _COLLECTED
+    assert _COLLECTED in claim, claim
+    assert "record of that day" in claim
+    assert _PROBE in page
