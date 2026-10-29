@@ -70,8 +70,17 @@ _PACKAGE = _ROOT / "cyberai"
 # SIGALRM decorator nothing installed -- and what remained already passed, so
 # the drift report demanded them the same hour. A module can arrive at the
 # boundary by subtraction, and the price is still read off the pricer.
+# 2026-10-29: cli/detector_eval.py was declared, priced at 0 errors, +0
+# crossers and -1 reached, and moving both by exactly that: 16 reaching 24
+# became 16 reaching 23. It arrived by subtraction like the two above, but
+# by a rename rather than a deletion: one function bound the name `blind`
+# twice, once to a per-row predicate and once to a list of subclass names,
+# and mypy held the second to the type of the first. Nothing about the run
+# changed -- the name was simply rebound -- so the two errors were a reader's
+# problem that the checker could see and the gate could not, because the
+# file sat outside the scope while it said so.
 _EXPECTED_CROSSERS = 16
-_EXPECTED_REACHED = 24
+_EXPECTED_REACHED = 23
 
 
 def _scope() -> set[pathlib.Path]:
@@ -132,7 +141,7 @@ def _crossings() -> tuple[set[pathlib.Path], set[pathlib.Path]]:
 
 def test_the_scope_covers_the_modules_it_declares() -> None:
     """The premise the rest of this file argues about."""
-    assert len(_scope()) == 117
+    assert len(_scope()) == 118
     assert len(list(_PACKAGE.rglob("*.py"))) == 175
 
 
