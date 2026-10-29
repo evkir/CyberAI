@@ -37,7 +37,7 @@ git clone --depth 1 https://github.com/ethz-spylab/agentdojo /tmp/agentdojo
 python3 scripts/extract_agentdojo_corpus.py /tmp/agentdojo /tmp/adojo-corpus
 
 The false-positive figure on legitimate server prose is measured the same way,
-and the corpus behind it is sixty-four other people's repositories. What is
+and the corpus behind it is sixty other people's repositories. What is
 committed is tests/fixtures/mcp_prose_facts_2026-10-12.jsonl: one row per
 distinct text, carrying the repository, the commit, the path, a digest and the
 scanner's verdict, and not one character of the prose itself. Rebuild it from a

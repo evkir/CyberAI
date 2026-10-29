@@ -5,8 +5,8 @@ Why this exists. The instructions prose of other people's MCP servers is the
 only material on which this scanner's behaviour against legitimate text can be
 measured: the registry showcase line is capped at a hundred characters and
 carries no directives, so a false-positive rate taken on it describes shop
-windows rather than prose. The corpus itself is sixty-four strangers' source
-files under sixty-four licences, and committing it would mean redistributing
+windows rather than prose. The corpus itself is strangers' source files from
+sixty repositories under sixty licences; committing it would redistribute
 their code to publish a number about our own detector.
 
 What is committed instead is this reduction. Every row carries the address of

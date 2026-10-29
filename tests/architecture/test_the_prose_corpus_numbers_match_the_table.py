@@ -1,7 +1,7 @@
 """The page's figures about third-party prose are recomputed from the table.
 
-The corpus behind these numbers is not in the tree and cannot be: sixty-four
-strangers' repositories under sixty-four licences. For three weeks that made
+The corpus behind these numbers is not in the tree and cannot be: sixty
+strangers' repositories under sixty licences. For three weeks that made
 the figures unpublishable -- a claim nothing could check is a claim nobody
 should print. The committed table is what changed that, and these tests are
 the reason the numbers are allowed on the page at all.
@@ -29,6 +29,26 @@ _PAGE = _ROOT / "docs" / "redteam" / "mcp-scanning.md"
 
 _SHA256 = re.compile(r"\A[0-9a-f]{64}\Z")
 _COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
+
+_COUNTED_PROSE = (
+    "CONTRIBUTING.md",
+    "scripts/build_prose_fact_table.py",
+    "tests/unit/test_build_prose_fact_table.py",
+)
+
+_SPELLED = {
+    55: "fifty-five",
+    56: "fifty-six",
+    57: "fifty-seven",
+    58: "fifty-eight",
+    59: "fifty-nine",
+    60: "sixty",
+    61: "sixty-one",
+    62: "sixty-two",
+    63: "sixty-three",
+    64: "sixty-four",
+    65: "sixty-five",
+}
 
 
 def _rows() -> list[dict[str, object]]:
@@ -111,3 +131,36 @@ def test_every_row_addresses_a_text_it_does_not_carry() -> None:
         assert _COMMIT.match(str(row["commit_sha"]))
         assert str(row["repo_url"]).startswith("https://")
         assert isinstance(row["length"], int) and row["length"] >= 40
+
+
+def test_the_licence_argument_counts_repositories_not_servers() -> None:
+    """The texts arguing redistribution count what carries a licence.
+
+    Four texts put the corpus at 64, which is the number of servers the table
+    holds. A server is a registry entry; a licence belongs to a repository,
+    and several of the servers publish out of a repository another one also
+    publishes from. Nothing recomputed either figure, so the four agreed with
+    each other and with nothing on disk.
+
+    Every spelled count this module knows is read out of each text and held to
+    the recomputed one, so a figure drifting in either direction fails here
+    rather than being carried into the next rewrite.
+
+    This module states the figure too, and it cannot be read off its own file:
+    the table of spellings below would answer every lookup. Its own docstring
+    is read instead, which is the only part of it making the claim.
+
+    Each text must still name the figure. A mutant that deleted the count
+    rather than changing it survived a run of this test when absence was
+    allowed: the text had stopped making the claim, and nothing said so.
+    """
+    repositories = len({str(row["repo_url"]) for row in _rows()})
+    word = _SPELLED[repositories]
+
+    for name in _COUNTED_PROSE:
+        text = (_ROOT / name).read_text(encoding="utf-8")
+        found = {spelled for spelled in _SPELLED.values() if spelled in text}
+        assert found == {word}, f"{name}: {sorted(found)}, want {word}"
+
+    here = {spelled for spelled in _SPELLED.values() if spelled in (__doc__ or "")}
+    assert here == {word}, f"this module: {sorted(here)}, want {word}"
