@@ -60,8 +60,8 @@ def _render(result: Evaluation, corpus: Path, counts: dict[str, int], layers: st
 
     for name, cell in sorted(result.by_subclass.items()):
         flagged = cell.true_positive + cell.false_positive
-        blind = cell.true_positive == 0 and cell.false_negative > 0
-        label = f"[red]{name}[/red]" if blind else name
+        is_blind = cell.true_positive == 0 and cell.false_negative > 0
+        label = f"[red]{name}[/red]" if is_blind else name
         # A slice with no positives has no precision to report. Printing 0.0%
         # there would read as "it fired and was always wrong" on a subclass of
         # captured tool output that contains nothing to be right about.
@@ -96,10 +96,10 @@ def _render(result: Evaluation, corpus: Path, counts: dict[str, int], layers: st
         f"F1 {_pct(overall.f1)}[/dim]"
     )
 
-    blind = result.blind_subclasses()
-    if blind:
+    blind_names = result.blind_subclasses()
+    if blind_names:
         console.print(
-            f"[bold red]blind:[/bold red] {', '.join(blind)} "
+            f"[bold red]blind:[/bold red] {', '.join(blind_names)} "
             f"[dim]— every sample in these scored below the threshold[/dim]"
         )
 

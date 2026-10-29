@@ -37,13 +37,20 @@ git clone --depth 1 https://github.com/ethz-spylab/agentdojo /tmp/agentdojo
 python3 scripts/extract_agentdojo_corpus.py /tmp/agentdojo /tmp/adojo-corpus
 
 The false-positive figure on legitimate server prose is measured the same way,
-and the corpus behind it is sixty-four other people's repositories. What is
+and the corpus behind it is sixty other people's repositories. What is
 committed is tests/fixtures/mcp_prose_facts_2026-10-12.jsonl: one row per
 distinct text, carrying the repository, the commit, the path, a digest and the
 scanner's verdict, and not one character of the prose itself. Rebuild it from a
 local collection when the scanner changes what it says about that material:
 
 python3 scripts/build_prose_fact_table.py <corpus.jsonl> <clones/> \
+    tests/fixtures/mcp_prose_facts_2026-10-12.jsonl
+
+The commits in that table were the heads of those checkouts on the day the
+corpus was read, and other people's repositories move. Before republishing a
+figure that rests on it, ask which of them still answer:
+
+python3 scripts/probe_fact_table_reachability.py \
     tests/fixtures/mcp_prose_facts_2026-10-12.jsonl
 
 The MCP audit card in examples/ is produced by a run, not written by hand. It

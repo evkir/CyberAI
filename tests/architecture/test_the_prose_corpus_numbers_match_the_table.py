@@ -1,7 +1,7 @@
 """The page's figures about third-party prose are recomputed from the table.
 
-The corpus behind these numbers is not in the tree and cannot be: sixty-four
-strangers' repositories under sixty-four licences. For three weeks that made
+The corpus behind these numbers is not in the tree and cannot be: sixty
+strangers' repositories under sixty licences. For three weeks that made
 the figures unpublishable -- a claim nothing could check is a claim nobody
 should print. The committed table is what changed that, and these tests are
 the reason the numbers are allowed on the page at all.
@@ -29,6 +29,31 @@ _PAGE = _ROOT / "docs" / "redteam" / "mcp-scanning.md"
 
 _SHA256 = re.compile(r"\A[0-9a-f]{64}\Z")
 _COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
+
+_COLLECTED = _TABLE.stem.rsplit("_", 1)[-1]
+_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+
+_PROBE = "scripts/probe_fact_table_reachability.py"
+
+_COUNTED_PROSE = (
+    "CONTRIBUTING.md",
+    "scripts/build_prose_fact_table.py",
+    "tests/unit/test_build_prose_fact_table.py",
+)
+
+_SPELLED = {
+    55: "fifty-five",
+    56: "fifty-six",
+    57: "fifty-seven",
+    58: "fifty-eight",
+    59: "fifty-nine",
+    60: "sixty",
+    61: "sixty-one",
+    62: "sixty-two",
+    63: "sixty-three",
+    64: "sixty-four",
+    65: "sixty-five",
+}
 
 
 def _rows() -> list[dict[str, object]]:
@@ -111,3 +136,63 @@ def test_every_row_addresses_a_text_it_does_not_carry() -> None:
         assert _COMMIT.match(str(row["commit_sha"]))
         assert str(row["repo_url"]).startswith("https://")
         assert isinstance(row["length"], int) and row["length"] >= 40
+
+
+def test_the_licence_argument_counts_repositories_not_servers() -> None:
+    """The texts arguing redistribution count what carries a licence.
+
+    Four texts put the corpus at 64, which is the number of servers the table
+    holds. A server is a registry entry; a licence belongs to a repository,
+    and several of the servers publish out of a repository another one also
+    publishes from. Nothing recomputed either figure, so the four agreed with
+    each other and with nothing on disk.
+
+    Every spelled count this module knows is read out of each text and held to
+    the recomputed one, so a figure drifting in either direction fails here
+    rather than being carried into the next rewrite.
+
+    This module states the figure too, and it cannot be read off its own file:
+    the table of spellings below would answer every lookup. Its own docstring
+    is read instead, which is the only part of it making the claim.
+
+    Each text must still name the figure. A mutant that deleted the count
+    rather than changing it survived a run of this test when absence was
+    allowed: the text had stopped making the claim, and nothing said so.
+    """
+    repositories = len({str(row["repo_url"]) for row in _rows()})
+    word = _SPELLED[repositories]
+
+    for name in _COUNTED_PROSE:
+        text = (_ROOT / name).read_text(encoding="utf-8")
+        found = {spelled for spelled in _SPELLED.values() if spelled in text}
+        assert found == {word}, f"{name}: {sorted(found)}, want {word}"
+
+    here = {spelled for spelled in _SPELLED.values() if spelled in (__doc__ or "")}
+    assert here == {word}, f"this module: {sorted(here)}, want {word}"
+
+
+def test_the_page_dates_the_commits_and_says_they_may_have_moved() -> None:
+    """The table is a record of a day, and the page has to say which day.
+
+    Every row invites a reader to fetch a text at a commit. The commits were
+    heads on the day the corpus was read, and the only place that day appeared
+    was inside the fixture's filename -- a path, not a claim about time. A
+    reader following the table a year later would have had nothing on the page
+    telling them the addresses had aged.
+
+    The date is read off the fixture rather than written here, so renaming the
+    table to a new collection date and leaving the page behind fails rather
+    than passing against a constant nobody updated.
+
+    The clause is found by what it asserts rather than by the date it carries.
+    The date appears on the page twice, once inside the fixture's path, and a
+    search for it alone finds a sentence that names a file and claims nothing
+    about when its rows were read.
+    """
+    page = _PAGE.read_text(encoding="utf-8")
+    claim = _sentence_about("heads of those checkouts")
+
+    assert _DATE.match(_COLLECTED), _COLLECTED
+    assert _COLLECTED in claim, claim
+    assert "record of that day" in claim
+    assert _PROBE in page

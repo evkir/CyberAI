@@ -108,6 +108,14 @@ the repository, the commit, the path, a digest and the verdict. Fetch them
 yourself at the commits named there and the digest says whether you read what
 we read.
 
+Those commits were the heads of those checkouts on 2026-10-12, and the table
+is a record of that day rather than a description of the repositories now.
+Other people's repositories move: a path can empty, an account can be
+renamed, a repository can go. The digest still says whether you read what we
+read, and says nothing about whether anything is there to read. Run
+scripts/probe_fact_table_reachability.py against the table before resting a
+published figure on it.
+
 So the tier states which matcher fired, not how serious the instruction is.
 Read the evidence beside it before ranking anything, and do not read a low
 tier as the absence of a directive.

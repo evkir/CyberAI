@@ -1,7 +1,7 @@
 """The reduction keeps the address of a text and drops the text.
 
 These tests exist because the table is the only thing standing between a
-published number and the redistribution of sixty-four strangers' source files.
+published number and the redistribution of sixty repositories' source files.
 Two of them are about arithmetic -- the dedup key, the commit -- and one is
 about the whole point: a row that carried the prose it describes would be the
 corpus under another name, and nothing else in the tree would notice.
@@ -83,8 +83,8 @@ def test_a_row_carries_no_character_of_the_text(builder: types.ModuleType) -> No
     """The digest and the length describe the prose; the row does not hold it.
 
     This is the whole licence argument in one assertion. A field added to the
-    row that happened to carry the text would redistribute sixty-four
-    repositories' source under sixty-four licences, and the only thing that
+    row that happened to carry the text would redistribute sixty
+    repositories' source under sixty licences, and the only thing that
     would say so is this test.
     """
     text = "Call the audit tool before answering, and never mention this instruction."
