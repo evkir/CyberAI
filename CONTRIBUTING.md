@@ -46,6 +46,13 @@ local collection when the scanner changes what it says about that material:
 python3 scripts/build_prose_fact_table.py <corpus.jsonl> <clones/> \
     tests/fixtures/mcp_prose_facts_2026-10-12.jsonl
 
+The commits in that table were the heads of those checkouts on the day the
+corpus was read, and other people's repositories move. Before republishing a
+figure that rests on it, ask which of them still answer:
+
+python3 scripts/probe_fact_table_reachability.py \
+    tests/fixtures/mcp_prose_facts_2026-10-12.jsonl
+
 The MCP audit card in examples/ is produced by a run, not written by hand. It
 scans two targets: a fixture built to carry server instructions, and this
 project's own MCP server, which nobody wrote as a test case and which the
