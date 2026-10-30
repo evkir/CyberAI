@@ -6,6 +6,21 @@ All notable changes to CyberAI are documented here.
 
 ### Added
 
+- **The prose that states a measured count is held against that count.** Two
+  numbers describe where the typing scope ends, and a test walked the imports
+  and red when either moved in the tree. It never read the page that states
+  them, so a move was paid for by rewriting the constant while the sentence
+  quoting it stayed behind -- green, silent and wrong. Three numbers on that
+  page had drifted exactly that way before anyone looked, and the guard's own
+  docstring had drifted with them, claiming a scope size the constant beside
+  it contradicted. The new guard runs the other way round: the constant is the
+  standard and the prose is what is checked, which is sound only because the
+  older test holds that constant against the tree. It reads the constants by
+  importing that test rather than recomputing the crossings, so the two cannot
+  answer from different methods. Dated sentences stay out of reach on purpose
+  -- a count that says when it was measured is a record, not a claim about
+  today.
+
 - **A finding's confidence reaches the machine-readable export.** The field
   carries what the agents did not fully evidence: an out-of-band attempt with
   no callback, a redteam report the pipeline could not confirm. Both renderers
