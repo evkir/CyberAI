@@ -26,9 +26,14 @@ than repeatable as written; the mechanism it showed is unchanged. So a name
 crossing the boundary is typed by a module nothing checks, and adding a
 module to the scope costs its import closure rather than its own error count
 -- `mypy` on three single-error modules alone reports 90 errors across 26
-files. The crossing is measured on every run by the test named below, which
-reds when either count moves, so the paragraph cannot drift away from it. Both numbers are measured, not chosen, and they
-are measured on the runner: the typecheck job prints them on every run.
+files. Two tests hold the pair above, and they hold different things.
+`tests/architecture/test_typing_scope_boundary_is_declared.py` walks the
+imports and reds when either count moves in the tree.
+`tests/architecture/test_the_prose_quotes_the_measured_edge.py` reds when
+the sentence above stops quoting what that one holds, which is the drift
+that fixing the first test alone used to leave behind. Both numbers are
+measured, not chosen, and they are measured on the runner: the typecheck
+job prints them on every run.
 
 Four modules were carried into the scope rather than found there. The call at
 `cyberai/cli/bench.py` that reported `Cannot call function of unknown type`

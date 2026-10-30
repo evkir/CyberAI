@@ -59,6 +59,20 @@ def test_the_page_quotes_the_edge_the_neighbour_holds() -> None:
     )
 
 
+def test_the_page_names_tests_that_exist() -> None:
+    """The page points the reader at two files by path.
+
+    A renamed or deleted guard leaves the sentence pointing at nothing, and
+    the reader who follows it finds out before the page does. The earlier
+    wording said "the test named below" and named none, which is the same
+    break with nothing to check it against.
+    """
+    named = re.findall(r"`(tests/architecture/\S+?\.py)`", _PAGE.read_text(encoding="utf-8"))
+    assert named, "the page names no guard for the counts it states"
+    missing = [path for path in named if not (_ROOT / path).is_file()]
+    assert not missing, f"the page names guards that do not exist: {missing}"
+
+
 def test_the_neighbour_prose_quotes_its_own_constants() -> None:
     """The guard's own docstring states the counts and drifted away from them."""
     crossers, _ = _neighbour_constants()
