@@ -1,10 +1,10 @@
 """The typing scope has an edge, and until now nothing said where.
 
-`[tool.mypy] files` resolves to 107 modules and the run reports `Success` on
-exactly 107, which reads like a guarantee about those modules and is one only
-up to the boundary. Twenty-two of them import a module outside the scope at
+`[tool.mypy] files` resolves to 118 modules and the run reports `Success` on
+exactly 118, which reads like a guarantee about those modules and is one only
+up to the boundary. 16 of them import a module outside the scope at
 module level. Both numbers were 95 and 19 when this was written and are
-restated here on 2026-09-23; the assertions below are what holds them. mypy follows such an import to resolve the name and stays silent about
+restated here on 2026-10-30; the assertions below are what holds them. mypy follows such an import to resolve the name and stays silent about
 what it finds: appending an unannotated function to `cyberai/core/config.py`,
 which is outside the scope and imported from inside it, changed nothing about
 the output on a cold cache. A name crossing the edge is therefore typed by a
