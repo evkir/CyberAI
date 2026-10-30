@@ -122,9 +122,9 @@ mypy --strict --python-version 3.11 --ignore-missing-imports cyberai
 
 The cache purge is not decoration. A scoped run that reuses a cache left by a
 wider run re-emits errors for modules outside the scope, and reports them as
-if the declared set were dirty. Measured: cold cache gives `Success` on 97
-modules, the same command after a full-package run gives 239 errors in 54
-files, and every one of those files lies outside the scope.
+if the declared set were dirty. Measured 2026-10-30: cold cache gives
+`Success` on 118 modules, the same command after a full-package run gives
+216 errors in 44 files, and every one of those files lies outside the scope.
 
 `scripts/typing_scope_drift.py` runs the same partition without the hazard.
 It reads the flags from `[tool.mypy]` instead of repeating them, so this page
@@ -133,9 +133,9 @@ wide run a cache directory of its own instead of purging the shared one.
 
 ## What the numbers depend on
 
-The partition moves with the checker. Measured on mypy 1.19.1 the clean side
-holds 98 modules; a later release moved it by one module in the other
-direction. The dev extra therefore bounds the checker rather than naming a
+The partition moves with the checker. Measured 2026-10-30 on mypy 1.19.1 the
+clean side holds 118 modules; a later release moved it by one module in the
+other direction. The dev extra therefore bounds the checker rather than naming a
 floor and admitting every future release.
 
 The checker is not the only version these counts depend on, and on 2026-09-18
