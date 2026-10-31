@@ -32,6 +32,7 @@ def _tool() -> types.ModuleType:
 
 
 _MODULE = _tool()
+pages = _MODULE.pages
 prose_lines = _MODULE.prose_lines
 spelled_counts = _MODULE.spelled_counts
 
@@ -62,3 +63,26 @@ def test_a_fenced_block_is_not_prose() -> None:
     """A command printed for a reader to run is not a sentence making a claim."""
     text = "one sentence\n```\nrun --with two flags\n```\nthree sentences\n"
     assert [number for number, _ in prose_lines(text)] == [1, 5]
+
+
+def test_a_directory_resolves_to_every_page_under_it(tmp_path: pathlib.Path) -> None:
+    """The CI step names a directory, so a page in a subdirectory must be reached.
+
+    Both halves were measured by mutation before this test existed: walking
+    only the top level, and treating a directory as a single file, each left
+    every other test in the suite green.
+    """
+    (tmp_path / "top.md").write_text("one sentence\n", encoding="utf-8")
+    nested = tmp_path / "nested" / "deeper"
+    nested.mkdir(parents=True)
+    (nested / "buried.md").write_text("two sentences\n", encoding="utf-8")
+    (tmp_path / "not-a-page.txt").write_text("three\n", encoding="utf-8")
+
+    found = {path.name for path in pages(tmp_path)}
+    assert found == {"top.md", "buried.md"}, f"the walk reached {sorted(found)}"
+
+
+def test_a_file_resolves_to_itself(tmp_path: pathlib.Path) -> None:
+    page = tmp_path / "single.md"
+    page.write_text("four\n", encoding="utf-8")
+    assert pages(page) == [page]

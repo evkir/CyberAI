@@ -72,6 +72,15 @@ def spelled_counts(line: str) -> list[str]:
     return [match.group(0) for match in _SPELLED.finditer(_PRONOUN.sub("", line))]
 
 
+def pages(target: pathlib.Path) -> list[pathlib.Path]:
+    """Markdown under a directory, or the file itself.
+
+    A step naming every page by hand is a list that rots: the page added
+    tomorrow is not on it, and nothing says so.
+    """
+    return sorted(target.rglob("*.md")) if target.is_dir() else [target]
+
+
 def report(page: pathlib.Path) -> list[str]:
     findings = []
     for number, line in prose_lines(page.read_text(encoding="utf-8")):
@@ -85,10 +94,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("pages", nargs="+", type=pathlib.Path)
     arguments = parser.parse_args()
-    findings = [finding for page in arguments.pages for finding in report(page)]
+    targets = [page for target in arguments.pages for page in pages(target)]
+    findings = [finding for page in targets for finding in report(page)]
     for finding in findings:
         print(finding)
-    print(f"{len(findings)} lines carry a spelled numeral outside code blocks")
+    print(
+        f"{len(findings)} lines carry a spelled numeral outside code blocks "
+        f"across {len(targets)} pages"
+    )
     return 0
 
 
