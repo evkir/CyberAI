@@ -73,6 +73,14 @@ restores the file, and again before trusting a tree you did not just clean:
 python3 scripts/pycache_sweep.py
 python3 scripts/pycache_sweep.py --check
 
+A measurement spelled out in words is invisible to the guards that hold the
+pages against the tree: they read digits. Before adding a sentence that counts
+something to a page under docs/, and after editing one, list what the digit
+guards cannot see and decide for each line whether it is a pronoun, a record
+of a past day, or a live count that belongs in digits:
+
+python3 scripts/spelled_numbers.py docs/architecture/typing-scope.md
+
 ## Lint
 ruff check cyberai/ --fix
 
