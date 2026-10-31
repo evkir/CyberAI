@@ -26,7 +26,7 @@ than repeatable as written; the mechanism it showed is unchanged. So a name
 crossing the boundary is typed by a module nothing checks, and adding a
 module to the scope costs its import closure rather than its own error count
 -- `mypy` on three single-error modules alone reports 90 errors across 26
-files. Two tests hold the pair above, and they hold different things.
+files. 2 tests hold the pair above, and they hold different things.
 `tests/architecture/test_typing_scope_boundary_is_declared.py` walks the
 imports and reds when either count moves in the tree.
 `tests/architecture/test_the_prose_quotes_the_measured_edge.py` reds when
@@ -38,7 +38,7 @@ job prints them on every run.
 Four modules were carried into the scope rather than found there. The call at
 `cyberai/cli/bench.py` that reported `Cannot call function of unknown type`
 was read for a day as a divergence between machines, and it was not one: the
-two factories in `_LIVE_ENGINES` take different optional arguments, the
+2 factories in `_LIVE_ENGINES` take different optional arguments, the
 inferred value type of the dict is their join, and the join is `object`.
 Annotating the factories' return type does not move it -- measured, the error
 survives that -- and annotating the dict does. The three factory modules came
@@ -109,7 +109,7 @@ least one error and modules that report none. The clean side is what
 module in it passed before it was added, except the four described above,
 where the source was annotated first and the partition was re-measured after.
 
-The scope mixes two forms. Five directories are clean throughout and are
+The scope mixes two forms. 5 directories are clean throughout and are
 listed as directories, so a module added to one of them is checked from the
 moment it lands. The remaining entries are individual modules inside
 directories that are not clean, and a sibling added next to them is not
@@ -158,7 +158,7 @@ identical counts once the stubs and the SDK are held fixed, so of the three
 versions the numbers ride on, the checker is the one that did not move them.
 
 It also moves with the stubs that happen to be installed, and it does not
-always move loudly. Two modules import yaml, and without `types-PyYAML` both
+always move loudly. 2 modules import yaml, and without `types-PyYAML` both
 report import-untyped. `ignore_missing_imports` does not cover that case: the
 package is installed and it is the stubs that are absent, so the run turns red
 and the missing stubs get named.
@@ -176,7 +176,7 @@ the tests installs no stubs at all.
 
 ## The unchecked side
 
-Six modules carry roughly a third of the 280 errors, measured 2026-09-20
+6 modules carry roughly a third of the 280 errors, measured 2026-09-20
 with mypy 1.19.1 over the whole package. The per-module numbers move with
 the checker and with the tree, so they are dated here rather than gated by
 a test: a test pinning them would red on every release and teach the next
