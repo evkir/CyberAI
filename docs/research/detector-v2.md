@@ -20,9 +20,9 @@ over the *distinct* categories that matched, capped at 100:
 
 At the production threshold of 50, one directive category acts and two
 structural artefacts do not. This replaced a score of `len(matches) * 25`,
-which counted patterns rather than categories: seven categories held more
-than one pattern, so a single category could reach the threshold alone while
-the documentation claimed two had to agree.
+which counted patterns rather than categories: 7 of the 10 categories hold
+more than one pattern, so a single category could reach the threshold alone
+while the documentation claimed two had to agree.
 
 Measured on the tracked corpus of 55 injections and 105 benign samples:
 

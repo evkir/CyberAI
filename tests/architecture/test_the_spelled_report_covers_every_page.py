@@ -7,9 +7,9 @@ first page added after it: the new page is not on it, the step stays green, and
 nothing says the page was never looked at.
 
 So the step names a directory and the script walks it. This file holds that
-shape, not the counts: 277 lines across 31 pages were spelled out the day the
-step landed, and pinning either number would red on the next page written and
-teach the next reader to delete the gate.
+shape, not the counts: 277 lines across 31 pages were spelled out on
+2026-10-31, the day the step landed, and pinning either number would red on
+the next page written and teach the next reader to delete the gate.
 
 Unlike the drift report next door, nothing here depends on what is installed:
 the script reads markdown and imports no part of the package, so the job it

@@ -15,9 +15,17 @@ Only the count is pinned, not the sentences around it. A test that pinned
 the wording would fail on every edit to a paragraph and teach the reviewer
 to regenerate it without reading, which is how a document ends up asserting
 something nobody checked.
+
+The half that rejects a stale word read whitespace-separated tokens until
+2026-11-02. Both prose texts end the count with punctuation, so the spelled
+count was never a token and no stale word could ever be found: the check
+was green on every input, including one carrying both the old count and the
+new. Words are taken with a pattern now, and the mutation that proves it is
+a page naming two counts at once.
 """
 
 import pathlib
+import re
 
 from cyberai.core.security.injection_detector import (
     COMPILED_PATTERNS,
@@ -25,6 +33,11 @@ from cyberai.core.security.injection_detector import (
 )
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+# Splitting on whitespace leaves the punctuation attached: both texts write the
+# count as `thirty-three;` and `thirty-three.`, so no spelled count was ever a
+# token and the stale half of the check below passed on every input it saw.
+_WORDS_IN = re.compile(r"[a-z]+(?:-[a-z]+)*").findall
 
 _WORDS = {
     31: "thirty-one",
@@ -56,4 +69,4 @@ def test_prose_documents_name_the_real_pattern_count() -> None:
         body = _text(rel)
         assert word in body, (rel, word)
         stale = {w for k, w in _WORDS.items() if k != n}
-        assert not (stale & set(body.split())), (rel, stale)
+        assert not (stale & set(_WORDS_IN(body))), (rel, stale)

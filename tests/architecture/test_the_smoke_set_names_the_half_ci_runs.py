@@ -12,6 +12,12 @@ when the tools are absent and with what reason, and that the workflow supplies
 nothing that would turn one of those skips into a run. A new tool-gated smoke
 test is red here until it is named below, so the size of the half CI never runs
 stays a number.
+
+Skipping on a toolless runner and never running in CI stopped being the same
+thing on 2026-11-02, when a job outside the smoke one installed a tool and ran
+a smoke test with it. Those are named separately: counted among the smoke set,
+expected to skip here, and kept out of the figure for what CI reports without
+executing, which is the number this file exists to hold.
 """
 
 from __future__ import annotations
@@ -46,6 +52,14 @@ _TOOL_GATED = {
     "::test_the_recorded_prompt_still_matches_the_task_it_was_copied_from": "CVE-Bench",
 }
 
+# Smoke tests a job other than `smoke` runs, with the tool installed there.
+# They skip on a toolless runner like the gated half above, but CI does
+# execute them, so counting them as the half CI never runs would overstate it.
+_GATED_BUT_RUN_ELSEWHERE = {
+    "tests/architecture/test_the_formatter_does_not_walk_into_docs.py"
+    "::test_a_walk_of_a_tree_skips_a_docs_page_and_an_explicit_path_does_not": "ruff",
+}
+
 _RUNS_ANYWHERE = {
     "tests/integration/test_cli_smoke.py::test_cli_scan_dry_run_exits_cleanly",
     "tests/integration/test_cli_smoke.py::test_cli_scan_dry_run_produces_output",
@@ -53,7 +67,7 @@ _RUNS_ANYWHERE = {
     "tests/integration/test_cli_smoke.py::test_cli_scan_dry_run_completes_all_phases",
 }
 
-_SMOKE_TOTAL = 10
+_SMOKE_TOTAL = 11
 
 # What a workflow step would have to name to hand a runner either tool.
 _TOOL_TOKENS = ("aderyn", "cyfrin", "cve-bench", "cve_bench", "cvebench")
@@ -120,7 +134,7 @@ def smoke_report(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple[st
 
 def test_the_marker_selects_the_set_that_is_named_here(smoke_report):
     """A smoke test in neither list is a test nobody counted."""
-    named = set(_TOOL_GATED) | _RUNS_ANYWHERE
+    named = set(_TOOL_GATED) | set(_GATED_BUT_RUN_ELSEWHERE) | _RUNS_ANYWHERE
     assert len(named) == _SMOKE_TOTAL, sorted(named)
     assert set(smoke_report) == named, {
         "unnamed": sorted(set(smoke_report) - named),
@@ -129,13 +143,14 @@ def test_the_marker_selects_the_set_that_is_named_here(smoke_report):
 
 
 def test_the_tool_gated_half_does_not_run_without_its_tool(smoke_report):
-    """Six of ten: the half the workflow reports green without executing."""
+    """Seven of eleven skip here; six of those are the half CI reports without running."""
     skipped = {node for node, (outcome, _) in smoke_report.items() if outcome == "skipped"}
-    assert skipped == set(_TOOL_GATED), {
+    gated = set(_TOOL_GATED) | set(_GATED_BUT_RUN_ELSEWHERE)
+    assert skipped == gated, {
         "skipped": sorted(skipped),
-        "declared": sorted(_TOOL_GATED),
+        "declared": sorted(gated),
     }
-    for node, tool in _TOOL_GATED.items():
+    for node, tool in (_TOOL_GATED | _GATED_BUT_RUN_ELSEWHERE).items():
         reason = smoke_report[node][1]
         assert tool.lower() in reason.lower(), (node, tool, reason)
 
