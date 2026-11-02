@@ -73,6 +73,13 @@ packages = ["cyberai"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Prose pages are not ours to format. Python inside a markdown fence is an
+# illustration: comments are aligned down a column and blank lines mark a
+# step, and `ruff format` undoes both. Nothing calls the formatter on a
+# directory wider than cyberai/ and tests/, so the drift in docs/ has been
+# legal and invisible -- until the first bare `ruff format`, which walks the
+# tree. An explicit path still reaches these files when one is meant to.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["D200", "D202", "D209", "D212", "D403", "D404", "D413", "E", "F", "I", "PGH003", "W"]
