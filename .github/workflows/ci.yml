@@ -139,11 +139,16 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install ruff
-        run: pip install "ruff>=0.6.0,<1"
+        run: pip install -e ".[test]" "ruff>=0.6.0,<1"
       - name: Run ruff linter
         run: ruff check cyberai/ tests/
       - name: Check formatting
         run: ruff format --check cyberai/ tests/
+      # The only job holding ruff, so the only one that can measure what the
+      # formatter walks into. The test jobs install the test extra and skip
+      # this check for want of the binary.
+      - name: Check the formatter stays out of the prose pages
+        run: pytest tests/architecture/test_the_formatter_does_not_walk_into_docs.py -m smoke
 
   typecheck:
     name: Type check (strict)
