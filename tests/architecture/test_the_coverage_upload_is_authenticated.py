@@ -77,6 +77,7 @@ warning cannot quietly go missing while the upload stays credentialed.
 """
 
 import pathlib
+import re
 
 import yaml
 
@@ -204,20 +205,44 @@ def test_a_fork_pull_request_is_warned_about_where_a_contributor_reads() -> None
     forks, and on the day the step becomes either of those the warning is
     stale text and this stops demanding it.
     """
-    paragraphs = _CONTRIBUTING.read_text(encoding="utf-8").split("\n\n")
+    sections = _sections(_CONTRIBUTING.read_text(encoding="utf-8"))
     for name, _, step in _uploads():
         supplied = step["with"]
         credentialed = {"use_oidc", "token"} & set(supplied)
         if not credentialed or supplied.get("fail_ci_if_error") is not True:
             continue
         warned = [
-            block for block in paragraphs if "fork" in block.lower() and "coverage" in block.lower()
+            block for block in sections if "fork" in block.lower() and "coverage" in block.lower()
         ]
         assert len(warned) == 1, (
             f"{name} presents {sorted(credentialed)} and reds the job, so every fork "
-            f"pull request fails on it; CONTRIBUTING carries {len(warned)} passages "
+            f"pull request fails on it; CONTRIBUTING carries {len(warned)} sections "
             "naming a fork and the coverage upload together, and it needs exactly one"
         )
+
+
+# The warning used to be looked for in a paragraph, split on a blank line. The
+# passage names the upload in its first line and the fork in its third, so a
+# blank line between them left no paragraph holding both and the guard
+# reported that CONTRIBUTING carries none -- about text nobody had touched.
+# Measured: that edit killed this test before the section split existed. A
+# section is the unit that actually carries the warning, and reflowing its
+# prose does not move it.
+_SECTION = re.compile(r"(?m)^(?=## )")
+
+
+def _sections(text: str) -> list[str]:
+    """The page cut at its own headings, so reflowing a paragraph moves nothing."""
+    return [block for block in _SECTION.split(text) if block.strip()]
+
+
+def test_a_reflowed_paragraph_does_not_move_the_warning() -> None:
+    """A control with a known answer: the split is held off the page as well as on it."""
+    page = "intro\n\n## One\nalpha\n\nbeta\n\n## Two\ngamma\n"
+    assert _sections(page) == ["intro\n\n", "## One\nalpha\n\nbeta\n\n", "## Two\ngamma\n"]
+
+    headfirst = _sections("## Only\nalpha\n")
+    assert headfirst == ["## Only\nalpha\n"], headfirst
 
 
 def test_a_failed_upload_is_visible() -> None:
