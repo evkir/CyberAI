@@ -25,6 +25,13 @@ a reader: the pronoun forms are a closed list, and anything else is reported
 with its line so a person decides which of the remaining two it is. The output
 is a worklist, not a verdict, so an empty report is the only green state and
 the exit status says nothing about whether the page is honest.
+
+The closing line names three sets rather than two. The pages a run reads and
+the pages carrying a count are different numbers, and a sentence giving only
+the first invites it to be read as the second: a worklist of 273 lines
+`across 31 pages` says nothing about how many of those pages hold one. All
+three are printed, so a figure quoted from this report carries the set it
+came from.
 """
 
 import argparse
@@ -90,18 +97,40 @@ def report(page: pathlib.Path) -> list[str]:
     return findings
 
 
+def _plural(count: int, word: str) -> str:
+    """The word as the count needs it, because `1 pages` is a bug in a report."""
+    return word if count == 1 else f"{word}s"
+
+
+def survey(targets: list[pathlib.Path]) -> tuple[list[str], int]:
+    """Findings over the pages, and how many of those pages carry one.
+
+    The second number cannot be recovered from the first: a report is a flat
+    list of lines, and counting its pages means parsing the text this script
+    printed. The walk knows the answer already, so it returns it.
+    """
+    reports = [report(page) for page in targets]
+    return [finding for lines in reports for finding in lines], sum(1 for lines in reports if lines)
+
+
+def summarise(lines: int, carrying: int, read: int) -> str:
+    """One sentence naming all three counts, each with the set it describes."""
+    verb = "carries" if carrying == 1 else "carry"
+    return (
+        f"{carrying} of {read} {_plural(read, 'page')} {verb} a spelled numeral "
+        f"outside code blocks, on {lines} {_plural(lines, 'line')}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("pages", nargs="+", type=pathlib.Path)
     arguments = parser.parse_args()
     targets = [page for target in arguments.pages for page in pages(target)]
-    findings = [finding for page in targets for finding in report(page)]
+    findings, carrying = survey(targets)
     for finding in findings:
         print(finding)
-    print(
-        f"{len(findings)} lines carry a spelled numeral outside code blocks "
-        f"across {len(targets)} pages"
-    )
+    print(summarise(len(findings), carrying, len(targets)))
     return 0
 
 
