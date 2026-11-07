@@ -35,6 +35,8 @@ _MODULE = _tool()
 pages = _MODULE.pages
 prose_lines = _MODULE.prose_lines
 spelled_counts = _MODULE.spelled_counts
+survey = _MODULE.survey
+summarise = _MODULE.summarise
 
 
 def test_a_pronoun_is_not_reported_as_a_count() -> None:
@@ -86,3 +88,46 @@ def test_a_file_resolves_to_itself(tmp_path: pathlib.Path) -> None:
     page = tmp_path / "single.md"
     page.write_text("four\n", encoding="utf-8")
     assert pages(page) == [page]
+
+
+def test_the_walk_reports_how_many_pages_carry_a_count(tmp_path: pathlib.Path) -> None:
+    """Pages read and pages carrying are different sets, and both are returned.
+
+    The closing sentence said `273 lines across 31 pages` while 16 pages held
+    one, and the figure was quoted as the second. A flat list of findings
+    cannot answer it after the fact without parsing the text just printed.
+    """
+    (tmp_path / "carries.md").write_text("one sentence\n", encoding="utf-8")
+    (tmp_path / "also.md").write_text("Two modules import yaml\n", encoding="utf-8")
+    (tmp_path / "clean.md").write_text("nothing countable here\n", encoding="utf-8")
+
+    findings, carrying = survey(pages(tmp_path))
+    assert len(findings) == 2, findings
+    assert carrying == 2, "a page without a count was counted as carrying one"
+
+
+def test_a_page_with_two_counts_is_one_page(tmp_path: pathlib.Path) -> None:
+    """The page count cannot be the line count, and a page carrying twice proves it."""
+    (tmp_path / "twice.md").write_text("one sentence\nTwo modules import yaml\n", encoding="utf-8")
+
+    findings, carrying = survey(pages(tmp_path))
+    assert (len(findings), carrying) == (2, 1), (findings, carrying)
+
+
+def test_the_summary_names_the_set_each_figure_describes() -> None:
+    assert summarise(273, 16, 31) == (
+        "16 of 31 pages carry a spelled numeral outside code blocks, on 273 lines"
+    )
+
+
+def test_the_summary_counts_in_the_singular() -> None:
+    """`1 pages` in a report is a defect in the report."""
+    assert summarise(1, 1, 1) == (
+        "1 of 1 page carries a spelled numeral outside code blocks, on 1 line"
+    )
+
+
+def test_an_empty_report_says_so_in_the_plural() -> None:
+    assert summarise(0, 0, 31) == (
+        "0 of 31 pages carry a spelled numeral outside code blocks, on 0 lines"
+    )

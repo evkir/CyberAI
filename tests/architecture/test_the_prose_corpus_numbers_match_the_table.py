@@ -61,12 +61,46 @@ def _rows() -> list[dict[str, object]]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
+# A sentence ends at a period followed by a space, except after an
+# abbreviation that carries one of its own. Splitting on ". " alone made the
+# page's prose part of this module's contract: adding `e.g.` to an unrelated
+# clause cut a sentence in two, and the two tests reading that sentence failed
+# claiming the page held two of them. Measured by mutation -- `e.g.` inserted
+# into the servers clause killed both before this list existed.
+_ABBREVIATIONS = ("e.g.", "i.e.", "cf.", "etc.", "vs.", "approx.")
+_SENTENCE_END = re.compile(
+    r"(?<!" + r")(?<!".join(re.escape(word[:-1]) for word in _ABBREVIATIONS) + r")\.\s+"
+)
+
+
+def _sentences(text: str) -> list[str]:
+    """The text split where a sentence actually ends."""
+    return [part for part in _SENTENCE_END.split(text) if part.strip()]
+
+
 def _sentence_about(word: str) -> str:
     """The sentence on the page making a claim about the prose channel."""
     page = _PAGE.read_text(encoding="utf-8").replace("\n", " ")
-    sentences = [part for part in page.split(". ") if word in part]
+    sentences = [part for part in _sentences(page) if word in part]
     assert len(sentences) == 1, f"{word}: {len(sentences)} sentences, want one"
     return sentences[0]
+
+
+def test_an_abbreviation_does_not_end_a_sentence() -> None:
+    """The splitter is held against the shapes that broke it, not against the page.
+
+    A page sentence is the material this runs on, but a control with a known
+    answer belongs beside it: the defect was invisible on the page as written
+    and arrived with a clause nobody would think twice about.
+    """
+    assert _sentences("One claim, e.g. a count, in one sentence. A second.") == [
+        "One claim, e.g. a count, in one sentence",
+        "A second.",
+    ]
+    assert len(_sentences("Counted 191 texts. Counted 64 servers. Done.")) == 3
+
+    trailing = _sentences("A claim that ends the paragraph. ")
+    assert trailing == ["A claim that ends the paragraph"], trailing
 
 
 def test_the_page_counts_the_texts_the_table_holds() -> None:
